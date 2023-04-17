@@ -1,0 +1,193 @@
+#include <kernel/irq.h>
+#include <stdint.h>
+#include "gic.h"
+#include <kernel/arch.h>
+
+extern unsigned long stack;
+extern unsigned long intstack;
+
+#define KSTACKEXC stack - 0x15000
+#define KSTACKSWI stack - 0x05000
+
+#define ARM4_XRQ_SYNC 0x01
+#define ARM4_XRQ_IRQ 0x02
+#define ARM4_XRQ_FIQ 0x03
+#define ARM4_XRQ_SERROR 0x04
+
+#define PIC_IRQ_STATUS 0x0
+#define PIC_IRQ_RAWSTAT 0x1
+#define PIC_IRQ_ENABLESET 0x2
+#define PIC_IRQ_ENABLECLR 0x3
+#define PIC_INT_SOFTSET 0x4
+#define PIC_INT_SOFTCLR 0x5
+
+#define KEXP_TOP3                                       \
+	__asm__ volatile("STP      x29, x30, [sp, #-16]!"); \
+	__asm__ volatile("STP      x18, x19, [sp, #-16]!"); \
+	__asm__ volatile("STP      x16, x17, [sp, #-16]!"); \
+	__asm__ volatile("STP      x14, x15, [sp, #-16]!"); \
+	__asm__ volatile("STP      x12, x13, [sp, #-16]!"); \
+	__asm__ volatile("STP      x10, x11, [sp, #-16]!"); \
+	__asm__ volatile("STP      x8, x9, [sp, #-16]!");   \
+	__asm__ volatile("STP      x6, x7, [sp, #-16]!");   \
+	__asm__ volatile("STP      x4, x5, [sp, #-16]!");   \
+	__asm__ volatile("STP      x2, x3, [sp, #-16]!");   \
+	__asm__ volatile("STP      x0, x1, [sp, #-16]!");
+
+#define KEXP_BOT3                                     \
+	__asm__ volatile("LDP      x0, x1, [sp], #16");   \
+	__asm__ volatile("LDP      x2, x3, [sp], #16");   \
+	__asm__ volatile("LDP      x4, x5, [sp], #16");   \
+	__asm__ volatile("LDP      x6, x7, [sp], #16");   \
+	__asm__ volatile("LDP      x8, x9, [sp], #16");   \
+	__asm__ volatile("LDP      x10, x11, [sp], #16"); \
+	__asm__ volatile("LDP      x12, x13, [sp], #16"); \
+	__asm__ volatile("LDP      x14, x15, [sp], #16"); \
+	__asm__ volatile("LDP      x16, x17, [sp], #16"); \
+	__asm__ volatile("LDP      x18, x19, [sp], #16"); \
+	__asm__ volatile("LDP      x29, x30, [sp], #16");
+
+void k_exphandler_swi_entry(uint64_t x0, uint64_t x1, uint64_t x2, uint64_t x3)
+{
+	__asm__ volatile("STR lr, [sp, #-16]!");
+
+	// save return, switch stacks & save caller register
+	__asm__ volatile("STP x29, x30, [sp, #-16]!");
+	__asm__ volatile("STP x18, x19, [sp, #-16]!");
+	__asm__ volatile("STP x16, x17, [sp, #-16]!");
+	__asm__ volatile("STP x14, x15, [sp, #-16]!");
+	__asm__ volatile("STP x12, x13, [sp, #-16]!");
+	__asm__ volatile("STP x10, x11, [sp, #-16]!");
+	__asm__ volatile("STP x8, x9, [sp, #-16]!");
+	__asm__ volatile("STP x6, x7, [sp, #-16]!");
+	__asm__ volatile("STP x4, x5, [sp, #-16]!");
+	__asm__ volatile("STP x2, x3, [sp, #-16]!");
+	__asm__ volatile("STR x1, [sp, #-16]!");
+
+	// get syscall number
+	uint8_t int_vector = 0;
+	uint64_t esr;
+	__asm__ volatile("MRS %0, ESR_EL1"
+					 : "=r"(esr));
+	int_vector = esr & 0xffffff;
+
+	volatile int ret = ksyscall_entry(int_vector, x0, x1, x2, x3);
+	__asm__ volatile("MOV x0, %0" ::"r"(ret)
+					 : "x0");
+
+	// restore registers
+	__asm__ volatile("LDR x1, [sp], #16");
+	__asm__ volatile("LDP x2, x3, [sp], #16");
+	__asm__ volatile("LDP x4, x5, [sp], #16");
+	__asm__ volatile("LDP x6, x7, [sp], #16");
+	__asm__ volatile("LDP x8, x9, [sp], #16");
+	__asm__ volatile("LDP x10, x11, [sp], #16");
+	__asm__ volatile("LDP x12, x13, [sp], #16");
+	__asm__ volatile("LDP x14, x15, [sp], #16");
+	__asm__ volatile("LDP x16, x17, [sp], #16");
+	__asm__ volatile("LDP x18, x19, [sp], #16");
+	__asm__ volatile("LDP x29, x30, [sp], #16");
+
+	// set return (if changed)
+	// __asm__ volatile("MOV x0, %0" ::"r"(ret));
+
+	// jump back to caller
+	__asm__ volatile("LDR lr, [sp], #-16");
+	__asm__ volatile("RET");
+}
+
+void k_exphandler_sync()
+{
+	// capture args
+	uint64_t x0, x1, x2, x3;
+	__asm__ volatile("MOV x0, %0"
+					 : "=r"(x0));
+	__asm__ volatile("MOV x1, %0"
+					 : "=r"(x1));
+	__asm__ volatile("MOV x2, %0"
+					 : "=r"(x2));
+	__asm__ volatile("MOV x3, %0"
+					 : "=r"(x3));
+
+	uint64_t esr;
+	__asm__ volatile("MRS %0, ESR_EL1"
+					 : "=r"(esr));
+
+	if (esr >> 26 == 0b010101)
+	{
+		k_exphandler_swi_entry(x0, x1, x2, x3);
+	}
+	else
+	{
+		KEXP_TOP3;
+		k_exphandler(ARM4_XRQ_SYNC, esr);
+		KEXP_BOT3;
+	}
+}
+
+void k_exphandler_irq_entry()
+{
+	KEXP_TOP3;
+
+	volatile uint64_t esr;
+	__asm__ volatile("MRS %0, ESR_EL1"
+					 : "=r"(esr));
+
+	k_exphandler(ARM4_XRQ_IRQ, esr);
+	KEXP_BOT3;
+}
+void k_exphandler_fiq_entry()
+{
+	k_exphandler(ARM4_XRQ_FIQ, 0);
+	__asm__ volatile("RET");
+}
+
+void k_exphandler_serror_entry()
+{
+	KEXP_TOP3;
+	k_exphandler(ARM4_XRQ_SERROR, 0);
+	KEXP_BOT3;
+}
+
+void ack_xrq(int xrq)
+{
+	gic_cpu_eoi_gp1(xrq);
+}
+
+void disable_xrq()
+{
+	// disable IRQ & FIQ interrupts
+	gic_cpu_disable();
+}
+
+void enable_xrq()
+{
+	gic_cpu_enable();
+	gic_cpu_set_priority_mask(0xff);
+}
+
+void enable_xrq_n(unsigned int xrq)
+{
+	uint32_t affinity = cpu_id();
+	uint32_t rd = getRedistID(affinity);
+
+	// gic_redist_set_int_priority(xrq, rd, 0);
+	// gic_redist_set_int_group(xrq, rd, GICV3_GROUP1_NON_SECURE);
+	gic_dist_enable_xrq_n(affinity, xrq);
+	gic_dist_xrq_config(xrq, GICV3_CONFIG_LEVEL);
+	gic_dist_target(xrq, GICV3_ROUTE_MODE_ANY, affinity);
+}
+
+void init_xrq(void)
+{
+	__asm__ volatile("LDR x0, =vectors");
+	__asm__ volatile("MSR VBAR_EL1,x0");
+
+	setGICAddr((void *)GIC_DIST_BASE, (void *)GIC_REDIST_BASE, (void *)GIC_CPU_BASE);
+	uint32_t rd, affinity;
+
+	rd = getRedistID(cpu_id());
+	gic_redist_enable(rd);
+
+	gic_cpu_init();
+}
