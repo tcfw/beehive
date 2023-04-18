@@ -1,8 +1,8 @@
 #include "unistd.h"
-#include <kernel/syscall.h>
-#include <kernel/errno.h>
-#include <kernel/tty.h>
+#include <errno.h>
 #include <kernel/irq.h>
+#include <kernel/syscall.h>
+#include <kernel/tty.h>
 
 /*
 

@@ -154,7 +154,7 @@ static int pl011_setup(struct pl011 *dev, uint64_t base_address, uint64_t base_c
 static struct pl011 serial;
 
 // Terminal receive callback
-void terminal_cb(unsigned int _)
+void terminal_cb(__attribute__((unused)) unsigned int _)
 {
     char ch = pl011_regread(&serial, PL011_DR_OFFSET);
     pl011_send(&serial, &ch, 1);

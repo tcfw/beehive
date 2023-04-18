@@ -51,6 +51,8 @@ void gic_cpu_enable();
 void gic_cpu_disable();
 void gic_cpu_set_priority_mask(uint8_t mask);
 
+void gic_cpu_eoi_gp1(uint32_t xpr);
+
 struct GICv3_dist_if
 {
 	volatile uint32_t GICD_CTLR;		// +0x0000 - RW - Distributor Control Register

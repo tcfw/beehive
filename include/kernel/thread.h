@@ -3,7 +3,7 @@
 
 #include "unistd.h"
 
-typedef struct thread_t
+struct thread_t
 {
 	pid_t pid;
 };

@@ -297,12 +297,12 @@ void gic_dist_xrq_config(uint32_t xrq, uint32_t type)
 // Init the CPU interface
 void gic_cpu_init()
 {
+	uint64_t ctlr = 0;
 	// Legacy: enable system registers
 	__asm__ volatile("MOV x0, #1");
 	__asm__ volatile("MSR S3_0_C12_C12_5, x0"); // ICC_SRE_EL1
 
 	// Set up EOI mode
-	uint64_t ctlr;
 	__asm__ volatile("MRS %0, S3_0_c12_c12_4" ::"r"(ctlr)); // ICC_CTLR_EL1
 	ctlr |= (1 << 1);
 	__asm__ volatile("MSR S3_0_c12_c12_4, %0"

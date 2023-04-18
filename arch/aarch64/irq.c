@@ -1,7 +1,8 @@
-#include <kernel/irq.h>
-#include <stdint.h>
 #include "gic.h"
 #include <kernel/arch.h>
+#include <kernel/irq.h>
+#include <kernel/syscall.h>
+#include <stdint.h>
 
 extern unsigned long stack;
 extern unsigned long intstack;
