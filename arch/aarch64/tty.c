@@ -22,6 +22,7 @@
 #define PL011_LCR_FEN (1 << 4)
 #define PL011_LCR_STP2 (1 << 3)
 
+// PL011 UART driver
 struct pl011
 {
     spinlock_t lock;
@@ -32,12 +33,14 @@ struct pl011
     uint32_t stop_bits;
 };
 
+// Write to a specific register given the offset
 static void pl011_regwrite(const struct pl011 *dev, uint32_t offset, uint32_t data)
 {
     volatile uint32_t *addr = (void *)dev->base_address + offset;
     *addr = data;
 }
 
+// Read from a specific register given the offset
 static uint32_t pl011_regread(const struct pl011 *dev, uint32_t offset)
 {
     volatile uint64_t *addr = (void *)dev->base_address + offset;
@@ -45,6 +48,7 @@ static uint32_t pl011_regread(const struct pl011 *dev, uint32_t offset)
     return *addr;
 }
 
+// Wait for the busy state to clear
 static void pl011_wait_tx_complete(const struct pl011 *dev)
 {
     while ((pl011_regread(dev, PL011_FR_OFFSET) & PL011_FR_BUSY) != 0)
@@ -52,6 +56,7 @@ static void pl011_wait_tx_complete(const struct pl011 *dev)
     }
 }
 
+// Calculate the clock rate divisors
 static void pl011_calculate_divisors(const struct pl011 *dev, uint32_t *integer, uint32_t *fractional)
 {
     // 64 * F_UARTCLK / (16 * B) = 4 * F_UARTCLK / B
@@ -61,6 +66,8 @@ static void pl011_calculate_divisors(const struct pl011 *dev, uint32_t *integer,
     *integer = (div >> 6) & 0xffff;
 }
 
+// Reset the PL011 device
+// Enables interrupts for recieve only
 static int pl011_reset(const struct pl011 *dev)
 {
     uint32_t lcr = pl011_regread(dev, PL011_LCR_OFFSET);
@@ -106,6 +113,7 @@ static int pl011_reset(const struct pl011 *dev)
     return 0;
 }
 
+// Send a string of length size to the data register
 static int pl011_send(const struct pl011 *dev, const char *data, size_t size)
 {
     // spinlock_acquire(&dev->lock);
@@ -129,6 +137,7 @@ static int pl011_send(const struct pl011 *dev, const char *data, size_t size)
     return 0;
 }
 
+// Init the PL011 UART
 static int pl011_setup(struct pl011 *dev, uint64_t base_address, uint64_t base_clock)
 {
     dev->base_address = base_address;
@@ -144,6 +153,7 @@ static int pl011_setup(struct pl011 *dev, uint64_t base_address, uint64_t base_c
 
 static struct pl011 serial;
 
+// Terminal receive callback
 void terminal_cb(unsigned int _)
 {
     char ch = pl011_regread(&serial, PL011_DR_OFFSET);
@@ -151,23 +161,27 @@ void terminal_cb(unsigned int _)
     pl011_regwrite(&serial, PL011_ICR, (1 << 6) | (1 << 4));
 }
 
+// Set up the terminal and map interrupt 33
 void terminal_initialize(void)
 {
     pl011_setup(&serial, 0x09000000, 24000000);
-    add_irq_hook(33, &terminal_cb);
+    assign_irq_hook(33, &terminal_cb);
 }
 
+// Print a single char to the terminal
 void terminal_putchar(const char c)
 {
     pl011_send(&serial, &c, 1);
 }
 
+// Write a null-terminated string to the terminal
 void terminal_writestring(char *str)
 {
     while (*str)
         terminal_putchar(*str++);
 }
 
+// Write a string given the specific length
 void terminal_write(const char *data, size_t size)
 {
     pl011_send(&serial, data, size);

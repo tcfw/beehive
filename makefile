@@ -33,7 +33,7 @@ LIBS:=$(LIBS) $(KERNEL_ARCH_LIBS)
 
 CC:=$(or $(CC),$(ARCH)$(ARCHEXT))
 
-.PHONY: all clean
+.PHONY: clean
 .SUFFIXES: .o .c .S
 
 .c.o:

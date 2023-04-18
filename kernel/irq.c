@@ -4,27 +4,29 @@
 #include <kernel/irq.h>
 #include "stdint.h"
 
-struct irq_handler_t irq_handlers[1024];
+#define IRQ_HANDLER_MAX 1024
 
+struct irq_handler_t irq_handlers[IRQ_HANDLER_MAX];
+
+// FIQ & IRQ handler
 void k_exphandler(unsigned int type, unsigned int xrq)
 {
-	char buf[50];
-	if (type == 0x2)
+	if (type != 0x2)
 	{
-		// ksprintf(&buf[0], "k IRQ 0x%x\n", xrq);
-	}
-	else
-	{
+		char buf[50];
 		ksprintf(&buf[0], "k FIQ 0x%x\n", xrq);
 		terminal_writestring(buf);
 	}
-
-	if (xrq < 1024)
+	else if (xrq < IRQ_HANDLER_MAX)
 	{
 		struct irq_handler_t *handler = &irq_handlers[xrq];
-		if (handler->cb)
+		if (handler->khandler)
 		{
-			handler->cb(type);
+			handler->khandler(type);
+		}
+		else if (handler->pid)
+		{
+			// enqueue signal to proc
 		}
 	}
 
@@ -33,21 +35,9 @@ void k_exphandler(unsigned int type, unsigned int xrq)
 	return;
 }
 
-void add_irq_hook(unsigned int xrq, irq_handler_cb cb)
+// Assign an interrupt to a callback
+void assign_irq_hook(unsigned int xrq, irq_handler_cb cb)
 {
-	irq_handlers[xrq].cb = cb;
-}
-
-int ksyscall_entry(uint64_t type, uint64_t arg0, uint64_t arg1, uint64_t arg2, uint64_t arg3)
-{
-	disable_xrq();
-
-	char buf[50];
-	ksprintf(&buf[0], "ksyscall type(0x%x): 0x%x 0x%x 0x%x 0x%x\n", type, arg0, arg1, arg2, arg3);
-
-	terminal_writestring(buf);
-
-	enable_xrq();
-
-	return 3;
+	irq_handlers[xrq].khandler = cb;
+	enable_xrq_n(xrq);
 }

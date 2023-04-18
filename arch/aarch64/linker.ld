@@ -11,4 +11,5 @@ SECTIONS
     stack = .;
     . += 0x10000; /* 64kB of stack memory */
     intstack = .;
+    KERNELEND = .;
 }

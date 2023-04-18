@@ -8,9 +8,6 @@ struct GICv2_cpu_if *gic_cpu;
 static uint32_t gic_max_rd = 0;
 
 // Sets the address of the Distributor and Redistributors
-// dist   = virtual address of the Distributor
-// rdist  = virtual address of the first RD_base register page
-// cpu    = virtual address of the CPU inteface
 void setGICAddr(void *dist, void *rdist, void *cpu)
 {
 	uint32_t index = 0;
@@ -29,6 +26,7 @@ void setGICAddr(void *dist, void *rdist, void *cpu)
 	gic_max_rd = index;
 }
 
+// Get the redistributor for the specified affinity
 uint32_t getRedistID(uint32_t affinity)
 {
 	uint32_t index = 0;
@@ -44,6 +42,7 @@ uint32_t getRedistID(uint32_t affinity)
 	return 0xFFFFFFFF; // return -1 to signal not RD found
 }
 
+// enable the redistributor for the given redistributor ID
 void gic_redist_enable(uint32_t rd)
 {
 	uint32_t tmp;
@@ -60,6 +59,7 @@ void gic_redist_enable(uint32_t rd)
 	} while ((tmp & 0x4) != 0);
 }
 
+// Set the redistribtor INTID priority
 void gic_redist_set_int_priority(uint32_t xrq, uint32_t rd, uint8_t priority)
 {
 	if (xrq < 31)
@@ -87,6 +87,7 @@ void gic_redist_set_int_priority(uint32_t xrq, uint32_t rd, uint8_t priority)
 	}
 }
 
+// Set the redistributor INTID group
 void gic_redist_set_int_group(uint32_t xrq, uint32_t rd, uint32_t security)
 {
 	uint32_t bank, group, mod;
@@ -164,6 +165,7 @@ void gic_redist_set_int_group(uint32_t xrq, uint32_t rd, uint32_t security)
 	}
 }
 
+// Enable the INTID for the given redistributor
 void gic_redist_enable_int(uint32_t xrq, uint32_t rd)
 {
 	uint32_t bank;
@@ -208,6 +210,7 @@ void gic_redist_enable_int(uint32_t xrq, uint32_t rd)
 	}
 }
 
+// Enable the distributor
 void gic_dist_enable()
 {
 	// Enable ARE for secure & non-secure
@@ -217,6 +220,7 @@ void gic_dist_enable()
 	gic_dist->GICD_CTLR = 0b111 | (1 << 5) | (1 << 4);
 }
 
+// Enable the INTID in the distributor
 void gic_dist_enable_xrq_n(uint32_t n, uint32_t xrq)
 {
 	xrq = xrq & 0x1f; // ... and which bit within the register
@@ -225,9 +229,6 @@ void gic_dist_enable_xrq_n(uint32_t n, uint32_t xrq)
 }
 
 // Sets the target CPUs of the specified INTID
-// INTID    = INTID of interrupt (must be in the range 32 to 1019)
-// mode     = Routing mode
-// aff<n>   = Affinity co-ordinate of target
 void gic_dist_target(uint32_t xrq, uint32_t mode, uint32_t affinity)
 {
 	uint32_t tmp = (uint64_t)(affinity & 0x00FFFFFF) |
@@ -246,9 +247,6 @@ void gic_dist_target(uint32_t xrq, uint32_t mode, uint32_t affinity)
 }
 
 // Configures the INTID as edge or level sensitive
-// INTID = INTID of interrupt
-// rd    = Redistributor number (ignored if INTID is a SPI)
-// type  = Whether the INTID should edge or level
 void gic_dist_xrq_config(uint32_t xrq, uint32_t type)
 {
 	uint32_t bank, tmp, conf;
@@ -296,20 +294,12 @@ void gic_dist_xrq_config(uint32_t xrq, uint32_t type)
 	}
 }
 
+// Init the CPU interface
 void gic_cpu_init()
 {
 	// Legacy: enable system registers
 	__asm__ volatile("MOV x0, #1");
 	__asm__ volatile("MSR S3_0_C12_C12_5, x0"); // ICC_SRE_EL1
-
-	// Route EL3
-	// __asm__ volatile("MOV w1, #0");				// Initial value of register is unknown
-	// __asm__ volatile("ORR w1, w1, #(1 << 11)"); // Set ST bit (Secure EL1 can access CNTPS_TVAL_EL1, CNTPS_CTL_EL1 & CNTPS_CVAL_EL1)
-	// __asm__ volatile("ORR w1, w1, #(1 << 10)"); // Set RW bit (EL1 is AArch64, as this is the Secure world)
-	// __asm__ volatile("ORR w1, w1, #(1 << 3)");	// Set EA bit (SError routed to EL3)
-	// __asm__ volatile("ORR w1, w1, #(1 << 2)");	// Set FIQ bit (FIQs routed to EL3)
-	// __asm__ volatile("ORR w1, w1, #(1 << 1)");	// Set IRQ bit (IRQs routed to EL3)
-	// __asm__ volatile("MSR S3_6_C1_C1_0, x1");	// SCR_EL3
 
 	// Set up EOI mode
 	uint64_t ctlr;
@@ -327,6 +317,7 @@ void gic_cpu_init()
 	__asm__ volatile("ORR x0, x0, #((1<<7)|(1<<6))");
 }
 
+// Enable the CPU interface Group 0 and Group 1 interrupts
 void gic_cpu_enable()
 {
 	// gic_cpu->GICC_CTRL = 1;
@@ -362,6 +353,7 @@ void gic_cpu_enable()
 	__asm__ volatile("MSR S3_0_c12_c12_4, x0"); // ICC_CTRL_EL1
 }
 
+// Disable the CPU interface Group 0 and Group 1 interrupts
 void gic_cpu_disable()
 {
 	// gic_cpu->GICC_CTRL = 0;
@@ -380,25 +372,27 @@ void gic_cpu_disable()
 	if (currentEL() == 3)
 	{
 		// Disable NS Group 1
-		// __asm__ volatile("MOV w1, #0x1");
-		// __asm__ volatile("MRS x0, S3_6_C12_C12_7"); // ICC_IGRPEN1_EL3
-		// __asm__ volatile("BIC x0, x0, x1");
-		// __asm__ volatile("MSR S3_6_C12_C12_7, x0"); // ICC_IGRPEN1_EL3
-		// __asm__ volatile("ISB");
+		__asm__ volatile("MOV w1, #0x1");
+		__asm__ volatile("MRS x0, S3_6_C12_C12_7"); // ICC_IGRPEN1_EL3
+		__asm__ volatile("BIC x0, x0, x1");
+		__asm__ volatile("MSR S3_6_C12_C12_7, x0"); // ICC_IGRPEN1_EL3
+		__asm__ volatile("ISB");
 	}
+
+	// TODO(tcfw) actually disable in ICC_CTRL_EL1
 }
 
+// Update the CPU interface priority mask
 void gic_cpu_set_priority_mask(uint8_t mask)
 {
 	mask = mask & 0xf;
-	// gic_cpu->GICC_PMR = mask;
 	__asm__ volatile("MSR S3_0_C4_C6_0, %0" // ICC_PMR_EL1
 					 : "=r"(mask));
 }
 
+// ACK INTID End of interrupt for group 1 interrupts
 void gic_cpu_eoi_gp1(uint32_t xpr)
 {
-	// gic_cpu->GICC_EOIR = xpr & 0xf;
 	__asm__ volatile("MSR S3_0_C12_C12_1, %0" // ICC_EOIR1_EL1
 					 : "=r"(xpr));
 	__asm__ volatile("ISB");

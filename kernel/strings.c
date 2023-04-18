@@ -1,5 +1,6 @@
 #include <kernel/strings.h>
 
+// Int to Hex
 char *itoh(unsigned long i, char *buf)
 {
 	const char *itoh_map = "0123456789ABCDEF";

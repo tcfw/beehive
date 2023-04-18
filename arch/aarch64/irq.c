@@ -47,6 +47,7 @@ extern unsigned long intstack;
 	__asm__ volatile("LDP      x18, x19, [sp], #16"); \
 	__asm__ volatile("LDP      x29, x30, [sp], #16");
 
+// handle syscall inner
 void k_exphandler_swi_entry(uint64_t x0, uint64_t x1, uint64_t x2, uint64_t x3)
 {
 	__asm__ volatile("STR lr, [sp, #-16]!");
@@ -96,6 +97,7 @@ void k_exphandler_swi_entry(uint64_t x0, uint64_t x1, uint64_t x2, uint64_t x3)
 	__asm__ volatile("RET");
 }
 
+// Handle sync and syscalls
 void k_exphandler_sync()
 {
 	// capture args
@@ -125,6 +127,7 @@ void k_exphandler_sync()
 	}
 }
 
+// Handle IRQ
 void k_exphandler_irq()
 {
 	KEXP_TOP3;
@@ -138,11 +141,13 @@ void k_exphandler_irq()
 	KEXP_BOT3;
 }
 
+// Handle FIQ
 void k_exphandler_fiq()
 {
 	k_exphandler(ARM4_XRQ_FIQ, 0);
 }
 
+// Handle serrors
 void k_exphandler_serror_entry()
 {
 	KEXP_TOP3;
@@ -150,23 +155,28 @@ void k_exphandler_serror_entry()
 	KEXP_BOT3;
 }
 
+// Acknowledge the group 1 interrupt
 void ack_xrq(int xrq)
 {
 	gic_cpu_eoi_gp1(xrq);
 }
 
+// disable IRQ & FIQ interrupts
 void disable_xrq()
 {
-	// disable IRQ & FIQ interrupts
 	gic_cpu_disable();
 }
 
+// enable IRQ & FIQ interrupts && reset priority mask
 void enable_xrq()
 {
 	gic_cpu_enable();
 	gic_cpu_set_priority_mask(0xff);
 }
 
+// enable the specific interrupt number and route
+// to the current PE
+// all interrupts map to group 1 NS & level config
 void enable_xrq_n(unsigned int xrq)
 {
 	uint32_t affinity = cpu_id();
@@ -180,17 +190,18 @@ void enable_xrq_n(unsigned int xrq)
 	gic_dist_target(xrq, GICV3_ROUTE_MODE_ANY, affinity);
 }
 
+// Init the vector table and GICv3 distributor and redistribute
+// for the current PE
 void init_xrq(void)
 {
+	// Load EL1 vectors
 	__asm__ volatile("LDR x0, =vectors");
 	__asm__ volatile("MSR VBAR_EL1,x0");
 
 	setGICAddr((void *)GIC_DIST_BASE, (void *)GIC_REDIST_BASE, (void *)GIC_CPU_BASE);
-	uint32_t rd, affinity;
-
 	gic_dist_enable();
 
-	rd = getRedistID(cpu_id());
+	uint32_t rd = getRedistID(cpu_id());
 	gic_redist_enable(rd);
 
 	gic_cpu_init();
