@@ -125,21 +125,22 @@ void k_exphandler_sync()
 	}
 }
 
-void k_exphandler_irq_entry()
+void k_exphandler_irq()
 {
 	KEXP_TOP3;
 
 	volatile uint64_t esr;
-	__asm__ volatile("MRS %0, ESR_EL1"
+	__asm__ volatile("MRS %0, S3_0_c12_c12_0" // ICC_IAR1_EL1
 					 : "=r"(esr));
 
 	k_exphandler(ARM4_XRQ_IRQ, esr);
+
 	KEXP_BOT3;
 }
-void k_exphandler_fiq_entry()
+
+void k_exphandler_fiq()
 {
 	k_exphandler(ARM4_XRQ_FIQ, 0);
-	__asm__ volatile("RET");
 }
 
 void k_exphandler_serror_entry()
@@ -171,8 +172,9 @@ void enable_xrq_n(unsigned int xrq)
 	uint32_t affinity = cpu_id();
 	uint32_t rd = getRedistID(affinity);
 
-	// gic_redist_set_int_priority(xrq, rd, 0);
-	// gic_redist_set_int_group(xrq, rd, GICV3_GROUP1_NON_SECURE);
+	gic_redist_set_int_priority(xrq, rd, 1);
+	gic_redist_set_int_group(xrq, rd, GICV3_GROUP1_NON_SECURE);
+	gic_redist_enable_int(xrq, rd);
 	gic_dist_enable_xrq_n(affinity, xrq);
 	gic_dist_xrq_config(xrq, GICV3_CONFIG_LEVEL);
 	gic_dist_target(xrq, GICV3_ROUTE_MODE_ANY, affinity);
@@ -185,6 +187,8 @@ void init_xrq(void)
 
 	setGICAddr((void *)GIC_DIST_BASE, (void *)GIC_REDIST_BASE, (void *)GIC_CPU_BASE);
 	uint32_t rd, affinity;
+
+	gic_dist_enable();
 
 	rd = getRedistID(cpu_id());
 	gic_redist_enable(rd);

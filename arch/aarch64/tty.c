@@ -1,4 +1,5 @@
 #include <kernel/sync.h>
+#include <kernel/irq.h>
 #include <stdint.h>
 #include "unistd.h"
 
@@ -9,6 +10,7 @@
 #define PL011_LCR_OFFSET 0x02c
 #define PL011_CR_OFFSET 0x030
 #define PL011_IMSC_OFFSET 0x038
+#define PL011_ICR 0x044
 #define PL011_DMACR_OFFSET 0x048
 
 #define PL011_FR_BUSY (1 << 5)
@@ -142,9 +144,17 @@ static int pl011_setup(struct pl011 *dev, uint64_t base_address, uint64_t base_c
 
 static struct pl011 serial;
 
+void terminal_cb(unsigned int _)
+{
+    char ch = pl011_regread(&serial, PL011_DR_OFFSET);
+    pl011_send(&serial, &ch, 1);
+    pl011_regwrite(&serial, PL011_ICR, (1 << 6) | (1 << 4));
+}
+
 void terminal_initialize(void)
 {
     pl011_setup(&serial, 0x09000000, 24000000);
+    add_irq_hook(33, &terminal_cb);
 }
 
 void terminal_putchar(const char c)

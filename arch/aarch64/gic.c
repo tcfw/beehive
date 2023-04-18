@@ -1,5 +1,6 @@
 #include "gic.h"
 #include "stdint.h"
+#include "pe.h"
 
 struct GICv3_dist_if *gic_dist;
 struct GICv3_rdist_if *gic_rdist;
@@ -297,36 +298,63 @@ void gic_dist_xrq_config(uint32_t xrq, uint32_t type)
 
 void gic_cpu_init()
 {
+	// Legacy: enable system registers
 	__asm__ volatile("MOV x0, #1");
 	__asm__ volatile("MSR S3_0_C12_C12_5, x0"); // ICC_SRE_EL1
+
+	// Route EL3
+	// __asm__ volatile("MOV w1, #0");				// Initial value of register is unknown
+	// __asm__ volatile("ORR w1, w1, #(1 << 11)"); // Set ST bit (Secure EL1 can access CNTPS_TVAL_EL1, CNTPS_CTL_EL1 & CNTPS_CVAL_EL1)
+	// __asm__ volatile("ORR w1, w1, #(1 << 10)"); // Set RW bit (EL1 is AArch64, as this is the Secure world)
+	// __asm__ volatile("ORR w1, w1, #(1 << 3)");	// Set EA bit (SError routed to EL3)
+	// __asm__ volatile("ORR w1, w1, #(1 << 2)");	// Set FIQ bit (FIQs routed to EL3)
+	// __asm__ volatile("ORR w1, w1, #(1 << 1)");	// Set IRQ bit (IRQs routed to EL3)
+	// __asm__ volatile("MSR S3_6_C1_C1_0, x1");	// SCR_EL3
+
+	// Set up EOI mode
+	uint64_t ctlr;
+	__asm__ volatile("MRS %0, S3_0_c12_c12_4" ::"r"(ctlr)); // ICC_CTLR_EL1
+	ctlr |= (1 << 1);
+	__asm__ volatile("MSR S3_0_c12_c12_4, %0"
+					 : "=r"(ctlr)); // ICC_CTLR_EL1
+
 	__asm__ volatile("ISB");
-	__asm__ volatile("MSR DAIFClr, 0x5");
+
+	// Enable interrupts
+	__asm__ volatile("MSR DAIFClr, 0x3");
+	__asm__ volatile("ISB");
+	__asm__ volatile("MRS x0, DAIF");
+	__asm__ volatile("ORR x0, x0, #((1<<7)|(1<<6))");
 }
 
 void gic_cpu_enable()
 {
 	// gic_cpu->GICC_CTRL = 1;
+
+	// set binary point registers
+	__asm__ volatile("MOV x0, #0");
+	__asm__ volatile("MSR S3_0_c12_c8_3, x0");	// ICC_BPR0_EL1
+	__asm__ volatile("MSR S3_0_c12_c12_3, x0"); // ICC_BPR1_EL1
+
 	// Enable Group 0
-	__asm__ volatile("MOV w0, #1 ");
+	__asm__ volatile("MOV x0, #1");
 	__asm__ volatile("MSR S3_0_C12_C12_6, x0 "); // ICC_IGRPEN0_EL1
 	__asm__ volatile("ISB");
 
 	// Enable Group 1
 	__asm__ volatile("MRS x0, S3_0_C12_C12_7"); // ICC_IGRPEN1_EL1
-	__asm__ volatile("ORR w0, w0, #1");
+	__asm__ volatile("ORR x0, x0, #1");
 	__asm__ volatile("MSR S3_0_C12_C12_7, x0"); // ICC_IGRPEN1_EL1
 	__asm__ volatile("ISB");
 
-	// Enable NS Group 1
-	// __asm__ volatile("MRS x0, S3_6_C12_C12_7"); // ICC_IGRPEN1_EL3
-	// __asm__ volatile("ORR w0, w0, #1");
-	// __asm__ volatile("MSR S3_6_C12_C12_7, x0"); // ICC_IGRPEN1_EL3
-	// __asm__ volatile("ISB");
-
-	// set 0 brp
-	__asm__ volatile("MOV x0, #0");
-	__asm__ volatile("MSR S3_0_c12_c8_3, x0");	// ICC_BPR0_EL1
-	__asm__ volatile("MSR S3_0_c12_c12_3, x0"); // ICC_BPR1_EL1
+	if (currentEL() == 3)
+	{
+		// Enable NS Group 1
+		__asm__ volatile("MRS x0, S3_6_C12_C12_7"); // ICC_IGRPEN1_EL3
+		__asm__ volatile("ORR x0, x0, #1");
+		__asm__ volatile("MSR S3_6_C12_C12_7, x0"); // ICC_IGRPEN1_EL3
+		__asm__ volatile("ISB");
+	}
 
 	// enable interrupts
 	__asm__ volatile("MRS x0, S3_0_c12_c12_4"); // ICC_CTRL_EL1
@@ -349,12 +377,15 @@ void gic_cpu_disable()
 	__asm__ volatile("MSR S3_0_C12_C12_7, x0"); // ICC_IGRPEN1_EL1
 	__asm__ volatile("ISB");
 
-	// Disable NS Group 1
-	// __asm__ volatile("MOV w1, #0x1");
-	// __asm__ volatile("MRS x0, S3_6_C12_C12_7"); // ICC_IGRPEN1_EL3
-	// __asm__ volatile("BIC x0, x0, x1");
-	// __asm__ volatile("MSR S3_6_C12_C12_7, x0"); // ICC_IGRPEN1_EL3
-	// __asm__ volatile("ISB");
+	if (currentEL() == 3)
+	{
+		// Disable NS Group 1
+		// __asm__ volatile("MOV w1, #0x1");
+		// __asm__ volatile("MRS x0, S3_6_C12_C12_7"); // ICC_IGRPEN1_EL3
+		// __asm__ volatile("BIC x0, x0, x1");
+		// __asm__ volatile("MSR S3_6_C12_C12_7, x0"); // ICC_IGRPEN1_EL3
+		// __asm__ volatile("ISB");
+	}
 }
 
 void gic_cpu_set_priority_mask(uint8_t mask)
@@ -368,7 +399,7 @@ void gic_cpu_set_priority_mask(uint8_t mask)
 void gic_cpu_eoi_gp1(uint32_t xpr)
 {
 	// gic_cpu->GICC_EOIR = xpr & 0xf;
-	__asm__ volatile("MSR S3_0_C12_C8_1, %0" // ICC_EOIR0_EL1
+	__asm__ volatile("MSR S3_0_C12_C12_1, %0" // ICC_EOIR1_EL1
 					 : "=r"(xpr));
 	__asm__ volatile("ISB");
 }

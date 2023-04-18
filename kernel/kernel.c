@@ -28,12 +28,8 @@ void kernel_main(void)
     terminal_initialize();
     terminal_writestring("Beehive OS\n");
 
-    uint32_t cel = currentEL();
-
-    cel = cel >> 2;
-
     char buf[50];
-    ksprintf(&buf[0], "Current EL: %x\n", cel);
+    ksprintf(&buf[0], "Current EL: %x\n", currentEL());
 
     terminal_writestring(buf);
 
@@ -45,15 +41,10 @@ void kernel_main(void)
         terminal_writestring("\nsyscall returned value was 3!!!\n");
     }
 
-    for (uint8_t i = 0;
-         i < 31;
-         i++)
-    {
-        enable_xrq_n(i);
-    }
+    enable_xrq_n(33); // SPI (32+)1
 
     for (;;)
     {
-        __asm__ volatile("wfi");
+        wfi();
     }
 }

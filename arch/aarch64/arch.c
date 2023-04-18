@@ -30,5 +30,10 @@ uint32_t currentEL()
 {
 	uint32_t cel = 0;
 	__asm__ volatile("MRS %0, S3_0_C4_C2_2" ::"r"(cel)); // CurrentEL 0b11	0b000	0b0100	0b0010 0b010
-	return cel;
+	return cel >> 2;
+}
+
+void wfi()
+{
+	__asm__ volatile("wfi");
 }

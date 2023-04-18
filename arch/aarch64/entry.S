@@ -55,3 +55,37 @@ k_exphandler_sync_entry:
     MOV sp, x29
 
     ERET
+
+.global k_exphandler_irq_entry
+k_exphandler_irq_entry:
+    MOV x29, SP
+    LDR x28, =intstack
+    MOV SP, x28
+    STR	x29, [sp, #-16]!
+    STR	lr, [sp, #-16]!
+
+    .globl k_exphandler_irq
+    bl k_exphandler_irq
+    
+    LDR lr, [sp], #16
+    LDR x29, [sp], #16
+    MOV sp, x29
+
+    ERET
+
+.global k_exphandler_fiq_entry
+k_exphandler_fiq_entry:
+    MOV x29, SP
+    LDR x28, =intstack
+    MOV SP, x28
+    STR	x29, [sp, #-16]!
+    STR	lr, [sp, #-16]!
+
+    .globl k_exphandler_fiq
+    bl k_exphandler_fiq
+    
+    LDR lr, [sp], #16
+    LDR x29, [sp], #16
+    MOV sp, x29
+
+    ERET
