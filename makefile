@@ -31,6 +31,11 @@ CPPFLAGS:=$(CPPFLAGS) $(KERNEL_ARCH_CPPFLAGS)
 LDFLAGS:=$(LDFLAGS) $(KERNEL_ARCH_LDFLAGS)
 LIBS:=$(LIBS) $(KERNEL_ARCH_LIBS)
 
+GIT_INFO:=$(shell git rev-parse HEAD)
+DATE_INFO:=$(shell date +%Y%m%d%H%M%S)
+BUILD_INFO:=Version: $(DATE_INFO)+$(GIT_INFO)
+CFLAGS:=$(CFLAGS) -DBUILD_INFO='"$(ARCH_BUILD_INFO)\n$(BUILD_INFO)"'
+
 CC:=$(or $(CC),$(ARCH)$(ARCHEXT))
 
 .PHONY: clean
@@ -47,6 +52,7 @@ CC:=$(or $(CC),$(ARCH)$(ARCHEXT))
 all: beehive.kernel
 
 beehive.kernel: $(OBJS) $(ARCHDIR)/linker.ld
+	@echo ${BUILD_INFO}
 	$(CC)-ld -T $(ARCHDIR)/linker.ld -o $@ $(LDFLAGS) $(LINK_LIST)
 	@echo "Finished build successfully"
  

@@ -1,10 +1,9 @@
 #ifndef _KERNEL_SYNC_H
 #define _KERNEL_SYNC_H
 
-#include <stdint.h>
 #include <stdbool.h>
 
-typedef volatile uint32_t spinlock_t;
+typedef volatile unsigned int spinlock_t;
 
 // Initialize the lock to be available
 void spinlock_init(spinlock_t *lock);

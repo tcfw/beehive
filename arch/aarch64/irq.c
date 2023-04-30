@@ -5,7 +5,6 @@
 #include <stdint.h>
 
 extern unsigned long stack;
-extern unsigned long intstack;
 
 #define KSTACKEXC stack - 0x15000
 #define KSTACKSWI stack - 0x05000

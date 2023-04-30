@@ -6,7 +6,7 @@
 
 /*
 
-Impl syscall
+// Impl syscall
 
 int syscall1(uint32_t arg1)
 {
@@ -20,6 +20,16 @@ int syscall1(uint32_t arg1)
 					 : "=r"(ret));
 
 	return ret;
+}
+
+
+// Test syscall
+int syscall_test(pid_t _, uint64_t arg0)
+{
+	char buf[50];
+	ksprintf(&buf[0], "got syscall 1 => arg0: %x\n", arg0);
+	terminal_writestring(buf);
+	return 3;
 }
 
 */
@@ -73,19 +83,10 @@ void register_syscall_handler(unsigned int n, syscall_handler_cb handler, uint8_
 	syscall_handers[n].handler = handler;
 }
 
-// Test syscall
-// int syscall_test(pid_t _, uint64_t arg0)
-// {
-// 	char buf[50];
-// 	ksprintf(&buf[0], "got syscall 1 => arg0: %x\n", arg0);
-// 	terminal_writestring(buf);
-// 	return 3;
-// }
-
 void syscall_init()
 {
 	// syscall_handers[1].handler = &syscall_test;
 	// syscall_handers[1].argc = 1;
 
-	terminal_writestring("Loaded syscalls...\n");
+	terminal_log("Loaded syscalls\n");
 }

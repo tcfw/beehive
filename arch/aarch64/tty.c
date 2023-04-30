@@ -1,5 +1,7 @@
 #include <kernel/sync.h>
 #include <kernel/irq.h>
+#include <kernel/strings.h>
+#include <kernel/arch.h>
 #include <stdint.h>
 #include "unistd.h"
 
@@ -114,9 +116,9 @@ static int pl011_reset(const struct pl011 *dev)
 }
 
 // Send a string of length size to the data register
-static int pl011_send(const struct pl011 *dev, const char *data, size_t size)
+static int pl011_send(struct pl011 *dev, const char *data, size_t size)
 {
-    // spinlock_acquire(&dev->lock);
+    spinlock_acquire(&dev->lock);
 
     // make sure that there is no outstanding transfer just in case
     pl011_wait_tx_complete(dev);
@@ -132,7 +134,7 @@ static int pl011_send(const struct pl011 *dev, const char *data, size_t size)
         pl011_wait_tx_complete(dev);
     }
 
-    // spinlock_release(&dev->lock);
+    spinlock_release(&dev->lock);
 
     return 0;
 }
@@ -179,6 +181,18 @@ void terminal_writestring(char *str)
 {
     while (*str)
         terminal_putchar(*str++);
+}
+
+void terminal_log(char *str)
+{
+    char buf[50];
+    double freq = getCounterFreq();
+    double cval = getSysCounterValue();
+    double val = cval / freq;
+
+    ksprintf(&buf[0], "[%.4f] ", val);
+    terminal_writestring(buf);
+    terminal_writestring(str);
 }
 
 // Write a string given the specific length

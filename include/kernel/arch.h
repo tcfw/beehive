@@ -4,11 +4,16 @@
 #include "stdint.h"
 
 void arch_init(void);
-
-uint32_t cpu_id();
-
 void arch_poweroff();
 
+uint32_t cpu_id();
 void wfi();
+
+void enableCounter();
+uint64_t getCounterFreq();
+void setCounterValue(uint64_t);
+uint64_t getCounterValue();
+uint64_t getSysCounterValue();
+void setCounterCompareValue(uint64_t);
 
 #endif

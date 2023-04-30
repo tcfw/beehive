@@ -1,5 +1,5 @@
-#ifndef _KERNEL_ERRNO_H
-#define _KERNEL_ERRNO_H
+#ifndef _ERRNO_H
+#define _ERRNO_H
 
 #define ERRNOSYS 1
 
