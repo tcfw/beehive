@@ -2,15 +2,17 @@
 #define _KERNEL_BUDDY_H
 
 #include "unistd.h"
+#include "stdint.h"
 #include "stdbool.h"
 #include <kernel/vm.h>
 
 #define BUDDY_TREE_SIZE 1024 // for 1 bit per ordered slot (2 ^ (n+1) / 8) where n is max order
 #define BUDDY_MAX_ORDER 12
 #define BUDDY_MAX_BITS 8192
+#define BUDDY_BLOCK_SIZE 4096
 
 /*
-The budy allocator uses 12-order binary buddies for 4KiB pages provides
+The budy allocator uses 12 order binary buddies for 4KiB pages provides
 management over 8MiB buddy.
 
 Each buddy is linked to the next to provide managed over all available
@@ -22,8 +24,8 @@ The first bit in the bitmap represents the whole 8MiB, the second and third
 bits represent if first and second 4MiB blocks if the 8MiB block was split, the
 next order down, and so on until each bit represents the individual 4KiB pages.
 
-Order |   1  |   2  |   3   |   4   |    5  |    6   |    7   |    8   |   9  |  10  |  11  |  12  |
-Size  | 4KiB | 8KiB | 16KiB | 32KiB | 64KiB | 128KiB | 256KiB | 512KiB | 1MiB | 2MiB | 4MiB | 8MiB |
+Order |   0  |   1  |   2   |   3   |    4  |    5   |    6   |    7   |  8   |  9   |  10  |  11  |  12   |
+Size  | 4KiB | 8KiB | 16KiB | 32KiB | 64KiB | 128KiB | 256KiB | 512KiB | 1MiB | 2MiB | 4MiB | 8MiB | 16MiB |
 
 Order 12 - [               1               ] - 8MiB
 Order 11 - [       1       |       0       ] - 4MiB
@@ -84,7 +86,7 @@ Algos:
 - child bits = p*2 & p*2+1 or p<<1 & p<<1+1 where p = position of parent bit
 - char position in bitmap = floor(p/8) (+ p%8 for bit in char), where b = position of bit
 - companion buddy: if(p&0x1) ? c=p-1 : c=p+1, where b = position of bit
-- position to addr: while(p<mb) {p<<1} & p>>1 * block size + arena; where mb=max bit (2^13-1)
+- position to addr: while(p<mb) {p<<1} & p>>1 - BUDDY_MIN_BUDDY_FOR_ORDER(order) * block size + arena; where mb=max bit (2^13-1)
 - addr to position: addr-=arena; p=2^m+(addr/bs); while(p!=1) p>>1 //start at lowest order, get offset, travel up until a 1
 */
 
@@ -93,28 +95,27 @@ struct buddy_t
 	struct buddy_t *next;
 	size_t size;
 	unsigned char *arena;
-	unsigned int freelist[BUDDY_MAX_ORDER];
-	unsigned char buddy_tree[BUDDY_TREE_SIZE];
+	uint16_t freelist[BUDDY_MAX_ORDER + 1];
+	uint8_t buddy_tree[BUDDY_TREE_SIZE];
 };
 
-#define BUDDY_PARENT_POSITION(p) (p >> 1)
+#define BUDDY_MAX_BUDDY_FOR_ORDER(o) ((1 << ((BUDDY_MAX_ORDER - o) + 1)) - 1)
+#define BUDDY_MIN_BUDDY_FOR_ORDER(o) ((1 << (BUDDY_MAX_ORDER - o)) - 1)
+#define BUDDY_PARENT_POSITION(p) ((p & 0x1 == 1) ? (p >> 1) : ((p - 1) >> 1))
 #define BUDDY_CHILD_POSITION(p) (p << 1)
-#define BUDDY_COMPANION_POSITION(p) (((p & 0x1) == 1) ? (p - 1) : (p + 1))
-#define BUDDY_GET_POSITION(buddy_tree, p) ((buddy_tree[p / 8] >> (p % 8)) & 0x1)
-#define BUDDY_SET_POSITION(buddy_tree, p, v) \
-	(v = (v & 0x1) << (p % 8);               \
-	 unsigned char cbv = buddy_tree[p / 8];  \
-	 cbv &= (~((1 << p) % 8));               \
-	 buddy_tree[p / 8] = v | cbv;)
-
+#define BUDDY_COMPANION_POSITION(p) (((p & 0x1) == 1) ? (p + 1) : (p - 1))
+#define BUDDY_ORDER_POSITION_OFFSET(o, f) (BUDDY_MIN_BUDDY_FOR_ORDER(o) + (f))
+#define BUDDY_GET_POSITION(buddy_tree, p) (((buddy_tree[p / 8]) >> ((p % 8) - 1)) & 0x1)
 #define BUDDY_ARENA_SIZE ((1 << (BUDDY_MAX_ORDER + 1)) * ARCH_PAGE_SIZE)
 
 /*
-Note: none of the functions below are thread safe. It's assumed the caller, usually mm.c, will do correct locking
+Note: the functions below not are thread safe. It's assumed the caller, usually mm.c, will do correct locking
 */
 
-bool buddy_is_full(struct buddy_t *buddy);
-bool buddy_is_parent_split(struct buddy_t *buddy, unsigned int p);
+// buddy_init inits the buddy freelist
 void buddy_init(struct buddy_t *buddy);
+
+// buddy_alloc get a free section given the order
+void *buddy_alloc(struct buddy_t *buddy, int order);
 
 #endif

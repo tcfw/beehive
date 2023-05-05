@@ -88,5 +88,5 @@ void syscall_init()
 	// syscall_handers[1].handler = &syscall_test;
 	// syscall_handers[1].argc = 1;
 
-	terminal_log("Loaded syscalls\n");
+	terminal_log("Loaded syscalls");
 }

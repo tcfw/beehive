@@ -193,6 +193,7 @@ void terminal_log(char *str)
     ksprintf(&buf[0], "[%.4f] ", val);
     terminal_writestring(buf);
     terminal_writestring(str);
+    terminal_putchar('\n');
 }
 
 // Write a string given the specific length

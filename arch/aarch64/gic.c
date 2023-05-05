@@ -249,7 +249,7 @@ void gic_dist_target(uint32_t xrq, uint32_t mode, uint32_t affinity)
 // Configures the INTID as edge or level sensitive
 void gic_dist_xrq_config(uint32_t xrq, uint32_t type)
 {
-	uint32_t bank, tmp, conf;
+	uint32_t bank, tmp, conf = 0;
 
 	if (xrq < 31)
 	{

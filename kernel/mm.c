@@ -3,17 +3,22 @@
 #include <kernel/vm.h>
 #include <kernel/tty.h>
 #include <kernel/strings.h>
+#include <kernel/sync.h>
 #include "stdint.h"
 
 extern uint64_t kernelend;
+
+static spinlock_t page_lock;
 
 struct buddy_t *pages;
 
 void page_alloc_init()
 {
+	spinlock_init(&page_lock);
+
 	// TODO(tcfw): use DTB to find allocatable areas
 	char buf[50];
-	ksprintf(&buf[0], "Start of pages: 0x%x\n", &kernelend);
+	ksprintf(&buf[0], "Start of pages: 0x%x", &kernelend);
 	terminal_log(buf);
 
 	// first buddy
@@ -23,6 +28,8 @@ void page_alloc_init()
 	buddy_init(pages);
 
 	struct buddy_t *prev = pages;
+
+	// TODO(tcfw): move buddy metadata next to each other so arenas are contiguous
 
 	// fill up buddies across the pages
 	// TODO(tcfw): support memory holes
@@ -37,7 +44,7 @@ void page_alloc_init()
 			// partial buddy
 			current->size = RAM_MAX - (uint64_t)current->arena;
 
-			ksprintf(&buf[0], "Partial buddy at 0x%x size: 0x%x\n", prev->arena, prev->size);
+			ksprintf(&buf[0], "Partial buddy at 0x%x size: 0x%x", prev->arena, prev->size);
 			terminal_log(buf);
 		}
 
@@ -46,6 +53,17 @@ void page_alloc_init()
 		prev = current;
 	}
 
-	ksprintf(&buf[0], "End of pages: 0x%x\n", (prev->arena + prev->size));
+	ksprintf(&buf[0], "End of pages: 0x%x", (prev->arena + prev->size));
 	terminal_log(buf);
+}
+
+void *alloc_page(unsigned int order)
+{
+	spinlock_acquire(&page_lock);
+
+	void *addr = buddy_alloc(pages, order);
+
+	spinlock_release(&page_lock);
+
+	return addr;
 }
