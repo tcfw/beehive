@@ -57,7 +57,7 @@ void page_alloc_init()
 	terminal_log(buf);
 }
 
-void *alloc_page(unsigned int order)
+void *page_alloc(unsigned int order)
 {
 	spinlock_acquire(&page_lock);
 
@@ -66,4 +66,13 @@ void *alloc_page(unsigned int order)
 	spinlock_release(&page_lock);
 
 	return addr;
+}
+
+void page_free(void *ptr)
+{
+	spinlock_acquire(&page_lock);
+
+	buddy_free(pages, ptr);
+
+	spinlock_release(&page_lock);
 }

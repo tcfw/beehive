@@ -101,11 +101,11 @@ struct buddy_t
 
 #define BUDDY_MAX_BUDDY_FOR_ORDER(o) ((1 << ((BUDDY_MAX_ORDER - o) + 1)) - 1)
 #define BUDDY_MIN_BUDDY_FOR_ORDER(o) ((1 << (BUDDY_MAX_ORDER - o)) - 1)
-#define BUDDY_PARENT_POSITION(p) ((p & 0x1 == 1) ? (p >> 1) : ((p - 1) >> 1))
+#define BUDDY_PARENT_POSITION(p) (((p & 0x1) == 1) ? (p >> 1) : ((p - 1) >> 1))
 #define BUDDY_CHILD_POSITION(p) (p << 1)
 #define BUDDY_COMPANION_POSITION(p) (((p & 0x1) == 1) ? (p + 1) : (p - 1))
 #define BUDDY_ORDER_POSITION_OFFSET(o, f) (BUDDY_MIN_BUDDY_FOR_ORDER(o) + (f))
-#define BUDDY_GET_POSITION(buddy_tree, p) (((buddy_tree[p / 8]) >> ((p % 8) - 1)) & 0x1)
+#define BUDDY_GET_POSITION(buddy, p) ((buddy->buddy_tree[p / 8] >> (p % 8)) & 0x1)
 #define BUDDY_ARENA_SIZE ((1 << (BUDDY_MAX_ORDER + 1)) * ARCH_PAGE_SIZE)
 
 /*
@@ -117,5 +117,8 @@ void buddy_init(struct buddy_t *buddy);
 
 // buddy_alloc get a free section given the order
 void *buddy_alloc(struct buddy_t *buddy, int order);
+
+// buddy_free frees a page given a pointer
+void buddy_free(struct buddy_t *buddy, void *ptr);
 
 #endif

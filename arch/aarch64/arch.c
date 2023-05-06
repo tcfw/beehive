@@ -51,7 +51,7 @@ void wfi()
 
 uint64_t getCounterValue()
 {
-	volatile uint64_t value = 0;
+	uint64_t value = 0;
 	__asm__ volatile("MRS %0, CNTP_TVAL_EL0" ::"r"(value));
 
 	return value & 0xffffffff;
@@ -59,21 +59,21 @@ uint64_t getCounterValue()
 
 void enableCounter()
 {
-	volatile uint64_t cnt_ctl = 0x1;
+	uint64_t cnt_ctl = 0x1;
 	__asm__ volatile("MSR CNTP_CTL_EL0, %0"
 					 : "=r"(cnt_ctl));
 }
 
 uint64_t getSysCounterValue()
 {
-	volatile uint64_t value = 0;
+	uint64_t value = 0;
 	__asm__ volatile("MRS %0, CNTPCT_EL0" ::"r"(value));
 	return value;
 }
 
 uint64_t getCounterFreq()
 {
-	volatile uint64_t freq = 0;
+	uint64_t freq = 0;
 	__asm__ volatile("MRS %0, CNTFRQ_EL0" ::"r"(freq));
 	return (freq & 0xffffffff);
 }

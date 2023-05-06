@@ -3,7 +3,7 @@
 #include <kernel/tty.h>
 
 // buddy_is_full checks if all orders have been allocated or split via the freelist
-static bool buddy_is_full(struct buddy_t *buddy);
+static bool buddy_is_full(struct buddy_t *buddy, uint8_t order);
 
 // buddy_is_parent_split checks if the parent is split (parent pos = 1 and either children is 1)
 static bool buddy_is_parent_split(struct buddy_t *buddy, uint16_t p);
@@ -20,16 +20,16 @@ static uintptr_t buddy_pos_to_addr(int pos);
 // buddy_set_position sets an individual bit at position p in the buddy tree
 static void buddy_set_position(struct buddy_t *buddy, uint16_t p, uint8_t v);
 
-// buddy_get_position gets an individual bit at position p in the buddy tree
-static uint8_t buddy_get_position(struct buddy_t *buddy, uint16_t p);
-
 // buddy_split_parent recursively split parents until we find a parent that is already split
 // if the split can be done it'll mark the parent as split
 static uint16_t buddy_split_mark_parent(struct buddy_t *buddy, uint16_t p);
 
-bool buddy_is_full(struct buddy_t *buddy)
+// buddy_coalese attempts to free and collapse/coalese buddies to mark parents as free
+static void buddy_coalese(struct buddy_t *buddy, uint8_t o, uint16_t p);
+
+bool buddy_is_full(struct buddy_t *buddy, uint8_t order)
 {
-	for (int i = 0; i < BUDDY_MAX_ORDER; i++)
+	for (int i = BUDDY_MAX_ORDER; i >= order; i++)
 		if (buddy->freelist[i] != 0)
 			return false;
 
@@ -41,9 +41,9 @@ static bool buddy_is_parent_split(struct buddy_t *buddy, uint16_t p)
 	if (p == 0)
 		return true;
 
-	uint8_t pv = buddy_get_position(buddy, BUDDY_PARENT_POSITION(p));
-	uint8_t mv = buddy_get_position(buddy, p);
-	uint8_t cv = buddy_get_position(buddy, BUDDY_COMPANION_POSITION(p));
+	uint8_t pv = BUDDY_GET_POSITION(buddy, BUDDY_PARENT_POSITION(p));
+	uint8_t mv = BUDDY_GET_POSITION(buddy, p);
+	uint8_t cv = BUDDY_GET_POSITION(buddy, BUDDY_COMPANION_POSITION(p));
 
 	return pv == 1 && (mv == 1 || cv == 1);
 }
@@ -53,9 +53,9 @@ static bool buddy_is_parent_allocd(struct buddy_t *buddy, uint16_t p)
 	if (p == 0)
 		return false;
 
-	uint8_t pv = buddy_get_position(buddy, BUDDY_PARENT_POSITION(p));
-	uint8_t mv = buddy_get_position(buddy, p);
-	uint8_t cv = buddy_get_position(buddy, BUDDY_COMPANION_POSITION(p));
+	uint8_t pv = BUDDY_GET_POSITION(buddy, BUDDY_PARENT_POSITION(p));
+	uint8_t mv = BUDDY_GET_POSITION(buddy, p);
+	uint8_t cv = BUDDY_GET_POSITION(buddy, BUDDY_COMPANION_POSITION(p));
 
 	return pv == 1 && mv == 0 && cv == 0;
 }
@@ -86,7 +86,7 @@ static uint16_t buddy_order_next_free_pos(struct buddy_t *buddy, uint8_t order)
 		pos++)
 	{
 		// skip anything either split or allocated
-		if (buddy_get_position(buddy, pos) == 1)
+		if (BUDDY_GET_POSITION(buddy, pos) == 1)
 			continue;
 
 		// traverse up the tree to see if anything further up has been split
@@ -116,7 +116,7 @@ static uint16_t buddy_split_mark_parent(struct buddy_t *buddy, uint16_t p)
 		return 0;
 	}
 
-	if (buddy_get_position(buddy, p) == 1 || buddy_is_parent_allocd(buddy, p))
+	if (BUDDY_GET_POSITION(buddy, p) == 1 || buddy_is_parent_allocd(buddy, p))
 	{
 		return 2;
 	}
@@ -136,14 +136,6 @@ static uint16_t buddy_split_mark_parent(struct buddy_t *buddy, uint16_t p)
 	return ps;
 }
 
-static uint8_t buddy_get_position(struct buddy_t *buddy, uint16_t p)
-{
-	uint8_t pv = buddy->buddy_tree[p / 8];
-	uint8_t offset = p % 8;
-
-	return (pv >> offset) & 0x1;
-}
-
 static void buddy_set_position(struct buddy_t *buddy, uint16_t p, uint8_t v)
 {
 	uint16_t pChar = p / 8;
@@ -157,6 +149,26 @@ static void buddy_set_position(struct buddy_t *buddy, uint16_t p, uint8_t v)
 	buddy->buddy_tree[pChar] = v | cbv;
 }
 
+static void buddy_coalese(struct buddy_t *buddy, uint8_t order, uint16_t p)
+{
+	buddy_set_position(buddy, p, 0);
+
+	uint16_t fpos = p - BUDDY_MIN_BUDDY_FOR_ORDER(order) + 1;
+
+	if (fpos < buddy->freelist[order] || buddy->freelist[order] == 0)
+	{
+		buddy->freelist[order] = fpos;
+	}
+
+	if (p == 0)
+		return;
+
+	if (BUDDY_GET_POSITION(buddy, BUDDY_COMPANION_POSITION(p)) == 0)
+	{
+		return buddy_coalese(buddy, order + 1, BUDDY_PARENT_POSITION(p));
+	}
+}
+
 void *buddy_alloc(struct buddy_t *buddy, int order)
 {
 	if (order > BUDDY_MAX_ORDER)
@@ -168,7 +180,7 @@ void *buddy_alloc(struct buddy_t *buddy, int order)
 	struct buddy_t *candidate = buddy;
 	while (candidate)
 	{
-		if (buddy_is_full(candidate))
+		if (buddy_is_full(candidate, order))
 		{
 			candidate = candidate->next;
 		}
@@ -187,7 +199,7 @@ void *buddy_alloc(struct buddy_t *buddy, int order)
 	if (freepos > 0 && (freepos - 1) < BUDDY_MAX_BUDDY_FOR_ORDER(order))
 	{
 		uint16_t pos = BUDDY_ORDER_POSITION_OFFSET(order, freepos - 1);
-		uint8_t v = buddy_get_position(candidate, pos);
+		uint8_t v = BUDDY_GET_POSITION(candidate, pos);
 		void *addr = (void *)((uintptr_t)buddy_pos_to_addr(pos) + (uintptr_t)&candidate->arena[0]);
 
 		if (v)
@@ -241,4 +253,49 @@ void *buddy_alloc(struct buddy_t *buddy, int order)
 	}
 
 	return 0;
+}
+
+void buddy_free(struct buddy_t *buddy, void *ptr)
+{
+	struct buddy_t *candidate = buddy;
+	uintptr_t reladdr = 0;
+	uint64_t l0_offset = 0;
+
+	while (candidate)
+	{
+		reladdr = (uintptr_t)ptr - (uintptr_t)&candidate->arena[0];
+		l0_offset = reladdr / BUDDY_BLOCK_SIZE;
+
+		if (l0_offset < BUDDY_MAX_BUDDY_FOR_ORDER(0))
+		{
+			break;
+		}
+
+		candidate = candidate->next;
+	}
+
+	if (!candidate)
+		// not a valid address
+		return;
+
+	uint8_t order = 0;
+	uint16_t pos = l0_offset + BUDDY_MIN_BUDDY_FOR_ORDER(0);
+
+	while (order < BUDDY_MAX_ORDER)
+	{
+		if (BUDDY_GET_POSITION(candidate, pos) == 1)
+		{
+			break;
+		}
+
+		order++;
+		pos = BUDDY_PARENT_POSITION(pos);
+		if (order > BUDDY_MAX_ORDER)
+		{
+			// was not allocd
+			return;
+		}
+	}
+
+	return buddy_coalese(candidate, order, pos);
 }
