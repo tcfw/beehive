@@ -26,27 +26,15 @@ void kernel_main(void)
 
     char buf[50];
 
-    void *pg = page_alloc(0);
+    void *pg = page_alloc(12);
 
     ksprintf(&buf[0], "Page allocated: 0x%x", pg);
     terminal_log(buf);
 
-    page_free(pg);
+    void *pg1 = page_alloc(12);
 
-    // void *pg2 = alloc_page(1);
-
-    // ksprintf(&buf[0], "Page allocated: 0x%x", pg2);
-    // terminal_log(buf);
-
-    // void *pg1 = alloc_page(0);
-
-    // ksprintf(&buf[0], "Page allocated: 0x%x", pg1);
-    // terminal_log(buf);
-
-    // void *pg3 = alloc_page(0);
-
-    // ksprintf(&buf[0], "Page allocated: 0x%x", pg3);
-    // terminal_log(buf);
+    ksprintf(&buf[0], "Page allocated: 0x%x", pg1);
+    terminal_log(buf);
 
     for (;;)
         wfi();

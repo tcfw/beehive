@@ -29,7 +29,7 @@ static void buddy_coalese(struct buddy_t *buddy, uint8_t o, uint16_t p);
 
 bool buddy_is_full(struct buddy_t *buddy, uint8_t order)
 {
-	for (int i = BUDDY_MAX_ORDER; i >= order; i++)
+	for (int i = BUDDY_MAX_ORDER; i >= order; i--)
 		if (buddy->freelist[i] != 0)
 			return false;
 
@@ -72,7 +72,7 @@ static uintptr_t buddy_pos_to_addr(int pos)
 
 void buddy_init(struct buddy_t *buddy)
 {
-	for (int i = 0; i < BUDDY_MAX_ORDER; i++)
+	for (int i = 0; i <= BUDDY_MAX_ORDER; i++)
 	{
 		buddy->freelist[i] = 1;
 	}
