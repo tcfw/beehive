@@ -26,9 +26,7 @@ int syscall1(uint32_t arg1)
 // Test syscall
 int syscall_test(pid_t _, uint64_t arg0)
 {
-	char buf[50];
-	ksprintf(&buf[0], "got syscall 1 => arg0: %x\n", arg0);
-	terminal_writestring(buf);
+	terminal_logf("got syscall 1 => arg0: %x\n", arg0);
 	return 3;
 }
 

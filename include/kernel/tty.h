@@ -8,5 +8,6 @@ void terminal_putchar(char c);
 void terminal_write(const char *data, size_t size);
 void terminal_writestring(char *);
 void terminal_log(char *);
+void terminal_logf(char *, ...);
 
 #endif

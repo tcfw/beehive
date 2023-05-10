@@ -7,6 +7,7 @@ void arch_init(void);
 void arch_poweroff();
 
 uint32_t cpu_id();
+uint64_t cpu_brand();
 void wfi();
 
 void enableCounter();

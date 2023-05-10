@@ -71,11 +71,8 @@ char *ftoc(double i, int prec, char *buf)
 	return s;
 }
 
-int ksprintf(char *buf, const char *fmt, ...)
+int ksprintfz(char *buf, const char *fmt, __builtin_va_list argp)
 {
-	__builtin_va_list argp;
-	__builtin_va_start(argp, fmt);
-
 	const char *p;
 	int i;
 	double f;
@@ -153,6 +150,16 @@ int ksprintf(char *buf, const char *fmt, ...)
 	}
 
 	buf[x] = 0;
+
+	return x;
+}
+
+int ksprintf(char *buf, const char *fmt, ...)
+{
+	__builtin_va_list argp;
+	__builtin_va_start(argp, fmt);
+
+	int x = ksprintfz(buf, fmt, argp);
 
 	__builtin_va_end(argp);
 

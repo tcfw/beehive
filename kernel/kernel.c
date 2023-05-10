@@ -16,6 +16,7 @@ void kernel_main(void)
     terminal_write(HELLO_HEADER, sizeof(HELLO_HEADER));
     terminal_write(BUILD_INFO, sizeof(BUILD_INFO));
     terminal_write(HELLO_FOOTER, sizeof(HELLO_FOOTER));
+    terminal_logf("CPU Brand: 0x%x", cpu_brand());
 
     page_alloc_init();
     syscall_init();
@@ -23,18 +24,6 @@ void kernel_main(void)
     // dumpdevicetree();
 
     enable_xrq();
-
-    char buf[50];
-
-    void *pg = page_alloc(12);
-
-    ksprintf(&buf[0], "Page allocated: 0x%x", pg);
-    terminal_log(buf);
-
-    void *pg1 = page_alloc(12);
-
-    ksprintf(&buf[0], "Page allocated: 0x%x", pg1);
-    terminal_log(buf);
 
     for (;;)
         wfi();

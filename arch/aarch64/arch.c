@@ -35,6 +35,13 @@ uint32_t cpu_id()
 	return cpu_id;
 }
 
+uint64_t cpu_brand()
+{
+	uint64_t val = 0;
+	__asm__ volatile("MRS %0, MIDR_EL1" ::"r"(val));
+	return val;
+}
+
 // Get the current EL state
 uint32_t currentEL()
 {

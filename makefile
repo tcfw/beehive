@@ -1,7 +1,7 @@
 ARCH?=aarch64
 ARCHEXT?=-none-eabi
 
-CFLAGS?=-O0 -g
+CFLAGS?=-O2 -g
 CPPFLAGS?=
 LDFLAGS?=
 LIBS?=

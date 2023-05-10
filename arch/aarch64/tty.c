@@ -185,7 +185,7 @@ void terminal_writestring(char *str)
 
 void terminal_log(char *str)
 {
-    char buf[50];
+    char buf[8];
     double freq = getCounterFreq();
     double cval = getSysCounterValue();
     double val = cval / freq;
@@ -200,4 +200,18 @@ void terminal_log(char *str)
 void terminal_write(const char *data, size_t size)
 {
     pl011_send(&serial, data, size);
+}
+
+void terminal_logf(char *fmt, ...)
+{
+    char buf[2048];
+
+    __builtin_va_list argp;
+    __builtin_va_start(argp, fmt);
+
+    ksprintfz(buf, fmt, argp);
+
+    __builtin_va_end(argp);
+
+    terminal_log(buf);
 }

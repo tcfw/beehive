@@ -40,4 +40,6 @@ struct fdt_prop_t
 
 void dumpdevicetree();
 
+uint32_t devicetree_count_dev_type(char *);
+
 #endif

@@ -17,9 +17,7 @@ void page_alloc_init()
 	spinlock_init(&page_lock);
 
 	// TODO(tcfw): use DTB to find allocatable areas
-	char buf[50];
-	ksprintf(&buf[0], "Start of pages: 0x%x", &kernelend);
-	terminal_log(buf);
+	terminal_logf("Start of pages: 0x%x", &kernelend);
 
 	// first buddy
 	pages = (struct buddy_t *)&kernelend;
@@ -44,8 +42,7 @@ void page_alloc_init()
 			// partial buddy
 			current->size = RAM_MAX - (uint64_t)current->arena;
 
-			ksprintf(&buf[0], "Partial buddy at 0x%x size: 0x%x", prev->arena, prev->size);
-			terminal_log(buf);
+			terminal_logf("Partial buddy at 0x%x size: 0x%x", prev->arena, prev->size);
 		}
 
 		buddy_init(current);
@@ -53,8 +50,25 @@ void page_alloc_init()
 		prev = current;
 	}
 
-	ksprintf(&buf[0], "End of pages: 0x%x", (prev->arena + prev->size));
-	terminal_log(buf);
+	terminal_logf("End of pages: 0x%x", (prev->arena + prev->size));
+}
+
+unsigned int size_to_order(size_t size)
+{
+	unsigned int order = 0;
+	size_t block_size = BUDDY_BLOCK_SIZE;
+	while (block_size < size)
+	{
+		block_size *= 2;
+		order++;
+	}
+	return order;
+}
+
+void *page_alloc_s(size_t size)
+{
+	unsigned int order = size_to_order(size);
+	return page_alloc(order);
 }
 
 void *page_alloc(unsigned int order)

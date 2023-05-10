@@ -13,9 +13,7 @@ void k_exphandler(unsigned int type, unsigned int xrq)
 {
 	if (type != 0x2)
 	{
-		char buf[50];
-		ksprintf(&buf[0], "k FIQ 0x%x\n", xrq);
-		terminal_writestring(buf);
+		terminal_logf("k FIQ 0x%x\n", xrq);
 	}
 	else if (xrq < IRQ_HANDLER_MAX)
 	{
