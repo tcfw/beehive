@@ -1,5 +1,3 @@
-// .comm stack, 0x20000 // Reserve 128k stack in the BSS (64k for irq)
-
 _start:
     .globl _start
     MRS      x0, MPIDR_EL1
@@ -12,19 +10,6 @@ boot:
     // Set Stackpointer
     LDR x0, =stack+0x20000
     MOV sp, x0
-
-    // Disable trapping of CPTR_EL3 accesses or use of Adv.SIMD/FPU
-    // -------------------------------------------------------------
-    // MOV      x0, #0             // Clear all trap bits
-    // MSR      CPTR_EL3, x0
-  
-    // Configure SCR_EL3
-    // ------------------
-    // MOV      w1, #0              // Initial value of register is unknown
-    // ORR      w1, w1, #(1 << 3)   // Set EA bit (SError routed to EL3)
-    // ORR      w1, w1, #(1 << 2)   // Set FIQ bit (FIQs routed to EL3)
-    // ORR      w1, w1, #(1 << 1)   // Set IRQ bit (IRQs routed to EL3)
-    // MSR      SCR_EL3, x1
 
     ISB
 

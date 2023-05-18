@@ -8,9 +8,8 @@
 
 extern uint64_t kernelend;
 
-static spinlock_t page_lock;
-
 struct buddy_t *pages;
+static spinlock_t page_lock;
 
 void page_alloc_init()
 {

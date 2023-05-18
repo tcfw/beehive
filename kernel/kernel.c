@@ -17,8 +17,10 @@ void kernel_main(void)
     terminal_write(BUILD_INFO, sizeof(BUILD_INFO));
     terminal_write(HELLO_FOOTER, sizeof(HELLO_FOOTER));
     terminal_logf("CPU Brand: 0x%x", cpu_brand());
+    terminal_logf("CPU Count: 0x%x", devicetree_count_dev_type("cpu"));
 
     page_alloc_init();
+    vm_init();
     syscall_init();
 
     // dumpdevicetree();

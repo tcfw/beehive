@@ -165,3 +165,47 @@ int ksprintf(char *buf, const char *fmt, ...)
 
 	return x;
 }
+
+int strcmp(const char *str1, const char *str2)
+{
+	const unsigned char *s1 = (const unsigned char *)str1;
+	const unsigned char *s2 = (const unsigned char *)str2;
+	unsigned char c1, c2;
+
+	do
+	{
+		c1 = (unsigned char)*s1++;
+		c2 = (unsigned char)*s2++;
+		if (c1 == '\0')
+			return c1 - c2;
+	} while (c1 == c2);
+
+	return c1 - c2;
+}
+
+size_t strlen(char *str)
+{
+	size_t len = 0;
+
+	while (*str++)
+		len++;
+
+	return len;
+}
+
+void *memcpy(void *dest, const void *src, size_t len)
+{
+	char *d = dest;
+	const char *s = src;
+	while (len--)
+		*d++ = *s++;
+	return dest;
+}
+
+void *memset(void *dest, int val, size_t len)
+{
+	unsigned char *ptr = dest;
+	while (len-- > 0)
+		*ptr++ = val;
+	return dest;
+}

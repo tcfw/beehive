@@ -12,6 +12,8 @@
 #define FDT_NOP BIG_ENDIAN_UINT32(0x00000004)
 #define FDT_END BIG_ENDIAN_UINT32(0x00000009)
 
+#define FDT_DEVICE_TYPE_PROP ("device_type")
+
 struct fdt_header_t
 {
 	// uint32_t magic;
