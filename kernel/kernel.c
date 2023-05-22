@@ -17,7 +17,7 @@ void kernel_main(void)
     terminal_write(BUILD_INFO, sizeof(BUILD_INFO));
     terminal_write(HELLO_FOOTER, sizeof(HELLO_FOOTER));
     terminal_logf("CPU Brand: 0x%x", cpu_brand());
-    terminal_logf("CPU Count: 0x%x", devicetree_count_dev_type("cpu"));
+    terminal_logf("CPU Count: %d", devicetree_count_dev_type("cpu"));
 
     page_alloc_init();
     vm_init();
@@ -26,6 +26,18 @@ void kernel_main(void)
     // dumpdevicetree();
 
     enable_xrq();
+
+    wake_cores();
+
+    for (;;)
+        wfi();
+}
+
+void kernel_main2(void)
+{
+    arch_init();
+    enable_xrq();
+    terminal_logf("Core %d booted", cpu_id());
 
     for (;;)
         wfi();

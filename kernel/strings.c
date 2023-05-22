@@ -21,6 +21,45 @@ char *itoh(unsigned long i, char *buf)
 	return buf;
 }
 
+char *itoa(long i, char *buf, int base)
+{
+	char *s = buf + 256;
+	int wn;
+	if (i < 0)
+		wn = 1;
+
+	*--s = 0; // null terminate
+
+	while (i != 0)
+	{
+		if (wn == 1)
+			*--s = (char)(i % base) + '0';
+		else
+			*--s = '0' - (char)(i % base);
+		i /= base;
+	}
+
+	if (wn == 1)
+		*--s = "-";
+
+	return s;
+}
+
+char *uitoa(unsigned long i, char *buf, int base)
+{
+	char *s = buf + 256;
+
+	*--s = 0; // null terminate
+
+	while (i != 0)
+	{
+		*--s = (char)(i % base) + '0';
+		i /= base;
+	}
+
+	return s;
+}
+
 char *ftoc(double i, int prec, char *buf)
 {
 	char *s = buf + 256; // go to end of buffer
@@ -75,6 +114,7 @@ int ksprintfz(char *buf, const char *fmt, __builtin_va_list argp)
 {
 	const char *p;
 	int i;
+	unsigned int ui;
 	double f;
 	char *s;
 	char fmtbuf[256];
@@ -138,6 +178,22 @@ int ksprintfz(char *buf, const char *fmt, __builtin_va_list argp)
 		case 'f':
 			f = __builtin_va_arg(argp, double);
 			s = ftoc(f, numPrec, fmtbuf);
+			while (*s)
+			{
+				buf[x++] = *s++;
+			}
+			break;
+		case 'd':
+			i = __builtin_va_arg(argp, int);
+			s = itoa(i, fmtbuf, 10);
+			while (*s)
+			{
+				buf[x++] = *s++;
+			}
+			break;
+		case 'u':
+			ui = __builtin_va_arg(argp, unsigned int);
+			s = uitoa(ui, fmtbuf, 10);
 			while (*s)
 			{
 				buf[x++] = *s++;

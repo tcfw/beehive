@@ -1,9 +1,17 @@
 #include <kernel/irq.h>
 #include <kernel/arch.h>
+#include <kernel/tty.h>
+#include <kernel/mm.h>
+#include <devicetree.h>
 #include "stdint.h"
 
+uint64_t cpu_spin_table[256] = {0};
+extern void secondary_boot();
+extern uintptr_t stack;
+
 // enable Floating point instructions
-static void enableFP()
+static void
+enableFP()
 {
 	volatile uint64_t cpacrel1 = 0;
 	__asm__ volatile("MRS %0, CPACR_EL1" ::"r"(cpacrel1));
@@ -89,8 +97,7 @@ void setCounterValue(uint64_t value)
 {
 	// armv8-a only supports a 32bit counter
 	value &= 0xffffffff;
-	__asm__ volatile("MSR CNTP_TVAL_EL0, %0"
-					 : "=r"(value));
+	__asm__ volatile("MSR CNTP_TVAL_EL0, %0" ::"r"(value));
 }
 
 void setCounterCompareValue(uint64_t value)
@@ -99,8 +106,42 @@ void setCounterCompareValue(uint64_t value)
 					 : "=r"(value));
 }
 
-// Init arch by disabling local interrupts and initialising the global & local interrupts
-void arch_init(void)
+static uint64_t psci_cpu_on(uint64_t affinity, uint64_t entrypoint)
+{
+	uint64_t ret = 0;
+
+	__asm__ volatile("mov x1, %0" ::"r"(affinity));
+	__asm__ volatile("mov x2, %0" ::"r"(entrypoint));
+	__asm__ volatile("ldr w0, =0xc4000003");
+	__asm__ volatile("mov x3, 0");
+	__asm__ volatile("hvc 0");
+	__asm__ volatile("mov %0, x0"
+					 : "=r"(ret));
+
+	return ret;
+}
+
+void wake_cores(void)
+{
+	cpu_spin_table[0] = stack;
+
+	int cpuN = devicetree_count_dev_type("cpu");
+	int usePSCI = devicetree_count_dev_type("psci");
+
+	for (int i = 1; i < cpuN; i++)
+	{
+		cpu_spin_table[i] = page_alloc_s(128 * 1024);
+		int ret = psci_cpu_on(i, secondary_boot);
+		if (ret < 0)
+		{
+			terminal_logf("failed to boot CPU: %x", ret);
+		}
+	}
+
+	__asm__ volatile("sev");
+}
+
+static void cpu_init(void)
 {
 	disable_xrq();
 	init_xrq();
@@ -108,4 +149,10 @@ void arch_init(void)
 	setCounterValue(0);
 	setCounterCompareValue(0);
 	enableFP();
+}
+
+// Init arch by disabling local interrupts and initialising the global & local interrupts
+void arch_init(void)
+{
+	cpu_init();
 }

@@ -198,10 +198,15 @@ void init_xrq(void)
 	__asm__ volatile("LDR x0, =vectors");
 	__asm__ volatile("MSR VBAR_EL1,x0");
 
-	setGICAddr((void *)GIC_DIST_BASE, (void *)GIC_REDIST_BASE, (void *)GIC_CPU_BASE);
-	gic_dist_enable();
+	uint32_t affinity = cpu_id();
 
-	uint32_t rd = getRedistID(cpu_id());
+	if (affinity == 0)
+	{
+		setGICAddr((void *)GIC_DIST_BASE, (void *)GIC_REDIST_BASE, (void *)GIC_CPU_BASE);
+		gic_dist_enable();
+	}
+
+	uint32_t rd = getRedistID(affinity);
 	gic_redist_enable(rd);
 
 	gic_cpu_init();

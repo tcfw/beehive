@@ -27,10 +27,13 @@ void vm_init()
 	kernel_vm_map = (vm_table *)page_alloc_s(sizeof(vm_table));
 
 	// map kernel code regions
-	vm_map_region(kernel_vm_map, kernelstart, kernelend, kernelstart, kernelend);
+	vm_map_region(kernel_vm_map, kernelstart, kernelstart, kernelend - kernelstart, MEMORY_TYPE_KERNEL | MEMORY_PERM_RW);
 
 	// map remaining physical memory
-	vm_map_region(kernel_vm_map, kernelend, RAM_MAX, kernelend, RAM_MAX);
+	vm_map_region(kernel_vm_map, kernelend, kernelend, RAM_MAX - kernelend, MEMORY_TYPE_KERNEL | MEMORY_PERM_RW);
+
+	// move DBT to above RAM
+	vm_map_region(kernel_vm_map, 0, RAM_MAX, 0xFFFFF, MEMORY_TYPE_KERNEL | MEMORY_PERM_RO);
 
 	// Setup TCR_EL1
 	volatile tcr_reg tcr = {0};
@@ -164,18 +167,14 @@ static struct vm_table_block_t *vm_get_or_alloc_block(struct vm_table_block_t *p
 	return block;
 }
 
-int vm_map_region(vm_table *table, uintptr_t pstart, uintptr_t pend, uintptr_t vstart, uintptr_t vend)
+int vm_map_region(vm_table *table, uintptr_t pstart, uintptr_t vstart, size_t size, uint64_t flags)
 {
+	uint64_t vend = vstart + size;
+
 	// TODO(tcfw) check vstart and vend is page aligned
 	if (vstart & 0xFFF != 0 || vend & 0xfff != 0)
 	{
 		terminal_log("WARN: vm region map was not page aligned");
-		return -1;
-	}
-
-	if ((vend - vstart) != (pend - pstart))
-	{
-		terminal_log("WARN: vm region map virtual size does not match physcial size");
 		return -1;
 	}
 
@@ -190,17 +189,33 @@ int vm_map_region(vm_table *table, uintptr_t pstart, uintptr_t pend, uintptr_t v
 	struct vm_table_block_t *table_l1;
 	struct vm_table_block_t *table_l2;
 	struct vm_table_block_t *table_l3;
+	struct vm_table_desc_t *desc = &table->descriptors[l0];
 
-	if (table->descriptors[l0].allocd == 0)
+	if (desc->allocd == 0)
 	{
 		// alloc block
 		table_l1 = (struct vm_table_block_t *)page_alloc_s(sizeof(struct vm_table_block_t));
-		table->descriptors[l0].valid = 1;
-		table->descriptors[l0].allocd = 1;
-		table->descriptors[l0].is_descriptor = 1;
-		table->descriptors[l0].nonsecure = 1;
-		table->descriptors[l0].next_level0 = ((uintptr_t)table_l1 >> 12) & 0x3FFFFFFFFF;
-		table->descriptors[l0].next_level1 = ((uintptr_t)table_l1 >> 50) & 0x2;
+		desc->valid = 1;
+		desc->allocd = 1;
+		desc->is_descriptor = 1;
+		desc->nonsecure = 1;
+		desc->next_level0 = ((uintptr_t)table_l1 >> 12) & 0x3FFFFFFFFF;
+		desc->next_level1 = ((uintptr_t)table_l1 >> 50) & 0x2;
+
+		if (flags & MEMORY_TYPE_KERNEL)
+			desc->execute_never = 1; // EL0 Not Executable
+
+		if (flags & MEMORY_PERM_RO)
+		{
+			desc->privilege = 1;	  // ELx Not executable
+			desc->execute_never = 1;  // ELx Not executable
+			desc->permissions = 0b10; // RO, EL0 No read
+		}
+
+		if (flags * MEMORY_PERM_RW)
+		{
+			desc->permissions = 0b01; // RW, Not Executable
+		}
 	}
 	else
 	{
@@ -218,6 +233,13 @@ int vm_map_region(vm_table *table, uintptr_t pstart, uintptr_t pend, uintptr_t v
 		vpage->non_secure = 1;
 		vpage->oa1 = (pstart & 0x3000000000000) >> 48;
 		vpage->oa = pstart & 0x1FFFFFFFFF;
+		vpage->ng = 1;
+		vpage->mapped = 1;
+
+		if (flags & MEMORY_TYPE_KERNEL)
+		{
+			vpage->privilege = 1;
+		}
 
 		// TODO(tcfw) memory flags
 		// TODO(tcfw) access perms

@@ -85,7 +85,8 @@ struct __attribute__((packed)) vm_entry_t
 
 	uint64_t allocd : 1;	// if was alloc'd at any point
 	uint64_t swapedout : 1; // if has been swapped out
-	uint64_t _ignored1 : 2; // software usage - not used
+	uint64_t mapped : 1;	// if the region has been mapped, not alloc'd
+	uint64_t _ignored1 : 1; // software usage - not used
 
 	uint64_t hw_attrs : 4;	 // reserved
 	uint64_t _reserved1 : 1; // reserved

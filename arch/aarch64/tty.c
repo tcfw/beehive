@@ -183,8 +183,12 @@ void terminal_writestring(char *str)
         terminal_putchar(*str++);
 }
 
+spinlock_t log_lock;
+
 void terminal_log(char *str)
 {
+    spinlock_acquire(&log_lock);
+
     char buf[8];
     double freq = getCounterFreq();
     double cval = getSysCounterValue();
@@ -194,6 +198,8 @@ void terminal_log(char *str)
     terminal_writestring(buf);
     terminal_writestring(str);
     terminal_putchar('\n');
+
+    spinlock_release(&log_lock);
 }
 
 // Write a string given the specific length
