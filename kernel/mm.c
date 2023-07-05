@@ -21,6 +21,7 @@ void page_alloc_init()
 	// first buddy
 	pages = (struct buddy_t *)&kernelend;
 	pages->arena = (unsigned char *)(pages + sizeof(struct buddy_t) + __alignof__(struct buddy_t));
+	pages->arena += 4096 - ((uintptr_t)pages->arena % 4096); // page align
 	pages->size = BUDDY_ARENA_SIZE;
 	buddy_init(pages);
 
@@ -34,6 +35,7 @@ void page_alloc_init()
 	{
 		struct buddy_t *current = (struct buddy_t *)(prev->arena + prev->size);
 		current->arena = (unsigned char *)(current + sizeof(struct buddy_t) + __alignof__(struct buddy_t));
+		current->arena += 4096 - ((uintptr_t)current->arena % 4096); // page align
 		current->size = BUDDY_ARENA_SIZE;
 
 		if ((uintptr_t)(current->arena + current->size) >= RAM_MAX)

@@ -2,9 +2,13 @@
 #include <kernel/tty.h>
 #include <kernel/strings.h>
 #include <kernel/irq.h>
+#include <kernel/arch.h>
 #include "stdint.h"
 
-#define IRQ_HANDLER_MAX 1024
+extern void halt_loop();
+static void halt_core(__attribute__((unused)) unsigned int _);
+
+#define IRQ_HANDLER_MAX (1024)
 
 struct irq_handler_t irq_handlers[IRQ_HANDLER_MAX];
 
@@ -13,7 +17,7 @@ void k_exphandler(unsigned int type, unsigned int xrq)
 {
 	if (type != 0x2)
 	{
-		terminal_logf("k FIQ 0x%x\n", xrq);
+		k_fiq_exphandler(xrq);
 	}
 	else if (xrq < IRQ_HANDLER_MAX)
 	{
@@ -38,4 +42,17 @@ void assign_irq_hook(unsigned int xrq, irq_handler_cb cb)
 {
 	irq_handlers[xrq].khandler = cb;
 	enable_xrq_n(xrq);
+}
+
+// setup built in software IRQs
+void k_setup_soft_irq()
+{
+	assign_irq_hook(0, halt_core);
+	enable_xrq_n(0);
+}
+
+static void halt_core(__attribute__((unused)) unsigned int _)
+{
+	terminal_logf("Core Halting 0x%x", cpu_id());
+	halt_loop();
 }

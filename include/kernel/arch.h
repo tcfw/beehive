@@ -18,5 +18,6 @@ uint64_t getSysCounterValue();
 void setCounterCompareValue(uint64_t);
 
 void wake_cores(void);
+void stop_cores(void);
 
 #endif

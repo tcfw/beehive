@@ -2,6 +2,9 @@
 #include <kernel/endian.h>
 #include <kernel/strings.h>
 #include <kernel/tty.h>
+#include "unistd.h"
+
+static uintptr_t dbt_offset = 4;
 
 static void print_indents(int n)
 {
@@ -9,15 +12,26 @@ static void print_indents(int n)
 		terminal_putchar('\t');
 }
 
+void remaped_devicetreeoffset(uintptr_t offset)
+{
+	dbt_offset = offset;
+}
+
 // TODO(tcfw) remap in VM so can verify magic
 void dumpdevicetree()
 {
-	volatile struct fdt_header_t *dtb_header = (struct fdt_header_t *)4;
+	terminal_logf("DTB Tree::");
 
-	uint32_t off_dt_struct = BIG_ENDIAN_UINT32(dtb_header->off_dt_struct);
-	uint32_t off_dt_strings = BIG_ENDIAN_UINT32(dtb_header->off_dt_strings);
+	if (dbt_offset != 4)
+	{
+		terminal_logf("DTB Magic 0x%x", BIG_ENDIAN_UINT32(*(uint32_t *)(dbt_offset - 4)));
+	}
 
-	terminal_log("DTB Tree::");
+	volatile struct fdt_header_t *dtb_header = (struct fdt_header_t *)dbt_offset;
+
+	uint32_t off_dt_struct = BIG_ENDIAN_UINT32(dtb_header->off_dt_struct) + (dbt_offset - 4);
+	uint32_t off_dt_strings = BIG_ENDIAN_UINT32(dtb_header->off_dt_strings) + (dbt_offset - 4);
+
 	terminal_logf("DBT Size: 0x%x", BIG_ENDIAN_UINT32(dtb_header->totalsize));
 	terminal_logf("DBT DT STRUCT OFF: 0x%x", off_dt_struct);
 	terminal_logf("DBT DT STRING OFF: 0x%x", off_dt_strings);
@@ -88,7 +102,7 @@ uint32_t devicetree_count_nodes_with_prop(char *propkey, char *cmpdata, size_t s
 {
 	uint32_t count = 0;
 
-	volatile struct fdt_header_t *dtb_header = (struct fdt_header_t *)4;
+	volatile struct fdt_header_t *dtb_header = (struct fdt_header_t *)dbt_offset;
 	uint32_t off_dt_strings = BIG_ENDIAN_UINT32(dtb_header->off_dt_strings);
 	uint32_t *data = BIG_ENDIAN_UINT32(dtb_header->off_dt_struct);
 	char *keyn;

@@ -16,6 +16,7 @@ boot:
     BL      kernel_main          // Jump to the main function
 
 halt_loop:
+    .globl halt_loop
     WFE
     B halt_loop
 

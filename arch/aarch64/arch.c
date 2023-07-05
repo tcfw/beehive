@@ -6,7 +6,10 @@
 #include "stdint.h"
 
 uint64_t cpu_spin_table[256] = {0};
+
 extern void secondary_boot();
+extern void halt_loop();
+
 extern uintptr_t stack;
 
 // enable Floating point instructions
@@ -126,7 +129,7 @@ void wake_cores(void)
 	cpu_spin_table[0] = stack;
 
 	int cpuN = devicetree_count_dev_type("cpu");
-	int usePSCI = devicetree_count_dev_type("psci");
+	// int usePSCI = devicetree_count_dev_type("psci");
 
 	for (int i = 1; i < cpuN; i++)
 	{
@@ -139,6 +142,11 @@ void wake_cores(void)
 	}
 
 	__asm__ volatile("sev");
+}
+
+void stop_cores(void)
+{
+	send_soft_irq_all_cores(0);
 }
 
 static void cpu_init(void)
@@ -155,4 +163,5 @@ static void cpu_init(void)
 void arch_init(void)
 {
 	cpu_init();
+	k_setup_soft_irq();
 }

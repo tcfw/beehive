@@ -24,7 +24,7 @@ char *itoh(unsigned long i, char *buf)
 char *itoa(long i, char *buf, int base)
 {
 	char *s = buf + 256;
-	int wn;
+	int wn = 0;
 	if (i < 0)
 		wn = 1;
 
@@ -40,7 +40,7 @@ char *itoa(long i, char *buf, int base)
 	}
 
 	if (wn == 1)
-		*--s = "-";
+		*--s = '-';
 
 	return s;
 }

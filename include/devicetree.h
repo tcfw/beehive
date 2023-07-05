@@ -41,6 +41,7 @@ struct fdt_prop_t
 };
 
 void dumpdevicetree();
+void remaped_devicetreeoffset(uintptr_t offset);
 
 uint32_t devicetree_count_dev_type(char *);
 
