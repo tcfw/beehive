@@ -2,6 +2,7 @@
 #define _KERNEL_ARCH_H
 
 #include "stdint.h"
+#include <kernel/context.h>
 
 void arch_init(void);
 void arch_poweroff();
@@ -19,5 +20,8 @@ void setCounterCompareValue(uint64_t);
 
 void wake_cores(void);
 void stop_cores(void);
+
+void switch_to_context(context_t *ctx);
+void save_to_context(context_t *ctx);
 
 #endif

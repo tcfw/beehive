@@ -7,7 +7,7 @@ SECTIONS
 
     kernelstart = .;
 
-    .boot : { KEEP(*(.boot*)) }
+    .boot : { KEEP(*(.multiboot*)) KEEP(*(.boot*)) }
     .text : { *(.text*) *(.rodata*) }
     .data : { *(.data*) }
     .bss : { *(.bss*) *(COMMON*) }

@@ -165,3 +165,4 @@ void arch_init(void)
 	cpu_init();
 	k_setup_soft_irq();
 }
+

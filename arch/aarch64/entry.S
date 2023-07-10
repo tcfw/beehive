@@ -1,3 +1,5 @@
+#include "multiboot.S"
+
 _start:
     .globl _start
     MRS      x0, MPIDR_EL1

@@ -1,0 +1,6 @@
+#ifndef _ARCH_REGIONS_H
+#define _ARCH_REGIONS_H
+
+#define DEVICE_REGION (0xF000000000ULL)
+
+#endif

@@ -4,6 +4,7 @@
 #include <kernel/arch.h>
 #include <stdint.h>
 #include "unistd.h"
+#include "stdint.h"
 
 #define PL011_DR_OFFSET 0x000
 #define PL011_FR_OFFSET 0x018
@@ -174,6 +175,11 @@ void terminal_initialize(void)
 void terminal_putchar(const char c)
 {
     pl011_send(&serial, &c, 1);
+}
+
+void terminal_set_bar(uint64_t addr)
+{
+    serial.base_address = addr;
 }
 
 // Write a null-terminated string to the terminal

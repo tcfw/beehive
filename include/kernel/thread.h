@@ -8,7 +8,7 @@
 #include <kernel/signal.h>
 #include <kernel/vm.h>
 
-struct thread_t
+typedef struct thread_t
 {
 	pid_t pid;
 
@@ -29,6 +29,9 @@ struct thread_t
 	//  shared mem maps
 	//  allocated pages
 	//  queues
-};
+} thread_t;
+
+void init_thread(thread_t *thread);
+void init_context(context_t *ctx);
 
 #endif

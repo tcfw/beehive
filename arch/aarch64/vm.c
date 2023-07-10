@@ -1,6 +1,7 @@
 #include <kernel/vm.h>
 #include <kernel/mm.h>
 #include <kernel/tty.h>
+#include <kernel/regions.h>
 
 const uint64_t kernelstart = 0x40000000;
 extern uint64_t kernelend;
@@ -29,12 +30,10 @@ vm_table *vm_get_current_table()
 
 void vm_init()
 {
-	terminal_log("Starting kernel VM maps");
-
 	kernel_vm_map = (vm_table *)page_alloc_s(sizeof(vm_table));
 
 	// map device space
-	if (vm_map_region(kernel_vm_map, 0x100000, 0x100000, kernelstart - 0x100000 - 1, MEMORY_TYPE_KERNEL | MEMORY_TYPE_DEVICE | MEMORY_PERM_RW) < 0)
+	if (vm_map_region(kernel_vm_map, 0x9000000, DEVICE_REGION, 4095, MEMORY_TYPE_KERNEL | MEMORY_TYPE_DEVICE | MEMORY_PERM_RW) < 0)
 		terminal_log("failed to map device region");
 
 	// map kernel code & remaining physcial memory regions
@@ -46,7 +45,7 @@ void vm_init()
 		terminal_log("failed to map dbt region");
 
 	__asm__ volatile("ISB");
-	terminal_log("Finished kernel VM maps");
+	terminal_log("Loaded kernel VM map");
 }
 
 void vm_init_table(vm_table *table)
