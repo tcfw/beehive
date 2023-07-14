@@ -15,43 +15,53 @@ void page_alloc_init()
 {
 	spinlock_init(&page_lock);
 
-	// TODO(tcfw): use DTB to find allocatable areas
-	terminal_logf("Start of pages: 0x%x", &kernelend);
+	uintptr_t ram_max_addr = (uintptr_t)ram_max();
+	uint64_t buddy_struct_size = sizeof(struct buddy_t) + __alignof__(struct buddy_t);
+	uint64_t buddy_size = buddy_struct_size + BUDDY_ARENA_SIZE;
+	uint64_t n_arenas = (uint64_t)(ram_max_addr - (uintptr_t)&kernelend) / buddy_size;
+
+	// check if we can squeeze one more buddy in at the end
+	if (ram_max_addr - (n_arenas * buddy_size) > (BUDDY_ARENA_SIZE / 2))
+		n_arenas++;
+
+	uint64_t end_of_buddies = (uint64_t)&kernelend + (n_arenas * buddy_struct_size);
 
 	// first buddy
 	pages = (struct buddy_t *)&kernelend;
-	pages->arena = (unsigned char *)(pages + sizeof(struct buddy_t) + __alignof__(struct buddy_t));
-	pages->arena += 4096 - ((uintptr_t)pages->arena % 4096); // page align
 	pages->size = BUDDY_ARENA_SIZE;
+	pages->arena = (unsigned char *)end_of_buddies;
+	pages->arena += 4096 - ((uintptr_t)pages->arena % 4096); // page align
+
 	buddy_init(pages);
+
+	terminal_logf("Start of pages arena: 0x%x", pages->arena);
+
+	// fill up buddies across the pages
 
 	struct buddy_t *prev = pages;
 
-	// TODO(tcfw): move buddy metadata next to each other so arenas are contiguous
-
-	// fill up buddies across the pages
-	// TODO(tcfw): support memory holes
-	while ((uintptr_t)(prev->arena + prev->size) < RAM_MAX)
+	for (uint64_t i = 1; i < n_arenas; i++)
 	{
-		struct buddy_t *current = (struct buddy_t *)(prev->arena + prev->size);
-		current->arena = (unsigned char *)(current + sizeof(struct buddy_t) + __alignof__(struct buddy_t));
-		current->arena += 4096 - ((uintptr_t)current->arena % 4096); // page align
-		current->size = BUDDY_ARENA_SIZE;
+		// TODO(tcfw): support memory holes & NUMA layouts
 
-		if ((uintptr_t)(current->arena + current->size) >= RAM_MAX)
+		struct buddy_t *current = (struct buddy_t *)(prev + buddy_struct_size);
+		current->size = BUDDY_ARENA_SIZE;
+		current->arena = prev->arena + prev->size;
+
+		if ((uintptr_t)(current->arena + current->size) > ram_max_addr)
 		{
 			// partial buddy
-			current->size = RAM_MAX - (uint64_t)current->arena;
-
-			terminal_logf("Partial buddy at 0x%x size: 0x%x", prev->arena, prev->size);
+			current->size = ram_max_addr - (uint64_t)current->arena;
+			terminal_logf("Partial buddy arena at 0x%x size: 0x%x", prev->arena, prev->size);
 		}
 
 		buddy_init(current);
+
 		prev->next = current;
 		prev = current;
 	}
 
-	terminal_logf("End of pages: 0x%x", (prev->arena + prev->size));
+	terminal_logf("End of pages arena: 0x%x", (prev->arena + prev->size));
 }
 
 unsigned int size_to_order(size_t size)

@@ -21,8 +21,8 @@ typedef struct thread_t
 	unsigned int gid;
 	unsigned int egid;
 
-	struct context_t ctx;
-	struct vm_table_t vm;
+	context_t ctx;
+	vm_table *vm;
 	struct thread_sigactions_t sigactions;
 
 	// wait cond

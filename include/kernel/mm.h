@@ -11,7 +11,8 @@ struct page
 #define MEMORY_TYPE_KERNEL (1 << 1)
 #define MEMORY_TYPE_USER (1 << 2)
 #define MEMORY_PERM_RO (1 << 3)
-#define MEMORY_PERM_RW (1 << 4)
+#define MEMORY_NON_EXEC (1 << 4)
+#define MEMORY_USER_NON_EXEC (1 << 5)
 
 void page_alloc_init(void);
 void *page_alloc(unsigned int order);

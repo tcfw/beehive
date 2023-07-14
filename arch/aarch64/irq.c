@@ -5,6 +5,7 @@
 #include <kernel/syscall.h>
 #include <kernel/panic.h>
 #include <kernel/vm.h>
+#include <kernel/cls.h>
 #include <stdint.h>
 
 extern unsigned long stack;
@@ -24,31 +25,31 @@ extern unsigned long stack;
 #define PIC_INT_SOFTSET 0x4
 #define PIC_INT_SOFTCLR 0x5
 
-#define KEXP_TOP3                                       \
-	__asm__ volatile("STP      x29, x30, [sp, #-16]!"); \
-	__asm__ volatile("STP      x18, x19, [sp, #-16]!"); \
-	__asm__ volatile("STP      x16, x17, [sp, #-16]!"); \
-	__asm__ volatile("STP      x14, x15, [sp, #-16]!"); \
-	__asm__ volatile("STP      x12, x13, [sp, #-16]!"); \
-	__asm__ volatile("STP      x10, x11, [sp, #-16]!"); \
-	__asm__ volatile("STP      x8, x9, [sp, #-16]!");   \
-	__asm__ volatile("STP      x6, x7, [sp, #-16]!");   \
-	__asm__ volatile("STP      x4, x5, [sp, #-16]!");   \
-	__asm__ volatile("STP      x2, x3, [sp, #-16]!");   \
-	__asm__ volatile("STP      x0, x1, [sp, #-16]!");
+#define KEXP_TOP3                                  \
+	__asm__ volatile("STP x29, x30, [sp, #-16]!"); \
+	__asm__ volatile("STP x18, x19, [sp, #-16]!"); \
+	__asm__ volatile("STP x16, x17, [sp, #-16]!"); \
+	__asm__ volatile("STP x14, x15, [sp, #-16]!"); \
+	__asm__ volatile("STP x12, x13, [sp, #-16]!"); \
+	__asm__ volatile("STP x10, x11, [sp, #-16]!"); \
+	__asm__ volatile("STP x8, x9, [sp, #-16]!");   \
+	__asm__ volatile("STP x6, x7, [sp, #-16]!");   \
+	__asm__ volatile("STP x4, x5, [sp, #-16]!");   \
+	__asm__ volatile("STP x2, x3, [sp, #-16]!");   \
+	__asm__ volatile("STP x0, x1, [sp, #-16]!");
 
-#define KEXP_BOT3                                     \
-	__asm__ volatile("LDP      x0, x1, [sp], #16");   \
-	__asm__ volatile("LDP      x2, x3, [sp], #16");   \
-	__asm__ volatile("LDP      x4, x5, [sp], #16");   \
-	__asm__ volatile("LDP      x6, x7, [sp], #16");   \
-	__asm__ volatile("LDP      x8, x9, [sp], #16");   \
-	__asm__ volatile("LDP      x10, x11, [sp], #16"); \
-	__asm__ volatile("LDP      x12, x13, [sp], #16"); \
-	__asm__ volatile("LDP      x14, x15, [sp], #16"); \
-	__asm__ volatile("LDP      x16, x17, [sp], #16"); \
-	__asm__ volatile("LDP      x18, x19, [sp], #16"); \
-	__asm__ volatile("LDP      x29, x30, [sp], #16");
+#define KEXP_BOT3                                \
+	__asm__ volatile("LDP x0, x1, [sp], #16");   \
+	__asm__ volatile("LDP x2, x3, [sp], #16");   \
+	__asm__ volatile("LDP x4, x5, [sp], #16");   \
+	__asm__ volatile("LDP x6, x7, [sp], #16");   \
+	__asm__ volatile("LDP x8, x9, [sp], #16");   \
+	__asm__ volatile("LDP x10, x11, [sp], #16"); \
+	__asm__ volatile("LDP x12, x13, [sp], #16"); \
+	__asm__ volatile("LDP x14, x15, [sp], #16"); \
+	__asm__ volatile("LDP x16, x17, [sp], #16"); \
+	__asm__ volatile("LDP x18, x19, [sp], #16"); \
+	__asm__ volatile("LDP x29, x30, [sp], #16");
 
 // handle syscall inner
 void k_exphandler_swi_entry(uint64_t x0, uint64_t x1, uint64_t x2, uint64_t x3)
@@ -92,41 +93,35 @@ void k_exphandler_swi_entry(uint64_t x0, uint64_t x1, uint64_t x2, uint64_t x3)
 	__asm__ volatile("LDP x18, x19, [sp], #16");
 	__asm__ volatile("LDP x29, x30, [sp], #16");
 
-	// set return (if changed)
-	// __asm__ volatile("MOV x0, %0" ::"r"(ret));
-
 	// jump back to caller
 	__asm__ volatile("LDR lr, [sp], #-16");
 	__asm__ volatile("RET");
 }
 
-// Handle sync and syscalls
-void k_exphandler_sync()
+// Handle non-syscall sync exceptions
+void k_exphandler_sync(uintptr_t trapFrame)
 {
-	// capture args
-	uint64_t x0, x1, x2, x3;
-	__asm__ volatile("MOV x0, %0"
-					 : "=r"(x0));
-	__asm__ volatile("MOV x1, %0"
-					 : "=r"(x1));
-	__asm__ volatile("MOV x2, %0"
-					 : "=r"(x2));
-	__asm__ volatile("MOV x3, %0"
-					 : "=r"(x3));
+	thread_t *thread = get_cls()->currentThread;
+	save_to_context(&thread->ctx, trapFrame);
 
-	uint64_t esr;
-	__asm__ volatile("MRS %0, ESR_EL1"
+	uint64_t esr = 0;
+	__asm__ volatile("mrs %0, ESR_EL1"
 					 : "=r"(esr));
 
-	if (esr >> 26 == 0b010101)
+	k_exphandler(ARM4_XRQ_SYNC, esr);
+
+	// check if need to switch thread contexts
+	uint64_t tpid = 0;
+	__asm__ volatile("mrs %0, TPIDRRO_EL0"
+					 : "=r"(tpid));
+	thread = get_cls()->currentThread;
+
+	// switch to the new thread
+	if (thread->pid != tpid)
 	{
-		k_exphandler_swi_entry(x0, x1, x2, x3);
-	}
-	else
-	{
-		KEXP_TOP3;
-		k_exphandler(ARM4_XRQ_SYNC, esr);
-		KEXP_BOT3;
+		__asm__ volatile("msr TPIDRRO_EL0, %0" ::"rm"(thread->pid));
+		vm_set_table(thread->vm);
+		set_to_context(&thread->ctx, trapFrame);
 	}
 }
 
@@ -134,7 +129,6 @@ void k_exphandler_sync()
 void k_exphandler_irq()
 {
 	KEXP_TOP3;
-
 	volatile uint64_t esr;
 	__asm__ volatile("MRS %0, S3_0_c12_c12_0" // ICC_IAR1_EL1
 					 : "=r"(esr));
@@ -215,26 +209,39 @@ void send_soft_irq(uint64_t target, uint8_t sgi)
 // Handle FIQ exceptions
 void k_fiq_exphandler(unsigned int xrq)
 {
-	uint64_t far = 0, par = 0, pa = 0;
+	uint64_t far = 0, par = 0, pa = 0, elr = 0;
+	__asm__ volatile("MRS %0, S3_0_c6_c0_0"
+					 : "=r"(far)); // FAR_EL1
+	__asm__ volatile("MRS %0, S3_0_c7_c4_0"
+					 : "=r"(par)); // PAR_EL1
+	__asm__ volatile("MRS %0, ELR_EL1"
+					 : "=r"(elr)); // ELR_EL1
+
+	cls_t *cls = get_cls();
 
 	switch (ESR_EXCEPTION_CLASS(xrq))
 	{
+	case 0b100000:
+		// Instruction Abort from a lower Exception level
+		terminal_logf("instruction abort from EL0 addr 0x%x", far);
+		if (cls->currentThread != 0)
+			terminal_logf("on PID 0x%x", cls->currentThread->pid);
+		break;
 	case 0b100100:
-		// Data abort from a lower exception level
+		// Data Abort from a lower exception level
+		terminal_logf("data abort from EL0 addr 0x%x", far);
+		if (cls->currentThread != 0)
+			terminal_logf("on PID 0x%x", cls->currentThread->pid);
+
 		break;
 	case 0b100101:
 		// Data abort without a change in exception level
-		__asm__ volatile("MRS %0, S3_0_c6_c0_0"
-						 : "=r"(far)); // FAR_EL1
-		__asm__ volatile("MRS %0, S3_0_c7_c4_0"
-						 : "=r"(par)); // PAR_EL1
-
 		pa = vm_va_to_pa(vm_get_current_table(), far);
 
 		panicf("Unhandlable Data Abort: \n\tESR: 0x%x \n\tVirtual Address: 0x%x\n\tPhysical Address: 0x%x\n\tPAR: 0x%x", xrq, far, pa, par);
 		break;
 	default:
-		terminal_logf("unhandled FIQ 0x%x\n", xrq);
+		terminal_logf("unhandled FIQ 0x%x", xrq);
 	}
 }
 

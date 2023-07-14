@@ -43,53 +43,93 @@ secondary_boot:
 
 .global k_exphandler_sync_entry
 k_exphandler_sync_entry:
-    //switch stacks and save for return 
-    MOV x29, SP
-    LDR x28, =sync_stack 
-    MOV SP, x28
-    STR	x29, [sp, #-16]!
-    STR	lr, [sp, #-16]!
+    STP x2, x3, [sp, #-16]!
+    STP x0, x1, [sp, #-16]!
+
+    //if (esr >> 26 == 0b010101)
+    // syscall()
+    MRS x0, ESR_EL1
+    LSR x0, x0, #26
+    CMP x0, #0x15
+    b.eq syscall_entry
+
+    //other sync exception
+    LDP x0, x1, [sp], #16
+    LDP x2, x3, [sp], #16
+    
+    STR x30, [sp, #-8]!
+    STP x28, x29, [sp, #-16]!
+    STP x26, x27, [sp, #-16]!
+    STP x24, x25, [sp, #-16]!
+    STP x22, x23, [sp, #-16]!
+    STP x20, x21, [sp, #-16]!
+    STP x18, x19, [sp, #-16]!
+    STP x16, x17, [sp, #-16]!
+    STP x14, x15, [sp, #-16]!
+    STP x12, x13, [sp, #-16]!
+    STP x10, x11, [sp, #-16]!
+    STP x8, x9, [sp, #-16]!
+    STP x6, x7, [sp, #-16]!
+    STP x4, x5, [sp, #-16]!
+    STP x2, x3, [sp, #-16]!
+    STP x0, x1, [sp, #-16]!
+
+    mov x0, sp
 
     .global k_exphandler_sync
     bl k_exphandler_sync
 
-    //restore 
-    LDR lr, [sp], #16
-    LDR x29, [sp], #16
-    MOV sp, x29
+    LDP x0, x1, [sp], #16
+    LDP x2, x3, [sp], #16
+    LDP x4, x5, [sp], #16
+    LDP x6, x7, [sp], #16
+    LDP x8, x9, [sp], #16
+    LDP x10, x11, [sp], #16
+    LDP x12, x13, [sp], #16
+    LDP x14, x15, [sp], #16
+    LDP x16, x17, [sp], #16
+    LDP x18, x19, [sp], #16
+    LDP x20, x21, [sp], #16
+    LDP x22, x23, [sp], #16
+    LDP x24, x25, [sp], #16
+    LDP x26, x27, [sp], #16
+    LDP x28, x29, [sp], #16
+    LDR x30, [sp], #8
+
+    ERET
+
+syscall_entry:
+    LDP x0, x1, [sp], #16
+    LDP x2, x3, [sp], #16
+
+    STR	lr, [sp, #-8]!
+
+    .global k_exphandler_swi_entry
+    bl k_exphandler_swi_entry
+
+    //restore & return
+    LDR lr, [sp], #8
 
     ERET
 
 .global k_exphandler_irq_entry
 k_exphandler_irq_entry:
-    MOV x29, SP
-    LDR x28, =intstack
-    MOV SP, x28
-    STR	x29, [sp, #-16]!
-    STR	lr, [sp, #-16]!
+    STR	lr, [sp, #-8]!
 
     .globl k_exphandler_irq
     bl k_exphandler_irq
     
-    LDR lr, [sp], #16
-    LDR x29, [sp], #16
-    MOV sp, x29
+    LDR lr, [sp], #8
 
     ERET
 
 .global k_exphandler_fiq_entry
 k_exphandler_fiq_entry:
-    MOV x29, SP
-    LDR x28, =intstack
-    MOV SP, x28
-    STR	x29, [sp, #-16]!
-    STR	lr, [sp, #-16]!
+    STR	lr, [sp, #-8]!
 
     .globl k_exphandler_fiq
     bl k_exphandler_fiq
     
-    LDR lr, [sp], #16
-    LDR x29, [sp], #16
-    MOV sp, x29
+    LDR lr, [sp], #8
 
     ERET

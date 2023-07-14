@@ -22,6 +22,11 @@ void wake_cores(void);
 void stop_cores(void);
 
 void switch_to_context(context_t *ctx);
-void save_to_context(context_t *ctx);
+void save_to_context(context_t *ctx, uintptr_t trapFrame);
+void set_to_context(context_t *ctx, uintptr_t trapFrame);
+
+uintptr_t ram_max(void);
+
+void wait_task(void);
 
 #endif

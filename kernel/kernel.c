@@ -20,7 +20,7 @@ void kernel_main2(void)
     vm_set_kernel();
     vm_enable();
     terminal_set_bar(DEVICE_REGION);
-    remaped_devicetreeoffset(RAM_MAX + 4);
+    remaped_devicetreeoffset(ram_max() + 4);
 
     terminal_logf("Booted core 0x%x", get_cls()->id);
 
@@ -29,8 +29,10 @@ void kernel_main2(void)
         // dumpdevicetree();
         thread_t *thread1 = (thread_t *)page_alloc_s(sizeof(thread_t));
         init_thread(thread1);
+        thread1->pid = 1;
         thread1->ctx.pc = 0x1000;
-        thread1->ctx.regs[0] = -1;
+        thread1->vm = (vm_table *)page_alloc_s(sizeof(vm_table));
+        thread1->ctx.regs[0] = 0;
         thread1->ctx.regs[1] = 1;
         thread1->ctx.regs[2] = 2;
         thread1->ctx.regs[3] = 3;
@@ -40,32 +42,14 @@ void kernel_main2(void)
         thread1->ctx.regs[7] = 7;
         thread1->ctx.regs[8] = 8;
         thread1->ctx.regs[9] = 9;
-        thread1->ctx.regs[10] = 10;
-        thread1->ctx.regs[11] = 11;
-        thread1->ctx.regs[12] = 12;
-        thread1->ctx.regs[13] = 13;
-        thread1->ctx.regs[14] = 14;
-        thread1->ctx.regs[15] = 15;
-        thread1->ctx.regs[16] = 16;
-        thread1->ctx.regs[17] = 17;
-        thread1->ctx.regs[18] = 18;
-        thread1->ctx.regs[19] = 19;
-        thread1->ctx.regs[20] = 20;
-        thread1->ctx.regs[21] = 21;
-        thread1->ctx.regs[22] = 22;
-        thread1->ctx.regs[23] = 23;
-        thread1->ctx.regs[24] = 24;
-        thread1->ctx.regs[25] = 25;
-        thread1->ctx.regs[26] = 26;
-        thread1->ctx.regs[27] = 27;
-        thread1->ctx.regs[28] = 28;
-        thread1->ctx.regs[29] = 29;
-        thread1->ctx.regs[30] = 30;
+        vm_init_table(thread1->vm);
+        get_cls()->currentThread = thread1;
+        __asm__ volatile("msr TPIDRRO_EL0, %0" ::"r"(thread1->pid));
+        vm_set_table(thread1->vm);
         switch_to_context(&thread1->ctx);
     }
 
-    for (;;)
-        wfi();
+    wait_task();
 }
 
 void kernel_main(void)

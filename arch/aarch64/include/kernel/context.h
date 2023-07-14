@@ -5,8 +5,8 @@
 
 typedef struct context_t
 {
-	uint64_t regs[29];
-	__uint128_t fpregs[32];
+	uint64_t regs[31];
+	uint64_t fpregs[64];
 	uint64_t pc;
 	uint64_t sp;
 	uint64_t spsr;

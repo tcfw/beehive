@@ -166,3 +166,14 @@ void arch_init(void)
 	k_setup_soft_irq();
 }
 
+uintptr_t ram_max(void)
+{
+	// TODO(tcfw): use DTB to find allocatable areas
+	return RAM_MAX;
+}
+
+void wait_task(void)
+{
+	for (;;)
+		wfi();
+}

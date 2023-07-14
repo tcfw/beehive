@@ -10,10 +10,6 @@ void spinlock_init(spinlock_t *lock)
 // Acquire the lock
 void spinlock_acquire(spinlock_t *lock)
 {
-	// unsigned int unlocked = 0;
-	// unsigned int locked = 1;
-	// while (!__atomic_compare_exchange(lock, &unlocked, &locked, 0, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST))
-	// 	; // spin
 	__asm__ volatile(
 		"mov	w2, #1 \n\t"
 		"sevl \n\t"

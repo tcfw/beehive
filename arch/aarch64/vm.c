@@ -2,13 +2,15 @@
 #include <kernel/mm.h>
 #include <kernel/tty.h>
 #include <kernel/regions.h>
+#include <kernel/paging.h>
+#include <kernel/cls.h>
 
 const uint64_t kernelstart = 0x40000000;
 extern uint64_t kernelend;
 
 vm_table *kernel_vm_map;
 
-static void vm_free_table_block(volatile vm_table_block *block);
+static void vm_free_table_block(vm_table_block *block, int level);
 static vm_table_block *vm_table_desc_to_block(uint64_t *desc);
 static vm_table_block *vm_table_entry_to_block(uint64_t *entry);
 static vm_table_block *vm_get_or_alloc_block(volatile vm_table_block *parent, uint16_t entry, uint8_t level);
@@ -25,6 +27,10 @@ static vm_table_block *vm_table_entry_to_block(uint64_t *entry)
 
 vm_table *vm_get_current_table()
 {
+	vm_table *uvm = get_cls()->currentThread->vm;
+	if (uvm != 0)
+		return uvm;
+
 	return kernel_vm_map;
 }
 
@@ -33,23 +39,23 @@ void vm_init()
 	kernel_vm_map = (vm_table *)page_alloc_s(sizeof(vm_table));
 
 	// map device space
-	if (vm_map_region(kernel_vm_map, 0x9000000, DEVICE_REGION, 4095, MEMORY_TYPE_KERNEL | MEMORY_TYPE_DEVICE | MEMORY_PERM_RW) < 0)
+	if (vm_map_region(kernel_vm_map, 0x9000000, DEVICE_REGION, 4095, MEMORY_TYPE_KERNEL | MEMORY_TYPE_DEVICE) < 0)
 		terminal_log("failed to map device region");
 
 	// map kernel code & remaining physcial memory regions
-	if (vm_map_region(kernel_vm_map, kernelstart, kernelstart, RAM_MAX - kernelstart - 1, MEMORY_TYPE_KERNEL | MEMORY_PERM_RW) < 0)
+	if (vm_map_region(kernel_vm_map, kernelstart, kernelstart, ram_max() - kernelstart - 1, MEMORY_TYPE_KERNEL) < 0)
 		terminal_log("failed to map kernel code region");
 
 	// move DBT to above RAM
-	if (vm_map_region(kernel_vm_map, 0, RAM_MAX, 0x100000 - 1, MEMORY_TYPE_KERNEL | MEMORY_TYPE_DEVICE | MEMORY_PERM_RO) < 0)
+	if (vm_map_region(kernel_vm_map, 0, ram_max(), 0x100000 - 1, MEMORY_TYPE_KERNEL | MEMORY_TYPE_DEVICE | MEMORY_PERM_RO) < 0)
 		terminal_log("failed to map dbt region");
 
-	__asm__ volatile("ISB");
 	terminal_log("Loaded kernel VM map");
 }
 
 void vm_init_table(vm_table *table)
 {
+	vm_link_tables(table, kernel_vm_map);
 }
 
 void vm_set_kernel()
@@ -101,30 +107,29 @@ uintptr_t vm_va_to_pa(vm_table *table, uintptr_t vptr)
 	return 0;
 }
 
-static void vm_free_table_block(volatile vm_table_block *block)
+static void vm_free_table_block(vm_table_block *block, int level)
 {
-	// for (uint8_t i = 0; i < 512; i++)
-	// {
-	// 	if (block->entries[i].allocd == 1 && block->entries[i].is_page == 0)
-	// 	{
-	// 		vm_free_table_block(vm_table_entry_to_block(&block->entries[i]));
-	// 	}
-	// }
-
-	// page_free(block);
+	for (uint8_t i = 0; i < 512; i++)
+	{
+		if (
+			block->entries[i] & VM_ENTRY_MAPPED == 0 &&
+			block->entries[i] & VM_ENTRY_ALLOCD > 1 &&
+			block->entries[i] & VM_ENTRY_ISTABLE > 1 &&
+			level < 3)
+			vm_free_table_block(vm_table_entry_to_block(&block->entries[i]), level + 1);
+	}
+	page_free(block);
 }
 
 void vm_free_table(vm_table *table)
 {
-	// for (uint8_t i = 0; i < 512; i++)
-	// {
-	// 	if (table->descriptors[i].allocd == 1)
-	// 	{
-	// 		vm_free_table_block(vm_table_desc_to_block(&table->descriptors[i]));
-	// 	}
-	// }
+	for (uint8_t i = 0; i < 512; i++)
+		if (
+			table->descriptors[i] & VM_DESC_MAPPED == 0 &&
+			table->descriptors[i] & VM_DESC_ALLOCD > 1)
+			vm_free_table_block(vm_table_desc_to_block(&table->descriptors[i]), 1);
 
-	// page_free(table);
+	page_free(table);
 }
 
 static vm_table_block *vm_get_or_alloc_block(volatile vm_table_block *parent, uint16_t entry, uint8_t level)
@@ -183,36 +188,18 @@ int vm_map_region(vm_table *table, uintptr_t pstart, uintptr_t vstart, size_t si
 		if (flags & MEMORY_TYPE_KERNEL)
 		{
 			// *desc |= VM_DESC_UXN;
-			// desc->permissions = 0;		  // EL0 No read
 
 			if (flags & MEMORY_PERM_RO)
-			{
-				// *desc |= VM_DESC_PXN;
-
-				// desc->privilege_execute_never = 1; // ELx Not executable
-				// desc->permissions = 0b10;		   // RO, EL0 No read
-			}
+				*desc |= VM_DESC_PXN;
 		}
 		else if (flags & MEMORY_TYPE_USER)
-		{
-			// desc->permissions = 0b01; // RO, EL1+0 read/write
-
-			// if (flags & MEMORY_PERM_RO)
-			// {
-			// 	desc->user_execute_never = 1; // ELx Not executable
-			// 	desc->permissions = 0b11;	  // RO, EL1+0 read only
-			// }
 			*desc |= VM_ENTRY_USER;
-		}
+
 		if (flags & MEMORY_TYPE_DEVICE)
-		{
 			*desc |= (1 << VM_DESC_ATTR) | VM_ENTRY_OSH;
-		}
 	}
 	else
-	{
 		table_l1 = vm_table_desc_to_block(&table->descriptors[l0]);
-	}
 
 	while (vstart < vend)
 	{
@@ -236,7 +223,7 @@ int vm_map_region(vm_table *table, uintptr_t pstart, uintptr_t vstart, size_t si
 			incsize = L2_BLOCK_SIZE + 1;
 			vpage = &table_l2->entries[l2];
 		}
-		else // if (range > L1_BLOCK_SIZE && l3 == 0 && l2 == 0)
+		else
 		{
 			if (!table_l2)
 				table_l2 = vm_get_or_alloc_block(table_l1, l1, 1);
@@ -246,12 +233,6 @@ int vm_map_region(vm_table *table, uintptr_t pstart, uintptr_t vstart, size_t si
 
 			vpage = &table_l3->entries[l3];
 		}
-		// else if (range > L0_BLOCK_SIZE && l3 == 0 && l2 == 0 && l1 == 0)
-		// {
-		// 	level = 0;
-		// 	incsize = L0_BLOCK_SIZE;
-		// 	vpage = &table->descriptors[l0];
-		// }
 
 		if ((*vpage & VM_ENTRY_MAPPED) > 0)
 		{
@@ -269,18 +250,21 @@ int vm_map_region(vm_table *table, uintptr_t pstart, uintptr_t vstart, size_t si
 		*vpage |= addr;
 
 		if (level == 3)
-		{
 			*vpage |= VM_ENTRY_ISTABLE;
-		}
 
-		// TODO(tcfw) memory flags
-		// TODO(tcfw) access perms
-		// TODO(tcfw) check if contiguous
+		// TODO(tcfw) check if contiguous - see armv8-a ref RCBXXM
 
 		if (flags & MEMORY_TYPE_USER)
-		{
 			*vpage |= VM_ENTRY_USER;
-		}
+
+		if (flags & MEMORY_PERM_RO)
+			*vpage |= VM_ENTRY_PERM_RO;
+
+		if (flags & MEMORY_NON_EXEC)
+			*vpage |= VM_ENTRY_PXN | VM_ENTRY_UXN;
+
+		if (flags & MEMORY_USER_NON_EXEC)
+			*vpage |= VM_ENTRY_UXN;
 
 		// terminal_logf("mapped memory v:0x%x to p:0x%x at level %x in pte %x (%x %x %x %x): %x", vstart, pstart, level, vpage, l0, l1, l2, l3, *vpage);
 
@@ -359,26 +343,6 @@ void vm_enable()
 					(20 << TCR_T0SZ_SHIFT) | TCR_SH0_INNER | TCR_IRGN0_WRITEBACK |
 					TCR_ORGN0_WRITEBACK);
 
-	// uint64_t b = 0;
-	// __asm__ volatile("mrs %0, id_aa64mmfr0_el1"
-	// 				 : "=r"(b));
-	// b &= 0xF;
-
-	// uint64_t tcr = (0b00LL << 37) | // TBI=0, no tagging
-	// 			   (b << 32) |		// IPS=autodetected
-	// 			   (0b10LL << 30) | // TG1=4k
-	// 			   (0b11LL << 28) | // SH1=3 inner
-	// 			   (0b01LL << 26) | // ORGN1=1 write back
-	// 			   (0b01LL << 24) | // IRGN1=1 write back
-	// 			   (0b0LL << 23) |	// EPD1 enable higher half
-	// 			   (25LL << 16) |	// T1SZ=25, 3 levels (512G)
-	// 			   (0b00LL << 14) | // TG0=4k
-	// 			   (0b11LL << 12) | // SH0=3 inner
-	// 			   (0b01LL << 10) | // ORGN0=1 write back
-	// 			   (0b01LL << 8) |	// IRGN0=1 write back
-	// 			   (0b0LL << 7) |	// EPD0 enable lower half
-	// 			   (25LL << 0);		// T0SZ=25, 3 levels (512G)
-
 	__asm__ volatile("msr TCR_EL1, %0" ::"r"(tcr));
 
 	__asm__ volatile("IC IALLU");
@@ -396,4 +360,20 @@ void vm_enable()
 
 	__asm__ volatile("MSR sctlr_el1, %0" ::"r"(sctlr));
 	__asm__ volatile("ISB");
+}
+
+int vm_link_tables(vm_table *table1, vm_table *table2)
+{
+	for (int i = 0; i < 512; i++)
+	{
+		if (table2->descriptors[i] == 0)
+			continue;
+
+		if (table1->descriptors[i] != 0)
+			return -1;
+
+		table1->descriptors[i] = table2->descriptors[i] | VM_ENTRY_MAPPED;
+	}
+
+	return 0;
 }
