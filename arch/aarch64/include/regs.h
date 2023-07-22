@@ -3,11 +3,12 @@
 
 #define ESR_EXCEPTION_CLASS(xrq) ((xrq & 0xFC000000) >> 26)
 
+#define SPSR_Z (1ULL << 30)
 #define SPSR_UAO (1ULL << 23)
 #define SPSR_PAN (1ULL << 22)
 #define SPSR_SS (1ULL << 21)
 #define SPSR_IL (1ULL << 20)
-#define SPSR_D (1ULL << 9)
+#define SPSR_E (1ULL << 9)
 #define SPSR_A (1ULL << 8)
 #define SPSR_I (1ULL << 7)
 #define SPSR_F (1ULL << 6)

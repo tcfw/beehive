@@ -216,14 +216,18 @@ void terminal_write(const char *data, size_t size)
 
 void terminal_logf(char *fmt, ...)
 {
-    char buf[2048];
+    static char buf[2048];
+    static spinlock_t buflock = 0;
+    spinlock_acquire(&buflock);
 
     __builtin_va_list argp;
     __builtin_va_start(argp, fmt);
 
-    ksprintfz(buf, fmt, argp);
+    ksprintfz(&buf, fmt, argp);
 
     __builtin_va_end(argp);
 
     terminal_log(buf);
+
+    spinlock_release(&buflock);
 }

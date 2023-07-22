@@ -12,6 +12,8 @@ extern void halt_loop();
 
 extern uintptr_t stack;
 
+#define CORE_BOOT_SP_SIZE (128 * 1024)
+
 // enable Floating point instructions
 static void
 enableFP()
@@ -133,12 +135,10 @@ void wake_cores(void)
 
 	for (int i = 1; i < cpuN; i++)
 	{
-		cpu_spin_table[i] = page_alloc_s(128 * 1024);
+		cpu_spin_table[i] = page_alloc_s(CORE_BOOT_SP_SIZE) + CORE_BOOT_SP_SIZE;
 		int ret = psci_cpu_on(i, secondary_boot);
 		if (ret < 0)
-		{
 			terminal_logf("failed to boot CPU: %x", ret);
-		}
 	}
 
 	__asm__ volatile("sev");

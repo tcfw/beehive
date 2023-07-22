@@ -12,6 +12,8 @@
 #include <kernel/thread.h>
 #include "stdint.h"
 
+extern void user_init(void);
+
 void kernel_main2(void)
 {
     arch_init();
@@ -30,19 +32,17 @@ void kernel_main2(void)
         thread_t *thread1 = (thread_t *)page_alloc_s(sizeof(thread_t));
         init_thread(thread1);
         thread1->pid = 1;
-        thread1->ctx.pc = 0x1000;
+        thread1->ctx.pc = 0x1000ULL;
         thread1->vm = (vm_table *)page_alloc_s(sizeof(vm_table));
-        thread1->ctx.regs[0] = 0;
-        thread1->ctx.regs[1] = 1;
-        thread1->ctx.regs[2] = 2;
-        thread1->ctx.regs[3] = 3;
-        thread1->ctx.regs[4] = 4;
-        thread1->ctx.regs[5] = 5;
-        thread1->ctx.regs[6] = 6;
-        thread1->ctx.regs[7] = 7;
-        thread1->ctx.regs[8] = 8;
-        thread1->ctx.regs[9] = 9;
+
+        void *prog = page_alloc(0);
+        memcpy(prog, &user_init, 0x10);
+
         vm_init_table(thread1->vm);
+        int r = vm_map_region(thread1->vm, prog, 0x1000ULL, 4095, MEMORY_TYPE_USER);
+        if (r < 0)
+            terminal_logf("failed to map user region: 0x%x", r);
+
         get_cls()->currentThread = thread1;
         __asm__ volatile("msr TPIDRRO_EL0, %0" ::"r"(thread1->pid));
         vm_set_table(thread1->vm);

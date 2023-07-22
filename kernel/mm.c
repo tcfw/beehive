@@ -30,7 +30,7 @@ void page_alloc_init()
 	pages = (struct buddy_t *)&kernelend;
 	pages->size = BUDDY_ARENA_SIZE;
 	pages->arena = (unsigned char *)end_of_buddies;
-	pages->arena += 4096 - ((uintptr_t)pages->arena % 4096); // page align
+	pages->arena += ARCH_PAGE_SIZE - ((uintptr_t)pages->arena % ARCH_PAGE_SIZE); // page align
 
 	buddy_init(pages);
 
@@ -44,18 +44,16 @@ void page_alloc_init()
 	{
 		// TODO(tcfw): support memory holes & NUMA layouts
 
-		struct buddy_t *current = (struct buddy_t *)(prev + buddy_struct_size);
+		struct buddy_t *current = (struct buddy_t *)(prev + 1);
 		current->size = BUDDY_ARENA_SIZE;
 		current->arena = prev->arena + prev->size;
-
-		if ((uintptr_t)(current->arena + current->size) > ram_max_addr)
-		{
-			// partial buddy
-			current->size = ram_max_addr - (uint64_t)current->arena;
-			terminal_logf("Partial buddy arena at 0x%x size: 0x%x", prev->arena, prev->size);
-		}
-
 		buddy_init(current);
+
+		// partial buddy
+		if ((uintptr_t)(current->arena + current->size) > ram_max_addr)
+			current->size = ram_max_addr - (uint64_t)current->arena;
+
+		// terminal_logf("Buddy: *0x%x size: 0x%x arena: 0x%x", current, current->size, current->arena);
 
 		prev->next = current;
 		prev = current;

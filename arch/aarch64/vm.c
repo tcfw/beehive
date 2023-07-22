@@ -4,6 +4,7 @@
 #include <kernel/regions.h>
 #include <kernel/paging.h>
 #include <kernel/cls.h>
+#include <kernel/strings.h>
 
 const uint64_t kernelstart = 0x40000000;
 extern uint64_t kernelend;
@@ -33,6 +34,8 @@ vm_table *vm_get_current_table()
 
 	return kernel_vm_map;
 }
+
+extern void user_init(void);
 
 void vm_init()
 {
@@ -125,7 +128,7 @@ void vm_free_table(vm_table *table)
 {
 	for (uint8_t i = 0; i < 512; i++)
 		if (
-			table->descriptors[i] & VM_DESC_MAPPED == 0 &&
+			table->descriptors[i] & VM_DESC_LINK == 0 &&
 			table->descriptors[i] & VM_DESC_ALLOCD > 1)
 			vm_free_table_block(vm_table_desc_to_block(&table->descriptors[i]), 1);
 
@@ -144,6 +147,7 @@ static vm_table_block *vm_get_or_alloc_block(volatile vm_table_block *parent, ui
 	if ((parent->entries[entry] & VM_ENTRY_ALLOCD) == 0)
 	{
 		block = (vm_table_block *)page_alloc_s(sizeof(vm_table_block));
+		memset(block, 0, sizeof(vm_table_block));
 
 		parent->entries[entry] = (uintptr_t)block & VM_ENTRY_OA_MASK;
 		parent->entries[entry] |= (VM_ENTRY_ALLOCD | VM_ENTRY_ISTABLE | VM_ENTRY_VALID | VM_ENTRY_NONSECURE);
@@ -182,18 +186,23 @@ int vm_map_region(vm_table *table, uintptr_t pstart, uintptr_t vstart, size_t si
 	{
 		// alloc block
 		table_l1 = (vm_table_block *)page_alloc_s(sizeof(vm_table_block));
+		memset(table_l1, 0, sizeof(vm_table_block));
+
 		*desc = (VM_DESC_VALID | VM_DESC_IS_DESC | VM_DESC_ALLOCD | VM_DESC_NONSECURE | VM_DESC_AF | VM_ENTRY_ISH);
 		*desc |= ((uintptr_t)table_l1 & VM_DESC_NEXT_LEVEL_MASK);
 
-		if (flags & MEMORY_TYPE_KERNEL)
-		{
-			// *desc |= VM_DESC_UXN;
+		// if (flags & MEMORY_TYPE_KERNEL)
+		// 	*desc |= VM_DESC_AP_KERNEL;
 
-			if (flags & MEMORY_PERM_RO)
+		if (flags & MEMORY_PERM_RO)
+		{
+			*desc |= VM_DESC_AP_RO;
+
+			if (flags & MEMORY_TYPE_KERNEL)
 				*desc |= VM_DESC_PXN;
+			if (flags & MEMORY_TYPE_USER)
+				*desc |= VM_DESC_UXN;
 		}
-		else if (flags & MEMORY_TYPE_USER)
-			*desc |= VM_ENTRY_USER;
 
 		if (flags & MEMORY_TYPE_DEVICE)
 			*desc |= (1 << VM_DESC_ATTR) | VM_ENTRY_OSH;
@@ -372,7 +381,7 @@ int vm_link_tables(vm_table *table1, vm_table *table2)
 		if (table1->descriptors[i] != 0)
 			return -1;
 
-		table1->descriptors[i] = table2->descriptors[i] | VM_ENTRY_MAPPED;
+		table1->descriptors[i] = table2->descriptors[i] | VM_DESC_LINK;
 	}
 
 	return 0;

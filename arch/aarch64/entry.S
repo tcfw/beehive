@@ -9,7 +9,7 @@ _start:
 
 boot:
     // Set Stackpointer
-    LDR x0, =stack+0x20000
+    LDR x0, =stack
     MOV sp, x0
 
     ISB
@@ -38,8 +38,6 @@ secondary_boot:
 
     MOV sp, X1
     B kernel_main2
-
-.set sync_stack, intstack
 
 .global k_exphandler_sync_entry
 k_exphandler_sync_entry:
@@ -102,13 +100,8 @@ syscall_entry:
     LDP x0, x1, [sp], #16
     LDP x2, x3, [sp], #16
 
-    STR	lr, [sp, #-8]!
-
     .global k_exphandler_swi_entry
     bl k_exphandler_swi_entry
-
-    //restore & return
-    LDR lr, [sp], #8
 
     ERET
 
