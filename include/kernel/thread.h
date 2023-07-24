@@ -31,7 +31,10 @@ typedef struct thread_t
 	//  queues
 } thread_t;
 
+// Init a thread
 void init_thread(thread_t *thread);
+
+// Init a thread context
 void init_context(context_t *ctx);
 
 #endif

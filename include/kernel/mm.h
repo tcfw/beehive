@@ -14,13 +14,25 @@ struct page
 #define MEMORY_NON_EXEC (1 << 4)
 #define MEMORY_USER_NON_EXEC (1 << 5)
 
+// Init the page allocator
 void page_alloc_init(void);
-void *page_alloc(unsigned int order);
-void *page_alloc_s(size_t size);
+
+// Get a free page at the order size
+struct page *page_alloc(unsigned int order);
+
+// Get a free page at a specific size
+struct page *page_alloc_s(size_t size);
+
+// Free an allocated page
 void page_free(void *page);
+
+// Get the required order which can fit the desired size
 unsigned int size_to_order(size_t size);
 
+// Allocate a region for the given sized object
 void *kmalloc(size_t size);
+
+// Free a given object
 void kfree(void *obj);
 
 #endif

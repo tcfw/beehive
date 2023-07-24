@@ -3,6 +3,7 @@
 
 #include "stdint.h"
 
+// Get the current EL level
 uint32_t currentEL();
 
 #endif

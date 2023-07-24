@@ -40,9 +40,13 @@ struct fdt_prop_t
 	uint32_t nameoff;
 };
 
+// Dump the device tree to terminal
 void dumpdevicetree();
+
+// Remap the device tree source to the given offset in memory
 void remaped_devicetreeoffset(uintptr_t offset);
 
+// Count the number of matching device types
 uint32_t devicetree_count_dev_type(char *);
 
 #endif

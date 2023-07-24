@@ -74,13 +74,13 @@ unsigned int size_to_order(size_t size)
 	return order;
 }
 
-void *page_alloc_s(size_t size)
+struct page *page_alloc_s(size_t size)
 {
 	unsigned int order = size_to_order(size);
-	return page_alloc(order);
+	return (struct page *)page_alloc(order);
 }
 
-void *page_alloc(unsigned int order)
+struct page *page_alloc(unsigned int order)
 {
 	spinlock_acquire(&page_lock);
 
@@ -88,7 +88,7 @@ void *page_alloc(unsigned int order)
 
 	spinlock_release(&page_lock);
 
-	return addr;
+	return (struct page *)addr;
 }
 
 void page_free(void *ptr)

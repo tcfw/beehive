@@ -13,10 +13,13 @@ struct syscall_handler_t
 	uint8_t argc;
 };
 
+// Register a syscall handler
 void register_syscall_handler(unsigned int n, syscall_handler_cb handler, uint8_t argc);
 
+// Handle a syscall entry
 int ksyscall_entry(uint64_t type, uint64_t arg0, uint64_t arg1, uint64_t arg2, uint64_t arg3);
 
+// Initiate builtin syscalls
 void syscall_init();
 
 #endif

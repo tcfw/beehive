@@ -26,31 +26,55 @@
 #define GICV3_GROUP1_SECURE 1
 #define GICV3_GROUP1_NON_SECURE 2
 
+// Set the GIC base address
 void setGICAddr(void *dist, void *rdist, void *cpu);
+
+// Get the redistributor id for the affinity
 uint32_t getRedistID(uint32_t affinity);
 
+// Enable the redistributor
 void gic_redist_enable(uint32_t rd);
+// Set the interrupt priority on the redistributor
 void gic_redist_set_int_priority(uint32_t xrq, uint32_t rd, uint8_t priority);
+// Set the interrupt group for the interrupt on the redistributor
 void gic_redist_set_int_group(uint32_t xrq, uint32_t rd, uint32_t security);
+
+// Enable the interrupt number for the redistributor
 void gic_redist_enable_int(uint32_t xrq, uint32_t rd);
 
+// Enable the global distributor
 void gic_dist_enable();
+// Enable the interrupt number on the global distributor
 void gic_dist_enable_xrq_n(uint32_t n, uint32_t xrq);
 
 #define GICV3_ROUTE_MODE_ANY (0x80000000)
 #define GICV3_ROUTE_MODE_COORDINATE (0)
+
+// Set the interrupt affinity target on the interrupt number
 void gic_dist_target(uint32_t xrq, uint32_t mode, uint32_t affinity);
 
 #define GICV3_CONFIG_LEVEL (0)
 #define GICV3_CONFIG_EDGE (2)
+
+// Set the interrupt config for on the distributor
 void gic_dist_xrq_config(uint32_t xrq, uint32_t type);
+
+// Clear the pending interrupt on the distributor
 void gic_dist_clear_n(uint8_t n, uint32_t xrq);
 
+// Init the local CPU interface
 void gic_cpu_init();
+
+// Enable the local CPU interface
 void gic_cpu_enable();
+
+// Disable the local CPU interface
 void gic_cpu_disable();
+
+// Set the priority mask on the CPU interface
 void gic_cpu_set_priority_mask(uint8_t mask);
 
+// Mark end of interrupt for group 1 interrupts on the CPU interface
 void gic_cpu_eoi_gp1(uint32_t xpr);
 
 struct GICv3_dist_if
