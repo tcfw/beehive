@@ -23,8 +23,11 @@ LIBS:=$(LIBS) -nostdlib
 include $(ARCHDIR)/make.config
 
 KERNEL_OBJS=$(KERNEL_ARCH_OBJS) $(patsubst %.c,%.o,$(wildcard kernel/*.c))
+# OBJS=$(KERNEL_OBJS)
 OBJS=$(KERNEL_OBJS)
+# OBJS=$(addprefix ${BUILD_DIR}/,${KERNEL_OBJS})
 LINK_LIST=$(LDFLAGS) $(addprefix ${BUILD_DIR}/,${KERNEL_OBJS}) $(LIBS)
+# LINK_LIST=$(LDFLAGS) $(KERNEL_OBJS) $(LIBS)
  
 CFLAGS:=$(CFLAGS) $(KERNEL_ARCH_CFLAGS)
 CPPFLAGS:=$(CPPFLAGS) $(KERNEL_ARCH_CPPFLAGS)

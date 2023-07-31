@@ -1,11 +1,13 @@
 #include <kernel/irq.h>
 #include <kernel/arch.h>
 #include <kernel/tty.h>
+#include <kernel/clock.h>
 #include <kernel/mm.h>
 #include <devicetree.h>
 #include "stdint.h"
+#include "clocks.h"
 
-uint64_t cpu_spin_table[256] = {0};
+uintptr_t cpu_spin_table[256] = {0};
 
 extern void secondary_boot();
 extern void halt_loop();
@@ -69,48 +71,6 @@ void wfi()
 	__asm__ volatile("wfi");
 }
 
-uint64_t getCounterValue()
-{
-	uint64_t value = 0;
-	__asm__ volatile("MRS %0, CNTP_TVAL_EL0" ::"r"(value));
-
-	return value & 0xffffffff;
-}
-
-void enableCounter()
-{
-	uint64_t cnt_ctl = 0x1;
-	__asm__ volatile("MSR CNTP_CTL_EL0, %0"
-					 : "=r"(cnt_ctl));
-}
-
-uint64_t getSysCounterValue()
-{
-	uint64_t value = 0;
-	__asm__ volatile("MRS %0, CNTPCT_EL0" ::"r"(value));
-	return value;
-}
-
-uint64_t getCounterFreq()
-{
-	uint64_t freq = 0;
-	__asm__ volatile("MRS %0, CNTFRQ_EL0" ::"r"(freq));
-	return (freq & 0xffffffff);
-}
-
-void setCounterValue(uint64_t value)
-{
-	// armv8-a only supports a 32bit counter
-	value &= 0xffffffff;
-	__asm__ volatile("MSR CNTP_TVAL_EL0, %0" ::"r"(value));
-}
-
-void setCounterCompareValue(uint64_t value)
-{
-	__asm__ volatile("MSR CNTP_CVAL_EL0, %0"
-					 : "=r"(value));
-}
-
 static uint64_t psci_cpu_on(uint64_t affinity, uint64_t entrypoint)
 {
 	uint64_t ret = 0;
@@ -135,7 +95,7 @@ void wake_cores(void)
 
 	for (int i = 1; i < cpuN; i++)
 	{
-		cpu_spin_table[i] = page_alloc_s(CORE_BOOT_SP_SIZE) + CORE_BOOT_SP_SIZE;
+		cpu_spin_table[i] = (uintptr_t)page_alloc_s(CORE_BOOT_SP_SIZE) + CORE_BOOT_SP_SIZE;
 		int ret = psci_cpu_on(i, secondary_boot);
 		if (ret < 0)
 			terminal_logf("failed to boot CPU: %x", ret);
@@ -149,21 +109,18 @@ void stop_cores(void)
 	send_soft_irq_all_cores(0);
 }
 
-static void cpu_init(void)
+void core_init(void)
 {
 	disable_xrq();
 	init_xrq();
-	enableCounter();
-	setCounterValue(0);
-	setCounterCompareValue(0);
 	enableFP();
 }
 
 // Init arch by disabling local interrupts and initialising the global & local interrupts
 void arch_init(void)
 {
-	cpu_init();
 	k_setup_soft_irq();
+	k_setup_clock_irq();
 }
 
 uintptr_t ram_max(void)

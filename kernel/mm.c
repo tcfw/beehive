@@ -4,6 +4,7 @@
 #include <kernel/tty.h>
 #include <kernel/strings.h>
 #include <kernel/sync.h>
+#include <kernel/arch.h>
 #include "stdint.h"
 
 extern uint64_t kernelend;

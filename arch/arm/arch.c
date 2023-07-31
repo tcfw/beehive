@@ -1,4 +1,5 @@
 #include <kernel/irq.h>
+#include <kernel/arch.h>
 
 void arch_init(void)
 {

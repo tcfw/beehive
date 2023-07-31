@@ -1,10 +1,11 @@
-#include <kernel/vm.h>
-#include <kernel/mm.h>
-#include <kernel/tty.h>
-#include <kernel/regions.h>
-#include <kernel/paging.h>
+#include <kernel/arch.h>
 #include <kernel/cls.h>
+#include <kernel/mm.h>
+#include <kernel/paging.h>
+#include <kernel/regions.h>
 #include <kernel/strings.h>
+#include <kernel/tty.h>
+#include <kernel/vm.h>
 
 const uint64_t kernelstart = 0x40000000;
 extern uint64_t kernelend;
@@ -14,7 +15,7 @@ vm_table *kernel_vm_map;
 static void vm_free_table_block(vm_table_block *block, int level);
 static vm_table_block *vm_table_desc_to_block(uint64_t *desc);
 static vm_table_block *vm_table_entry_to_block(uint64_t *entry);
-static vm_table_block *vm_get_or_alloc_block(volatile vm_table_block *parent, uint16_t entry, uint8_t level);
+static vm_table_block *vm_get_or_alloc_block(vm_table_block *parent, uint16_t entry, uint8_t level);
 
 static vm_table_block *vm_table_desc_to_block(uint64_t *desc)
 {
@@ -112,12 +113,12 @@ uintptr_t vm_va_to_pa(vm_table *table, uintptr_t vptr)
 
 static void vm_free_table_block(vm_table_block *block, int level)
 {
-	for (uint8_t i = 0; i < 512; i++)
+	for (int i = 0; i < 512; i++)
 	{
 		if (
-			block->entries[i] & VM_ENTRY_MAPPED == 0 &&
-			block->entries[i] & VM_ENTRY_ALLOCD > 1 &&
-			block->entries[i] & VM_ENTRY_ISTABLE > 1 &&
+			(block->entries[i] & VM_ENTRY_MAPPED) == 0 &&
+			(block->entries[i] & VM_ENTRY_ALLOCD) > 1 &&
+			(block->entries[i] & VM_ENTRY_ISTABLE) > 1 &&
 			level < 3)
 			vm_free_table_block(vm_table_entry_to_block(&block->entries[i]), level + 1);
 	}
@@ -126,16 +127,16 @@ static void vm_free_table_block(vm_table_block *block, int level)
 
 void vm_free_table(vm_table *table)
 {
-	for (uint8_t i = 0; i < 512; i++)
+	for (int i = 0; i < 512; i++)
 		if (
-			table->descriptors[i] & VM_DESC_LINK == 0 &&
-			table->descriptors[i] & VM_DESC_ALLOCD > 1)
+			(table->descriptors[i] & VM_DESC_LINK) == 0 &&
+			(table->descriptors[i] & VM_DESC_ALLOCD) > 1)
 			vm_free_table_block(vm_table_desc_to_block(&table->descriptors[i]), 1);
 
 	page_free(table);
 }
 
-static vm_table_block *vm_get_or_alloc_block(volatile vm_table_block *parent, uint16_t entry, uint8_t level)
+static vm_table_block *vm_get_or_alloc_block(vm_table_block *parent, uint16_t entry, uint8_t level)
 {
 	if (entry > 511)
 	{
@@ -179,8 +180,8 @@ int vm_map_region(vm_table *table, uintptr_t pstart, uintptr_t vstart, size_t si
 	vm_table_block *table_l1 = 0;
 	vm_table_block *table_l2 = 0;
 	vm_table_block *table_l3 = 0;
-	volatile uint64_t *vpage = 0;
-	volatile uint64_t *desc = &table->descriptors[l0];
+	uint64_t *vpage = 0;
+	uint64_t *desc = &table->descriptors[l0];
 
 	if ((*desc & VM_DESC_ALLOCD) == 0)
 	{
@@ -360,7 +361,7 @@ void vm_enable()
 	__asm__ volatile("DSB ISH");
 	__asm__ volatile("ISB");
 
-	volatile uint64_t sctlr = 0;
+	uint64_t sctlr = 0;
 	__asm__ volatile("MRS %0, sctlr_el1"
 					 : "=r"(sctlr));
 

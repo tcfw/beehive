@@ -1,11 +1,12 @@
 #include "gic.h"
 #include "regs.h"
 #include <kernel/arch.h>
-#include <kernel/irq.h>
-#include <kernel/syscall.h>
-#include <kernel/panic.h>
-#include <kernel/vm.h>
 #include <kernel/cls.h>
+#include <kernel/irq.h>
+#include <kernel/panic.h>
+#include <kernel/syscall.h>
+#include <kernel/tty.h>
+#include <kernel/vm.h>
 #include <stdint.h>
 
 extern unsigned long stack;

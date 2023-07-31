@@ -7,6 +7,9 @@
 // Initiate arch specific requirements
 void arch_init(void);
 
+// Initiate a single core
+void core_init(void);
+
 // Turn off arch specific components
 void arch_poweroff();
 
@@ -18,24 +21,6 @@ uint64_t cpu_brand();
 
 // Wait for interrupt
 void wfi();
-
-// Enable the local processor counter
-void enableCounter();
-
-// Get the local processor counter tick frequency
-uint64_t getCounterFreq();
-
-// Set the local processor counter value
-void setCounterValue(uint64_t);
-
-// Get the local processor counter value
-uint64_t getCounterValue();
-
-// Set the local processor counter compare value
-void setCounterCompareValue(uint64_t);
-
-// Get the global system counter value
-uint64_t getSysCounterValue();
 
 // Wake up all other cores
 void wake_cores(void);
@@ -60,5 +45,8 @@ uintptr_t ram_max(void);
 
 // Switch to the wait task
 void wait_task(void);
+
+// init register clocks sources
+void registerClocks(void);
 
 #endif

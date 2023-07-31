@@ -10,13 +10,21 @@
 #include <kernel/regions.h>
 #include <kernel/cls.h>
 #include <kernel/thread.h>
+#include <kernel/clock.h>
 #include "stdint.h"
 
 extern void user_init(void);
 
 void kernel_main2(void)
 {
-    arch_init();
+    global_clock_init();
+
+    if (cpu_id() != 0)
+    {
+        core_init();
+        arch_init();
+    }
+
     enable_xrq();
 
     vm_set_kernel();
@@ -46,7 +54,18 @@ void kernel_main2(void)
         get_cls()->currentThread = thread1;
         __asm__ volatile("msr TPIDRRO_EL0, %0" ::"r"(thread1->pid));
         vm_set_table(thread1->vm);
-        switch_to_context(&thread1->ctx);
+        // switch_to_context(&thread1->ctx);
+    }
+    else if (cpu_id() == 1)
+    {
+        struct clocksource_t *cs = clock_first(CS_GLOBAL);
+        terminal_logf("Clock Global 0x%x", cs->val(cs));
+        uint64_t freq = cs->getFreq(cs);
+        uint64_t val = cs->val(cs);
+        cs->countNTicks(cs, freq / 2);
+        cs->enable(cs);
+        cs->enableIRQ(cs, 0);
+        __asm__ volatile("ISB");
     }
 
     wait_task();
@@ -54,6 +73,8 @@ void kernel_main2(void)
 
 void kernel_main(void)
 {
+    registerClocks();
+    core_init();
     arch_init();
     terminal_initialize();
 

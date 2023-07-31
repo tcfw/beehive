@@ -2,6 +2,7 @@
 #include <kernel/irq.h>
 #include <kernel/strings.h>
 #include <kernel/arch.h>
+#include <kernel/clock.h>
 #include <stdint.h>
 #include "unistd.h"
 #include "stdint.h"
@@ -195,9 +196,12 @@ void terminal_log(char *str)
 {
     spinlock_acquire(&log_lock);
 
-    char buf[8];
-    double freq = getCounterFreq();
-    double cval = getSysCounterValue();
+    static char buf[8];
+
+    struct clocksource_t *cs = clock_first(CS_GLOBAL);
+
+    double freq = cs->getFreq(cs);
+    double cval = cs->val(cs);
     double val = cval / freq;
 
     ksprintf(&buf[0], "[%.4f] ", val);
@@ -223,7 +227,7 @@ void terminal_logf(char *fmt, ...)
     __builtin_va_list argp;
     __builtin_va_start(argp, fmt);
 
-    ksprintfz(&buf, fmt, argp);
+    ksprintfz((char *)&buf, fmt, argp);
 
     __builtin_va_end(argp);
 

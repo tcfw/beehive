@@ -49,4 +49,7 @@ void remaped_devicetreeoffset(uintptr_t offset);
 // Count the number of matching device types
 uint32_t devicetree_count_dev_type(char *);
 
+// Get a properly for the first instance of a device with a matching type
+struct fdt_reserve_entry_t *devicetree_get_property_by_first_device_type(char *);
+
 #endif

@@ -1,6 +1,8 @@
 #include <kernel/panic.h>
+#include <kernel/strings.h>
 #include <kernel/tty.h>
 #include <kernel/arch.h>
+#include <kernel/irq.h>
 
 static void _panic();
 

@@ -35,6 +35,9 @@ void k_fiq_exphandler(unsigned int xrq);
 // Initiate software interrupts
 void k_setup_soft_irq();
 
+// Initiate clock interrupts
+void k_setup_clock_irq();
+
 // Interrupt handler
 typedef void (*irq_handler_cb)(unsigned int type);
 

@@ -121,12 +121,12 @@
 #define TTBR_ASID_MASK (0xffff000000000000ULL)
 #define TTBR_BADDR_MASK (0x0000ffffffffffffULL)
 
-typedef volatile struct vm_table_block_t
+typedef struct vm_table_block_t
 {
 	uint64_t entries[512];
 } vm_table_block;
 
-typedef volatile struct vm_table_t
+typedef struct vm_table_t
 {
 	// struct vm_table_desc_t descriptors[512];
 	uint64_t descriptors[512];
