@@ -7,7 +7,6 @@
 /*
 
 // Impl syscall
-
 int syscall1(uint32_t arg1)
 {
 	uint32_t ret;
@@ -29,7 +28,6 @@ int syscall_test(pid_t _, uint64_t arg0)
 	terminal_logf("got syscall 1 => arg0: %x\n", arg0);
 	return 3;
 }
-
 */
 
 #define SYSCALL_MAX 60
@@ -39,7 +37,7 @@ struct syscall_handler_t syscall_handers[SYSCALL_MAX];
 // syscall entry router
 int ksyscall_entry(uint64_t type, uint64_t arg0, uint64_t arg1, uint64_t arg2, uint64_t arg3)
 {
-	disable_xrq();
+	disable_irq();
 
 	int ret = -ERRNOSYS;
 	struct syscall_handler_t *handler = &syscall_handers[(int)type];
@@ -66,7 +64,7 @@ int ksyscall_entry(uint64_t type, uint64_t arg0, uint64_t arg1, uint64_t arg2, u
 		}
 	}
 
-	enable_xrq();
+	enable_irq();
 
 	return ret;
 }

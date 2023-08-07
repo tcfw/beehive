@@ -36,7 +36,6 @@ void kernel_main2(void)
 
     if (cpu_id() == 0)
     {
-        // dumpdevicetree();
         thread_t *thread1 = (thread_t *)page_alloc_s(sizeof(thread_t));
         init_thread(thread1);
         thread1->pid = 1;
@@ -54,7 +53,7 @@ void kernel_main2(void)
         get_cls()->currentThread = thread1;
         __asm__ volatile("msr TPIDRRO_EL0, %0" ::"r"(thread1->pid));
         vm_set_table(thread1->vm);
-        // switch_to_context(&thread1->ctx);
+        switch_to_context(&thread1->ctx);
     }
     else if (cpu_id() == 1)
     {
@@ -87,9 +86,9 @@ void kernel_main(void)
     terminal_logf("CPU Count: 0x%x", coreCount);
 
     page_alloc_init();
-    vm_init();
     syscall_init();
     init_cls(coreCount);
+    vm_init();
 
     wake_cores();
     kernel_main2();

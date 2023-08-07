@@ -16,6 +16,14 @@ void disable_xrq(void);
 // Enable interrupts for the local core
 void enable_xrq(void);
 
+// Disable interrutps for the local core
+// for when handling syscalls
+void disable_irq(void);
+
+// Enable interrupts for the local core
+// for when handling syscalls
+void enable_irq(void);
+
 // Enable the specific interrupt for the local core
 void enable_xrq_n(unsigned int);
 

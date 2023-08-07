@@ -55,48 +55,16 @@ extern unsigned long stack;
 // handle syscall inner
 void k_exphandler_swi_entry(uint64_t x0, uint64_t x1, uint64_t x2, uint64_t x3)
 {
-	__asm__ volatile("STR lr, [sp, #-16]!");
-
-	// save return, switch stacks & save caller register
-	__asm__ volatile("STP x29, x30, [sp, #-16]!");
-	__asm__ volatile("STP x18, x19, [sp, #-16]!");
-	__asm__ volatile("STP x16, x17, [sp, #-16]!");
-	__asm__ volatile("STP x14, x15, [sp, #-16]!");
-	__asm__ volatile("STP x12, x13, [sp, #-16]!");
-	__asm__ volatile("STP x10, x11, [sp, #-16]!");
-	__asm__ volatile("STP x8, x9, [sp, #-16]!");
-	__asm__ volatile("STP x6, x7, [sp, #-16]!");
-	__asm__ volatile("STP x4, x5, [sp, #-16]!");
-	__asm__ volatile("STP x2, x3, [sp, #-16]!");
-	__asm__ volatile("STR x1, [sp, #-16]!");
-
 	// get syscall number
 	uint8_t int_vector = 0;
-	uint64_t esr;
 	__asm__ volatile("MRS %0, ESR_EL1"
-					 : "=r"(esr));
-	int_vector = esr & 0xffffff;
+					 : "=r"(int_vector));
+	int_vector &= 0xffffff;
 
 	volatile int ret = ksyscall_entry(int_vector, x0, x1, x2, x3);
+
 	__asm__ volatile("MOV x0, %0" ::"r"(ret)
 					 : "x0");
-
-	// restore registers
-	__asm__ volatile("LDR x1, [sp], #16");
-	__asm__ volatile("LDP x2, x3, [sp], #16");
-	__asm__ volatile("LDP x4, x5, [sp], #16");
-	__asm__ volatile("LDP x6, x7, [sp], #16");
-	__asm__ volatile("LDP x8, x9, [sp], #16");
-	__asm__ volatile("LDP x10, x11, [sp], #16");
-	__asm__ volatile("LDP x12, x13, [sp], #16");
-	__asm__ volatile("LDP x14, x15, [sp], #16");
-	__asm__ volatile("LDP x16, x17, [sp], #16");
-	__asm__ volatile("LDP x18, x19, [sp], #16");
-	__asm__ volatile("LDP x29, x30, [sp], #16");
-
-	// jump back to caller
-	__asm__ volatile("LDR lr, [sp], #-16");
-	__asm__ volatile("RET");
 }
 
 // Handle non-syscall sync exceptions
@@ -170,6 +138,22 @@ void enable_xrq()
 {
 	gic_cpu_enable();
 	gic_cpu_set_priority_mask(0xff);
+}
+
+// Disable interrutps for the local core
+// for when handling syscalls
+void disable_irq(void)
+{
+	// Disable all DAIF
+	__asm__ volatile("MOV x0, #0; MSR DAIF, X0");
+}
+
+// Enable interrupts for the local core
+// for when handling syscalls
+void enable_irq(void)
+{
+	// Enable all DAIF
+	__asm__ volatile("MOV x0, #0x3C0; MSR DAIF, X0");
 }
 
 // enable the specific interrupt number and route

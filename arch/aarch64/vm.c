@@ -265,7 +265,7 @@ int vm_map_region(vm_table *table, uintptr_t pstart, uintptr_t vstart, size_t si
 		// TODO(tcfw) check if contiguous - see armv8-a ref RCBXXM
 
 		if (flags & MEMORY_TYPE_USER)
-			*vpage |= VM_ENTRY_USER;
+			*vpage |= VM_ENTRY_USER | VM_ENTRY_PXN;
 
 		if (flags & MEMORY_PERM_RO)
 			*vpage |= VM_ENTRY_PERM_RO;
@@ -329,6 +329,13 @@ void vm_set_table(vm_table *table)
 {
 	uint64_t ttbr0 = ((uintptr_t)table & TTBR_BADDR_MASK) + 1;
 	__asm__ volatile("MSR TTBR0_EL1, %0" ::"r"(ttbr0));
+
+	// Enable E/S PAN
+	uint64_t sctlr = 0;
+	__asm__ volatile("MRS %0, SCTLR_EL1"
+					 : "=r"(sctlr));
+	sctlr |= 1ULL << 22 | 1ULL << 57; // EPAN | SPAN
+	__asm__ volatile("MSR SCTLR_EL1, %0" ::"r"(sctlr));
 
 	// invalidate TLBs
 	__asm__ volatile("TLBI VMALLE1");
