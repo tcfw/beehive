@@ -89,7 +89,7 @@ void k_exphandler_sync(uintptr_t trapFrame)
 	if (thread->pid != tpid)
 	{
 		__asm__ volatile("msr TPIDRRO_EL0, %0" ::"rm"(thread->pid));
-		vm_set_table(thread->vm);
+		vm_set_table(thread->vm_table);
 		set_to_context(&thread->ctx, trapFrame);
 	}
 }
@@ -206,27 +206,44 @@ void k_fiq_exphandler(unsigned int xrq)
 
 	switch (ESR_EXCEPTION_CLASS(xrq))
 	{
-	case 0b100000:
-		// Instruction Abort from a lower Exception level
+	case ESR_EXCEPTION_INSTRUCTION_ABORT_LOWER_EL:
 		terminal_logf("instruction abort from EL0 addr 0x%x", far);
 		if (cls->currentThread != 0)
 			terminal_logf("on PID 0x%x", cls->currentThread->pid);
+		// send SIGILL
 		break;
-	case 0b100100:
-		// Data Abort from a lower exception level
+	case ESR_EXCEPTION_INSTRUCTION_ABORT_SAME_EL:
+		if (cls->cfe != EXCEPTION_UNKNOWN)
+		{
+			if (cls->cfe_handle != 0)
+				cls->cfe_handle();
+			// send SIGSYS?
+		}
+		else
+			panicf("Instruction abort at 0x%x", far);
+	case ESR_EXCEPTION_DATA_ABORT_LOWER_EL:
 		terminal_logf("data abort from EL0 addr 0x%x", far);
 		if (cls->currentThread != 0)
 			terminal_logf("on PID 0x%x", cls->currentThread->pid);
+		// send SIGSEGV
 
 		break;
-	case 0b100101:
-		// Data abort without a change in exception level
-		pa = vm_va_to_pa(vm_get_current_table(), far);
+	case ESR_EXCEPTION_DATA_ABORT_SAME_EL:
+		if (cls->cfe != EXCEPTION_UNKNOWN)
+		{
+			if (cls->cfe_handle != 0)
+				cls->cfe_handle();
 
-		panicf("Unhandlable Data Abort: \n\tESR: 0x%x \n\tVirtual Address: 0x%x\n\tPhysical Address: 0x%x\n\tPAR: 0x%x", xrq, far, pa, par);
+			// send SIGSEGV
+		}
+		else
+		{
+			pa = vm_va_to_pa(vm_get_current_table(), far);
+			panicf("Unhandlable Data Abort: \n\tESR: 0x%x \n\tVirtual Address: 0x%x\n\tPhysical Address: 0x%x\n\tPAR: 0x%x", xrq, far, pa, par);
+		}
 		break;
 	default:
-		terminal_logf("unhandled FIQ 0x%x", xrq);
+		panicf("unhandled FIQ(0x%x) FAR: 0x%x", xrq, far);
 	}
 }
 

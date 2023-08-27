@@ -1,19 +1,22 @@
-#include <kernel/arch.h>
-#include <kernel/tty.h>
-#include <kernel/irq.h>
-#include <kernel/syscall.h>
-#include <kernel/mm.h>
-#include <kernel/vm.h>
-#include <kernel/strings.h>
 #include <devicetree.h>
+#include <kernel/arch.h>
+#include <kernel/clock.h>
+#include <kernel/cls.h>
+#include <kernel/init.h>
+#include <kernel/irq.h>
+#include <kernel/mm.h>
 #include <kernel/msgs.h>
 #include <kernel/regions.h>
-#include <kernel/cls.h>
+#include <kernel/strings.h>
+#include <kernel/syscall.h>
 #include <kernel/thread.h>
-#include <kernel/clock.h>
+#include <kernel/tty.h>
+#include <kernel/vm.h>
 #include "stdint.h"
 
 extern void user_init(void);
+
+static void mod_init(void);
 
 void kernel_main2(void)
 {
@@ -40,19 +43,19 @@ void kernel_main2(void)
         init_thread(thread1);
         thread1->pid = 1;
         thread1->ctx.pc = 0x1000ULL;
-        thread1->vm = (vm_table *)page_alloc_s(sizeof(vm_table));
+        thread1->vm_table = (vm_table *)page_alloc_s(sizeof(vm_table));
 
         void *prog = page_alloc(0);
         memcpy(prog, &user_init, 0x10);
 
-        vm_init_table(thread1->vm);
-        int r = vm_map_region(thread1->vm, prog, 0x1000ULL, 4095, MEMORY_TYPE_USER);
+        vm_init_table(thread1->vm_table);
+        int r = vm_map_region(thread1->vm_table, prog, 0x1000ULL, 4095, MEMORY_TYPE_USER);
         if (r < 0)
             terminal_logf("failed to map user region: 0x%x", r);
 
         get_cls()->currentThread = thread1;
         __asm__ volatile("msr TPIDRRO_EL0, %0" ::"r"(thread1->pid));
-        vm_set_table(thread1->vm);
+        vm_set_table(thread1->vm_table);
         switch_to_context(&thread1->ctx);
     }
     else if (cpu_id() == 1)
@@ -68,6 +71,28 @@ void kernel_main2(void)
     }
 
     wait_task();
+}
+
+void mod_init(void)
+{
+    terminal_log("Loading modules...");
+
+    for (init_func_ptr_t *cb =
+             ({
+                 extern init_func_ptr_t __start_init;
+                 &__start_init;
+             });
+         cb !=
+         ({
+             extern init_func_ptr_t __stop_init;
+             &__stop_init;
+         });
+         ++cb)
+    {
+        cb->callback();
+    }
+
+    terminal_log("Loaded modules");
 }
 
 void kernel_main(void)
@@ -89,6 +114,8 @@ void kernel_main(void)
     syscall_init();
     init_cls(coreCount);
     vm_init();
+
+    mod_init();
 
     wake_cores();
     kernel_main2();

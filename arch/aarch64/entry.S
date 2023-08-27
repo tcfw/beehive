@@ -99,32 +99,52 @@ syscall_entry:
     LDP x0, x1, [sp], #16
     LDP x2, x3, [sp], #16
 
-	STP x29, x30, [sp, #-16]!
-	STP x18, x19, [sp, #-16]!
-	STP x16, x17, [sp, #-16]!
-	STP x14, x15, [sp, #-16]!
-	STP x12, x13, [sp, #-16]!
-	STP x10, x11, [sp, #-16]!
-	STP x8, x9, [sp, #-16]!
-	STP x6, x7, [sp, #-16]!
-	STP x4, x5, [sp, #-16]!
-	STP x2, x3, [sp, #-16]!
-	STR x1, [sp, #-16]!
+	STR x30, [sp, #-8]!
+    STP x28, x29, [sp, #-16]!
+    STP x26, x27, [sp, #-16]!
+    STP x24, x25, [sp, #-16]!
+    STP x22, x23, [sp, #-16]!
+    STP x20, x21, [sp, #-16]!
+    STP x18, x19, [sp, #-16]!
+    STP x16, x17, [sp, #-16]!
+    STP x14, x15, [sp, #-16]!
+    STP x12, x13, [sp, #-16]!
+    STP x10, x11, [sp, #-16]!
+    STP x8, x9, [sp, #-16]!
+    STP x6, x7, [sp, #-16]!
+    STP x4, x5, [sp, #-16]!
+    STP x2, x3, [sp, #-16]!
+	STR x1, [sp, #-8]!
+
+    MRS x26, ELR_EL1
+	STR x26, [sp, #-8]!
+    MRS x26, SPSR_EL1
+	STR x26, [sp, #-8]!
 
     .global k_exphandler_swi_entry
     bl k_exphandler_swi_entry
 
-    LDR x1, [sp], #16
-	LDP x2, x3, [sp], #16
-	LDP x4, x5, [sp], #16
-	LDP x6, x7, [sp], #16
-	LDP x8, x9, [sp], #16
-	LDP x10, x11, [sp], #16
-	LDP x12, x13, [sp], #16
-	LDP x14, x15, [sp], #16
-	LDP x16, x17, [sp], #16
-	LDP x18, x19, [sp], #16
-	LDP x29, x30, [sp], #16
+    LDR x26, [sp], #8
+    MSR SPSR_EL1, x26
+    LDR x26, [sp], #8
+    MSR ELR_EL1, x26
+
+    LDR x1, [sp], #8
+    LDP x2, x3, [sp], #16
+    LDP x4, x5, [sp], #16
+    LDP x6, x7, [sp], #16
+    LDP x8, x9, [sp], #16
+    LDP x10, x11, [sp], #16
+    LDP x12, x13, [sp], #16
+    LDP x14, x15, [sp], #16
+    LDP x16, x17, [sp], #16
+    LDP x18, x19, [sp], #16
+    LDP x20, x21, [sp], #16
+    LDP x22, x23, [sp], #16
+    LDP x24, x25, [sp], #16
+    LDP x26, x27, [sp], #16
+    LDP x28, x29, [sp], #16
+    LDR x30, [sp], #8
 
     ERET
 

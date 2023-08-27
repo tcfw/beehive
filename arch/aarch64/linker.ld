@@ -10,6 +10,11 @@ SECTIONS
     .boot : { KEEP(*(.multiboot*)) KEEP(*(.boot*)) }
     .text : { *(.text*) *(.rodata*) }
     .data : { *(.data*) }
+
+    __start_init = .;
+    .init : { *(.init*) }
+    __stop_init = .;
+
     .bss : { *(.bss*) *(COMMON*) }
     . = ALIGN(8);
     . += 0x20000; /* 128kB of stack memory */

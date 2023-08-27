@@ -16,6 +16,7 @@ static void vm_free_table_block(vm_table_block *block, int level);
 static vm_table_block *vm_table_desc_to_block(uint64_t *desc);
 static vm_table_block *vm_table_entry_to_block(uint64_t *entry);
 static vm_table_block *vm_get_or_alloc_block(vm_table_block *parent, uint16_t entry, uint8_t level);
+static uint64_t *vm_va_to_pte(vm_table *table, uintptr_t vptr);
 
 static vm_table_block *vm_table_desc_to_block(uint64_t *desc)
 {
@@ -29,7 +30,7 @@ static vm_table_block *vm_table_entry_to_block(uint64_t *entry)
 
 vm_table *vm_get_current_table()
 {
-	vm_table *uvm = get_cls()->currentThread->vm;
+	vm_table *uvm = get_cls()->currentThread->vm_table;
 	if (uvm != 0)
 		return uvm;
 
@@ -65,6 +66,49 @@ void vm_init_table(vm_table *table)
 void vm_set_kernel()
 {
 	vm_set_table(kernel_vm_map);
+}
+
+static uint64_t *__attribute__((noinline)) vm_va_to_pte(vm_table *table, uintptr_t vptr)
+{
+	uint16_t l0 = vptr >> 39;
+	uint16_t l1 = (vptr >> 30) & 0x1FF;
+	uint16_t l2 = (vptr >> 21) & 0x1FF;
+	uint16_t l3 = (vptr >> 12) & 0x1FF;
+
+	if ((l0 > 511) | (l1 > 511) | (l2 > 511) | (l3 > 511))
+	{
+		return 0;
+	}
+
+	if ((table->descriptors[l0] & VM_DESC_ALLOCD) != 0)
+	{
+		vm_table_block *block = vm_table_desc_to_block(&table->descriptors[l0]);
+
+		// l1
+		if ((block->entries[l1] & VM_ENTRY_ALLOCD) == 0)
+			return 0;
+
+		if ((block->entries[l1] & VM_ENTRY_ISTABLE) == 0)
+			return &block->entries[l1];
+
+		// l2
+		block = vm_table_entry_to_block(&block->entries[l1]);
+		if ((block->entries[l2] & VM_ENTRY_ALLOCD) == 0)
+			return 0;
+
+		if ((block->entries[l2] & VM_ENTRY_ISTABLE) == 0)
+			return &block->entries[l2];
+
+		// l3
+		block = vm_table_entry_to_block(&block->entries[l2]);
+		if ((block->entries[l3] & VM_ENTRY_ALLOCD) == 0)
+			return 0;
+
+		if ((block->entries[l3] & VM_ENTRY_ISTABLE) != 0)
+			return &block->entries[l3];
+	}
+
+	return 0;
 }
 
 uintptr_t vm_va_to_pa(vm_table *table, uintptr_t vptr)
@@ -104,7 +148,7 @@ uintptr_t vm_va_to_pa(vm_table *table, uintptr_t vptr)
 		if ((block->entries[l3] & VM_ENTRY_ALLOCD) == 0)
 			return 0;
 
-		if ((block->entries[l3] & VM_ENTRY_ISTABLE) == 0)
+		if ((block->entries[l3] & VM_ENTRY_ISTABLE) != 0)
 			return ((uintptr_t)(block->entries[l3] & 0x7FFFFFF000) | pageoff);
 	}
 
@@ -251,7 +295,7 @@ int vm_map_region(vm_table *table, uintptr_t pstart, uintptr_t vstart, size_t si
 		}
 		*vpage = 0;
 
-		*vpage = (VM_ENTRY_VALID | VM_ENTRY_MAPPED | VM_ENTRY_NONSECURE | VM_ENTRY_AF | VM_ENTRY_ISH);
+		*vpage = (VM_ENTRY_ALLOCD | VM_ENTRY_VALID | VM_ENTRY_MAPPED | VM_ENTRY_NONSECURE | VM_ENTRY_AF | VM_ENTRY_ISH);
 		if (flags & MEMORY_TYPE_DEVICE)
 			*vpage |= (1 << VM_ENTRY_ATTR) | VM_ENTRY_OSH;
 		else
@@ -390,6 +434,38 @@ int vm_link_tables(vm_table *table1, vm_table *table2)
 			return -1;
 
 		table1->descriptors[i] = table2->descriptors[i] | VM_DESC_LINK;
+	}
+
+	return 0;
+}
+
+int access_ok(enum AccessType type, void *addr, size_t n)
+{
+	vm_table *cpt = vm_get_current_table();
+	uint64_t *vpage;
+
+	while (n > 0)
+	{
+		vpage = vm_va_to_pte(cpt, (uintptr_t)addr);
+
+		if (vpage == 0 || *vpage == 0)
+		{
+			return -2;
+		}
+
+		if (*vpage & VM_ENTRY_USER == 0)
+		{
+			return -1;
+		}
+
+		if (type == WRITE && (*vpage & VM_ENTRY_PERM_RO) != 0)
+		{
+			return -1;
+		}
+
+		addr += ARCH_PAGE_SIZE;
+		if (__builtin_usubl_overflow(n, ARCH_PAGE_SIZE, &n))
+			break;
 	}
 
 	return 0;

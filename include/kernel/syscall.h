@@ -4,6 +4,7 @@
 #include "unistd.h"
 #include "stdint.h"
 #include <kernel/thread.h>
+#include <kernel/init.h>
 
 typedef int (*syscall_handler_cb)(pid_t pid, ...);
 
@@ -21,5 +22,12 @@ int ksyscall_entry(uint64_t type, uint64_t arg0, uint64_t arg1, uint64_t arg2, u
 
 // Initiate builtin syscalls
 void syscall_init();
+
+#define SYSCALL(n, handler, argc)                   \
+	static void syscall_reg_##handler(void)         \
+	{                                               \
+		register_syscall_handler(n, handler, argc); \
+	}                                               \
+	MOD_INIT(syscall_reg_##handler);
 
 #endif

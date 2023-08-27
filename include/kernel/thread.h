@@ -11,6 +11,7 @@
 typedef struct thread_t
 {
 	pid_t pid;
+	pid_t ppid;
 
 	char cmd[CMD_MAX];
 	unsigned int argc;
@@ -22,12 +23,11 @@ typedef struct thread_t
 	unsigned int egid;
 
 	context_t ctx;
-	vm_table *vm;
-	struct thread_sigactions_t sigactions;
+	vm_table *vm_table;
+	struct thread_sigactions_t *sigactions;
 
 	// wait cond
 	//  shared mem maps
-	//  allocated pages
 	//  queues
 } thread_t;
 

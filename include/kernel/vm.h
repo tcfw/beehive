@@ -3,6 +3,14 @@
 
 #include "unistd.h"
 #include <kernel/paging.h>
+#include <kernel/list.h>
+
+#define MEMORY_TYPE_DEVICE (1 << 0)
+#define MEMORY_TYPE_KERNEL (1 << 1)
+#define MEMORY_TYPE_USER (1 << 2)
+#define MEMORY_PERM_RO (1 << 3)
+#define MEMORY_NON_EXEC (1 << 4)
+#define MEMORY_USER_NON_EXEC (1 << 5)
 
 // Init virtual memory
 void vm_init();
@@ -49,5 +57,14 @@ void vm_enable();
 
 // Get the current active page table
 vm_table *vm_get_current_table();
+
+enum AccessType
+{
+	READ = 0,
+	WRITE = 1,
+};
+
+// Checks if the user space is allowed by the current task
+int access_ok(enum AccessType type, void *addr, size_t n);
 
 #endif
