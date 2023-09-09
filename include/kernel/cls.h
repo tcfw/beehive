@@ -2,6 +2,7 @@
 #define _KERNEL_CLS_H
 
 #include <kernel/thread.h>
+#include <kernel/sched.h>
 #include "stdint.h"
 
 enum exception_operation
@@ -17,6 +18,7 @@ typedef struct cls_t
 {
 	uint64_t id;
 	thread_t *currentThread;
+	schedule_queue thread_queue;
 
 	// cause for exception handler
 	enum exception_operation cfe;
@@ -29,5 +31,8 @@ cls_t *get_cls(void);
 // Init the core local storage for all cores given the required
 // number of cores
 void init_cls(uint8_t n);
+
+// Set the current working thread
+void set_current_thread(thread_t *thread);
 
 #endif

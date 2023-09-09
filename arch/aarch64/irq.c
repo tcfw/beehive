@@ -1,5 +1,6 @@
 #include "gic.h"
 #include "regs.h"
+#include "errno.h"
 #include <kernel/arch.h>
 #include <kernel/cls.h>
 #include <kernel/irq.h>
@@ -53,15 +54,23 @@ extern unsigned long stack;
 	__asm__ volatile("LDP x29, x30, [sp], #16");
 
 // handle syscall inner
-void k_exphandler_swi_entry(uint64_t x0, uint64_t x1, uint64_t x2, uint64_t x3)
+void k_exphandler_swi_entry(uint64_t x0, uint64_t x1, uint64_t x2, uint64_t x3, uint64_t x4)
 {
-	// get syscall number
+	// check svc number
 	uint8_t int_vector = 0;
 	__asm__ volatile("MRS %0, ESR_EL1"
 					 : "=r"(int_vector));
 	int_vector &= 0xffffff;
 
-	volatile int ret = ksyscall_entry(int_vector, x0, x1, x2, x3);
+	if (int_vector != 0)
+	{
+		int ret = -ERRNOSYS;
+		__asm__ volatile("MOV x0, %0" ::"r"(ret)
+						 : "x0");
+		return;
+	}
+
+	volatile int ret = ksyscall_entry(x0, x1, x2, x3, x4);
 
 	__asm__ volatile("MOV x0, %0" ::"r"(ret)
 					 : "x0");

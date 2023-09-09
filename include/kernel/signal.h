@@ -12,15 +12,15 @@ typedef enum
 
 typedef void (*sigaction_handler)(int);
 
-struct thread_sigaction_t
+typedef struct thread_sigaction_t
 {
 	SIGACTION action;
 	sigaction_handler user_handler;
-};
+} thread_sigaction_t;
 
-struct thread_sigactions_t
+typedef struct thread_sigactions_t
 {
-	struct thread_sigaction_t sigaction[SIG_MAX];
-};
+	thread_sigaction_t sigaction[SIG_MAX];
+} thread_sigactions_t;
 
 #endif

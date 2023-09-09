@@ -5,11 +5,14 @@
 
 int writeconsole(int _type, void *c, size_t n)
 {
+	if (n > 40960)
+		return -2;
+
 	int aok = access_ok(READ, c, n);
 	if (aok < 0)
 		return aok;
 
-	void *buf = page_alloc_s(n);
+	void *buf = page_alloc_s(n + 1);
 
 	if (copy_from_user(c, buf, n) < 0)
 	{
@@ -17,7 +20,9 @@ int writeconsole(int _type, void *c, size_t n)
 		return -1;
 	}
 
-	terminal_write((const char *)buf, n);
+	*(char *)(buf + n + 1) = 0;
+
+	terminal_log((char *)buf);
 
 	page_free(buf);
 	return 0;

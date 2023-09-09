@@ -21,3 +21,8 @@ cls_t *get_cls(void)
 	uint32_t id = cpu_id();
 	return (cls_t *)(cls + id);
 }
+
+void set_current_thread(thread_t *thread)
+{
+	get_cls()->currentThread = thread;
+}

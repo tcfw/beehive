@@ -23,6 +23,8 @@ int strcmp(const char *, const char *);
 // strlen calculates the length of a given string
 size_t strlen(char *);
 
+char *strcpy(char *dest, const char *src);
+
 // Copy memory from src to dest at the given size
 void *memcpy(void *dest, const void *src, size_t n);
 

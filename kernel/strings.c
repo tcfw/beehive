@@ -249,6 +249,11 @@ size_t strlen(char *str)
 	return len;
 }
 
+char *strcpy(char *dest, const char *src)
+{
+	return memcpy(dest, src, strlen(src) + 1);
+}
+
 void *memcpy(void *dest, const void *src, size_t len)
 {
 	char *d = dest;

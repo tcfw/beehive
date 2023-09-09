@@ -2,20 +2,18 @@
 #include <kernel/list.h>
 #include <kernel/panic.h>
 
-struct clocksource_t *clockSources;
+static LIST_HEAD(clockSources);
 
 void RegisterClockSource(struct clocksource_t *cs)
 {
-	clockSources = list_head_append(struct clocksource_t *, clockSources, cs);
+	list_add(cs, &clockSources);
 }
 
 struct clocksource_t *clock_first(enum ClockSourceType type)
 {
-	struct clocksource_t *cs = clockSources;
-	if (cs->type == type)
-		return cs;
+	struct clocksource_t *cs;
 
-	list_head_foreach(cs, clockSources)
+	list_head_foreach(cs, &clockSources)
 	{
 		if (cs->type == type)
 			return cs;

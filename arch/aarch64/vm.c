@@ -16,6 +16,7 @@ static void vm_free_table_block(vm_table_block *block, int level);
 static vm_table_block *vm_table_desc_to_block(uint64_t *desc);
 static vm_table_block *vm_table_entry_to_block(uint64_t *entry);
 static vm_table_block *vm_get_or_alloc_block(vm_table_block *parent, uint16_t entry, uint8_t level);
+static vm_table_block *vm_copy_link_table_block(uint64_t *parent, vm_table_block *tocopy);
 static uint64_t *vm_va_to_pte(vm_table *table, uintptr_t vptr);
 
 static vm_table_block *vm_table_desc_to_block(uint64_t *desc)
@@ -60,6 +61,7 @@ void vm_init()
 
 void vm_init_table(vm_table *table)
 {
+	memset(table, 0, sizeof(vm_table));
 	vm_link_tables(table, kernel_vm_map);
 }
 
@@ -80,12 +82,12 @@ static uint64_t *__attribute__((noinline)) vm_va_to_pte(vm_table *table, uintptr
 		return 0;
 	}
 
-	if ((table->descriptors[l0] & VM_DESC_ALLOCD) != 0)
+	if (table->descriptors[l0] != 0)
 	{
 		vm_table_block *block = vm_table_desc_to_block(&table->descriptors[l0]);
 
 		// l1
-		if ((block->entries[l1] & VM_ENTRY_ALLOCD) == 0)
+		if (block->entries[l1] == 0)
 			return 0;
 
 		if ((block->entries[l1] & VM_ENTRY_ISTABLE) == 0)
@@ -93,7 +95,7 @@ static uint64_t *__attribute__((noinline)) vm_va_to_pte(vm_table *table, uintptr
 
 		// l2
 		block = vm_table_entry_to_block(&block->entries[l1]);
-		if ((block->entries[l2] & VM_ENTRY_ALLOCD) == 0)
+		if (block->entries[l2] == 0)
 			return 0;
 
 		if ((block->entries[l2] & VM_ENTRY_ISTABLE) == 0)
@@ -101,7 +103,7 @@ static uint64_t *__attribute__((noinline)) vm_va_to_pte(vm_table *table, uintptr
 
 		// l3
 		block = vm_table_entry_to_block(&block->entries[l2]);
-		if ((block->entries[l3] & VM_ENTRY_ALLOCD) == 0)
+		if (block->entries[l3] == 0)
 			return 0;
 
 		if ((block->entries[l3] & VM_ENTRY_ISTABLE) != 0)
@@ -124,12 +126,12 @@ uintptr_t vm_va_to_pa(vm_table *table, uintptr_t vptr)
 		return 0;
 	}
 
-	if ((table->descriptors[l0] & VM_DESC_ALLOCD) != 0)
+	if (table->descriptors[l0] != 0)
 	{
 		vm_table_block *block = vm_table_desc_to_block(&table->descriptors[l0]);
 
 		// l1
-		if ((block->entries[l1] & VM_ENTRY_ALLOCD) == 0)
+		if (block->entries[l1] == 0)
 			return 0;
 
 		if ((block->entries[l1] & VM_ENTRY_ISTABLE) == 0)
@@ -137,7 +139,7 @@ uintptr_t vm_va_to_pa(vm_table *table, uintptr_t vptr)
 
 		// l2
 		block = vm_table_entry_to_block(&block->entries[l1]);
-		if ((block->entries[l2] & VM_ENTRY_ALLOCD) == 0)
+		if (block->entries[l2] == 0)
 			return 0;
 
 		if ((block->entries[l2] & VM_ENTRY_ISTABLE) == 0)
@@ -145,7 +147,7 @@ uintptr_t vm_va_to_pa(vm_table *table, uintptr_t vptr)
 
 		// l3
 		block = vm_table_entry_to_block(&block->entries[l2]);
-		if ((block->entries[l3] & VM_ENTRY_ALLOCD) == 0)
+		if (block->entries[l3] == 0)
 			return 0;
 
 		if ((block->entries[l3] & VM_ENTRY_ISTABLE) != 0)
@@ -160,8 +162,8 @@ static void vm_free_table_block(vm_table_block *block, int level)
 	for (int i = 0; i < 512; i++)
 	{
 		if (
+			(block->entries[i] != 0) &&
 			(block->entries[i] & VM_ENTRY_MAPPED) == 0 &&
-			(block->entries[i] & VM_ENTRY_ALLOCD) > 1 &&
 			(block->entries[i] & VM_ENTRY_ISTABLE) > 1 &&
 			level < 3)
 			vm_free_table_block(vm_table_entry_to_block(&block->entries[i]), level + 1);
@@ -173,8 +175,8 @@ void vm_free_table(vm_table *table)
 {
 	for (int i = 0; i < 512; i++)
 		if (
-			(table->descriptors[i] & VM_DESC_LINK) == 0 &&
-			(table->descriptors[i] & VM_DESC_ALLOCD) > 1)
+			(table->descriptors[i] != 0) &&
+			(table->descriptors[i] & VM_DESC_LINKED) == 0)
 			vm_free_table_block(vm_table_desc_to_block(&table->descriptors[i]), 1);
 
 	page_free(table);
@@ -189,13 +191,13 @@ static vm_table_block *vm_get_or_alloc_block(vm_table_block *parent, uint16_t en
 
 	vm_table_block *block;
 
-	if ((parent->entries[entry] & VM_ENTRY_ALLOCD) == 0)
+	if (parent->entries[entry] == 0)
 	{
 		block = (vm_table_block *)page_alloc_s(sizeof(vm_table_block));
 		memset(block, 0, sizeof(vm_table_block));
 
 		parent->entries[entry] = (uintptr_t)block & VM_ENTRY_OA_MASK;
-		parent->entries[entry] |= (VM_ENTRY_ALLOCD | VM_ENTRY_ISTABLE | VM_ENTRY_VALID | VM_ENTRY_NONSECURE);
+		parent->entries[entry] |= (VM_ENTRY_ISTABLE | VM_ENTRY_VALID | VM_ENTRY_NONSECURE);
 	}
 	else
 	{
@@ -227,13 +229,13 @@ int vm_map_region(vm_table *table, uintptr_t pstart, uintptr_t vstart, size_t si
 	uint64_t *vpage = 0;
 	uint64_t *desc = &table->descriptors[l0];
 
-	if ((*desc & VM_DESC_ALLOCD) == 0)
+	if (*desc == 0)
 	{
 		// alloc block
 		table_l1 = (vm_table_block *)page_alloc_s(sizeof(vm_table_block));
 		memset(table_l1, 0, sizeof(vm_table_block));
 
-		*desc = (VM_DESC_VALID | VM_DESC_IS_DESC | VM_DESC_ALLOCD | VM_DESC_NONSECURE | VM_DESC_AF | VM_ENTRY_ISH);
+		*desc = (VM_DESC_VALID | VM_DESC_IS_DESC | VM_DESC_NONSECURE | VM_DESC_AF | VM_ENTRY_ISH);
 		*desc |= ((uintptr_t)table_l1 & VM_DESC_NEXT_LEVEL_MASK);
 
 		// if (flags & MEMORY_TYPE_KERNEL)
@@ -253,7 +255,12 @@ int vm_map_region(vm_table *table, uintptr_t pstart, uintptr_t vstart, size_t si
 			*desc |= (1 << VM_DESC_ATTR) | VM_ENTRY_OSH;
 	}
 	else
-		table_l1 = vm_table_desc_to_block(&table->descriptors[l0]);
+	{
+		table_l1 = vm_table_desc_to_block(desc);
+
+		if (*desc & VM_DESC_LINKED)
+			table_l1 = vm_copy_link_table_block(desc, table_l1);
+	}
 
 	while (vstart < vend)
 	{
@@ -273,6 +280,9 @@ int vm_map_region(vm_table *table, uintptr_t pstart, uintptr_t vstart, size_t si
 			if (!table_l2)
 				table_l2 = vm_get_or_alloc_block(table_l1, l1, 1);
 
+			if (table_l2->entries[l2] & VM_ENTRY_LINKED)
+				table_l2 = vm_copy_link_table_block(&table_l1->entries[l1], table_l2);
+
 			level = 2;
 			incsize = L2_BLOCK_SIZE + 1;
 			vpage = &table_l2->entries[l2];
@@ -282,8 +292,14 @@ int vm_map_region(vm_table *table, uintptr_t pstart, uintptr_t vstart, size_t si
 			if (!table_l2)
 				table_l2 = vm_get_or_alloc_block(table_l1, l1, 1);
 
+			if (table_l2->entries[l2] & VM_ENTRY_LINKED)
+				table_l2 = vm_copy_link_table_block(&table_l1->entries[l1], table_l2);
+
 			if (!table_l3)
 				table_l3 = vm_get_or_alloc_block(table_l2, l2, 2);
+
+			if (table_l3->entries[l3] & VM_ENTRY_LINKED)
+				table_l3 = vm_copy_link_table_block(&table_l2->entries[l2], table_l3);
 
 			vpage = &table_l3->entries[l3];
 		}
@@ -295,7 +311,7 @@ int vm_map_region(vm_table *table, uintptr_t pstart, uintptr_t vstart, size_t si
 		}
 		*vpage = 0;
 
-		*vpage = (VM_ENTRY_ALLOCD | VM_ENTRY_VALID | VM_ENTRY_MAPPED | VM_ENTRY_NONSECURE | VM_ENTRY_AF | VM_ENTRY_ISH);
+		*vpage = (VM_ENTRY_VALID | VM_ENTRY_MAPPED | VM_ENTRY_NONSECURE | VM_ENTRY_AF | VM_ENTRY_ISH);
 		if (flags & MEMORY_TYPE_DEVICE)
 			*vpage |= (1 << VM_ENTRY_ATTR) | VM_ENTRY_OSH;
 		else
@@ -423,6 +439,26 @@ void vm_enable()
 	__asm__ volatile("ISB");
 }
 
+static vm_table_block *vm_copy_link_table_block(uint64_t *parent, vm_table_block *tocopy)
+{
+	if ((*parent & VM_DESC_LINKED) == 0)
+		return tocopy;
+
+	vm_table_block *block = (vm_table_block *)page_alloc_s(sizeof(vm_table_block));
+
+	for (int i = 0; i < 512; i++)
+	{
+		block->entries[i] = tocopy->entries[i];
+		if (block->entries[i] != 0)
+			block->entries[i] |= VM_ENTRY_LINKED;
+	}
+
+	*parent &= ~(VM_ENTRY_LINKED | VM_ENTRY_OA_MASK);
+	*parent |= (uintptr_t)block & VM_ENTRY_OA_MASK;
+
+	return block;
+}
+
 int vm_link_tables(vm_table *table1, vm_table *table2)
 {
 	for (int i = 0; i < 512; i++)
@@ -433,7 +469,7 @@ int vm_link_tables(vm_table *table1, vm_table *table2)
 		if (table1->descriptors[i] != 0)
 			return -1;
 
-		table1->descriptors[i] = table2->descriptors[i] | VM_DESC_LINK;
+		table1->descriptors[i] = table2->descriptors[i] | VM_DESC_LINKED;
 	}
 
 	return 0;

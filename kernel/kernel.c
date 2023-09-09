@@ -28,39 +28,32 @@ void kernel_main2(void)
         arch_init();
     }
 
-    enable_xrq();
-
     vm_set_kernel();
     vm_enable();
+    sched_local_init();
+
+    enable_xrq();
     terminal_set_bar(DEVICE_REGION);
     remaped_devicetreeoffset(ram_max() + 4);
 
     terminal_logf("Booted core 0x%x", get_cls()->id);
 
+    struct clocksource_t *cs = clock_first(CS_GLOBAL);
+
     if (cpu_id() == 0)
     {
-        thread_t *thread1 = (thread_t *)page_alloc_s(sizeof(thread_t));
-        init_thread(thread1);
-        thread1->pid = 1;
-        thread1->ctx.pc = 0x1000ULL;
-        thread1->vm_table = (vm_table *)page_alloc_s(sizeof(vm_table));
 
-        void *prog = page_alloc(0);
-        memcpy(prog, &user_init, 0x10);
-
-        vm_init_table(thread1->vm_table);
-        int r = vm_map_region(thread1->vm_table, prog, 0x1000ULL, 4095, MEMORY_TYPE_USER);
-        if (r < 0)
-            terminal_logf("failed to map user region: 0x%x", r);
-
-        get_cls()->currentThread = thread1;
-        __asm__ volatile("msr TPIDRRO_EL0, %0" ::"r"(thread1->pid));
-        vm_set_table(thread1->vm_table);
-        switch_to_context(&thread1->ctx);
+        thread_t *thread1 = sched_get_pending(sched_affinity(cpu_id()));
+        if (thread1 != NULL)
+        {
+            set_current_thread(thread1);
+            arch_thread_prep_switch(thread1);
+            vm_set_table(thread1->vm_table);
+            switch_to_context(&thread1->ctx);
+        }
     }
     else if (cpu_id() == 1)
     {
-        struct clocksource_t *cs = clock_first(CS_GLOBAL);
         terminal_logf("Clock Global 0x%x", cs->val(cs));
         uint64_t freq = cs->getFreq(cs);
         uint64_t val = cs->val(cs);
@@ -95,6 +88,28 @@ void mod_init(void)
     terminal_log("Loaded modules");
 }
 
+static void setup_init_thread(void)
+{
+    thread_t *init = (thread_t *)page_alloc_s(sizeof(thread_t));
+    init_thread(init);
+    strcpy(init->cmd, "init");
+    init->pid = 1;
+    init->uid = 1;
+    init->euid = 1;
+    init->gid = 1;
+    init->egid = 1;
+    init->ctx.pc = 0x1000ULL;
+
+    void *prog = page_alloc_s(0x1c);
+    memcpy(prog, &user_init, 0x1c);
+
+    int r = vm_map_region(init->vm_table, prog, 0x1000ULL, 4095, MEMORY_TYPE_USER);
+    if (r < 0)
+        terminal_logf("failed to map user region: 0x%x", r);
+
+    sched_append_pending(init);
+}
+
 void kernel_main(void)
 {
     registerClocks();
@@ -114,8 +129,11 @@ void kernel_main(void)
     syscall_init();
     init_cls(coreCount);
     vm_init();
+    sched_init();
 
     mod_init();
+
+    setup_init_thread();
 
     wake_cores();
     kernel_main2();

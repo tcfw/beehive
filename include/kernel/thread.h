@@ -4,17 +4,26 @@
 #include "unistd.h"
 #include <kernel/context.h>
 #include <kernel/limits.h>
-#include <kernel/sched.h>
 #include <kernel/signal.h>
 #include <kernel/vm.h>
+
+typedef struct thread_timing_t
+{
+	uint64_t total_system;
+	uint64_t total_user;
+	uint64_t total_wait;
+
+	uint64_t last_system;
+	uint64_t last_user;
+	uint64_t last_wait;
+} thread_timing_t;
 
 typedef struct thread_t
 {
 	pid_t pid;
-	pid_t ppid;
+	struct thread_t *parent;
 
 	char cmd[CMD_MAX];
-	unsigned int argc;
 	char argv[ARG_MAX];
 
 	unsigned int uid;
@@ -23,8 +32,12 @@ typedef struct thread_t
 	unsigned int egid;
 
 	context_t ctx;
+	uint64_t flags;
+	uint64_t affinity;
 	vm_table *vm_table;
-	struct thread_sigactions_t *sigactions;
+	thread_timing_t timing;
+
+	thread_sigactions_t *sigactions;
 
 	// wait cond
 	//  shared mem maps
@@ -36,5 +49,7 @@ void init_thread(thread_t *thread);
 
 // Init a thread context
 void init_context(context_t *ctx);
+
+void arch_thread_prep_switch(thread_t *thread);
 
 #endif
