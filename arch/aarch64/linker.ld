@@ -3,19 +3,28 @@ ENTRY (_start)
 SECTIONS
 {
     . = 0x40000000;
-    /* . = 0xffff000000000000; High mem kernel, otherwise would be limited to 1GB user space, but needs a bootloader to set up virtual memory first */
+    /* . = 0x7F000000000; */
+    /* High mem kernel, otherwise would be limited to 
+        1GB user space, but needs a bootloader to set up 
+        virtual memory first */
 
     kernelstart = .;
 
-    .boot : { KEEP(*(.multiboot*)) KEEP(*(.boot*)) }
-    .text : { *(.text*) *(.rodata*) }
+    .text : { 
+        KEEP(*(.boot*))
+
+        *(.text*) 
+        *(.rodata*)
+
+        __start_init = .;
+        KEEP(*(.init*))
+        __stop_init = .;
+    }
+
     .data : { *(.data*) }
 
-    __start_init = .;
-    .init : { *(.init*) }
-    __stop_init = .;
-
     .bss : { *(.bss*) *(COMMON*) }
+
     . = ALIGN(8);
     . += 0x20000; /* 128kB of stack memory */
     stack = .;

@@ -21,7 +21,7 @@ int ksprintfz(char *buf, const char *fmt, __builtin_va_list argp);
 int strcmp(const char *, const char *);
 
 // strlen calculates the length of a given string
-size_t strlen(char *);
+size_t strlen(const char *);
 
 char *strcpy(char *dest, const char *src);
 

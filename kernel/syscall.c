@@ -1,4 +1,4 @@
-#include "unistd.h"
+#include "stdint.h"
 #include <errno.h>
 #include <kernel/irq.h>
 #include <kernel/syscall.h>
@@ -31,19 +31,19 @@ int ksyscall_entry(uint64_t type, uint64_t arg0, uint64_t arg1, uint64_t arg2, u
 		switch (handler->argc)
 		{
 		case 1:
-			ret = handler->handler(0, arg0);
+			ret = handler->handler(cthread->pid, arg0);
 			break;
 		case 2:
-			ret = handler->handler(0, arg0, arg1);
+			ret = handler->handler(cthread->pid, arg0, arg1);
 			break;
 		case 3:
-			ret = handler->handler(0, arg0, arg1, arg2);
+			ret = handler->handler(cthread->pid, arg0, arg1, arg2);
 			break;
 		case 4:
-			ret = handler->handler(0, arg0, arg1, arg2, arg3);
+			ret = handler->handler(cthread->pid, arg0, arg1, arg2, arg3);
 			break;
 		default:
-			ret = handler->handler(0);
+			ret = handler->handler(cthread->pid);
 			break;
 		}
 	}

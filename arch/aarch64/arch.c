@@ -32,6 +32,8 @@ enableFP()
 // Power down
 void arch_poweroff()
 {
+	__asm__ volatile("ldr w0, =0x84000008");
+	__asm__ volatile("hvc 0");
 }
 
 // Get the current PE ID
@@ -77,7 +79,7 @@ static uint64_t psci_cpu_on(uint64_t affinity, uint64_t entrypoint)
 
 	__asm__ volatile("mov x1, %0" ::"r"(affinity));
 	__asm__ volatile("mov x2, %0" ::"r"(entrypoint));
-	__asm__ volatile("ldr w0, =0xc4000003");
+	__asm__ volatile("ldr x0, =0xc4000003");
 	__asm__ volatile("mov x3, 0");
 	__asm__ volatile("hvc 0");
 	__asm__ volatile("mov %0, x0"

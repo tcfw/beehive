@@ -3,7 +3,7 @@
 
 #include <stdbool.h>
 
-typedef volatile unsigned int spinlock_t;
+typedef unsigned int spinlock_t;
 
 // Initialize the lock to be available
 void spinlock_init(spinlock_t *lock);

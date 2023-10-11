@@ -1,10 +1,9 @@
 #ifndef _KERNEL_SYSCALL_H
 #define _KERNEL_SYSCALL_H
 
-#include "unistd.h"
 #include "stdint.h"
 #include <kernel/thread.h>
-#include <kernel/init.h>
+#include <kernel/modules.h>
 
 typedef int (*syscall_handler_cb)(pid_t pid, ...);
 

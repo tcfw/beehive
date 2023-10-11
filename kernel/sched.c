@@ -36,7 +36,7 @@ thread_t *sched_get_pending(uint64_t affinity)
 		if ((current->thread->affinity & affinity) != 0)
 		{
 			thread_t *thread = current->thread;
-			list_del(current);
+			list_del((struct list_head *)current);
 			page_free(current);
 			spinlock_release(&pending_lock);
 			return thread;
@@ -54,7 +54,7 @@ void sched_append_pending(thread_t *thread)
 	struct thread_list_entry_t *entry = (struct thread_list_entry_t *)page_alloc_s(sizeof(struct thread_list_entry_t));
 	entry->thread = thread;
 
-	list_add((struct list_head *)entry, &pending);
+	list_add_tail((struct list_head *)entry, &pending);
 
 	spinlock_release(&pending_lock);
 }

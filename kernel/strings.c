@@ -118,7 +118,7 @@ int ksprintfz(char *buf, const char *fmt, __builtin_va_list argp)
 	double f;
 	char *s;
 	char fmtbuf[256];
-	int x, y;
+	int x = 0, y = 0;
 	int numPrec = 5;
 	bool contExpr = false;
 
@@ -239,7 +239,7 @@ int strcmp(const char *str1, const char *str2)
 	return c1 - c2;
 }
 
-size_t strlen(char *str)
+size_t strlen(const char *str)
 {
 	size_t len = 0;
 

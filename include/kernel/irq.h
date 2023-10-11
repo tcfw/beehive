@@ -1,9 +1,8 @@
 #ifndef _KERNEL_IRQ_H
 #define _KERNEL_IRQ_H
 
-#include "unistd.h"
-#include "stdint.h"
 #include <kernel/thread.h>
+#include "stdint.h"
 
 #define IRQ_FIQ (0x2)
 

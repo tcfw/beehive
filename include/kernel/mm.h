@@ -28,4 +28,7 @@ void *kmalloc(size_t size);
 // Free a given object
 void kfree(void *obj);
 
+// Move buddy allocator
+void page_reloc(uintptr_t offset);
+
 #endif

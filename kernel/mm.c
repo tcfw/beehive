@@ -92,6 +92,22 @@ struct page *page_alloc(unsigned int order)
 	return (struct page *)addr;
 }
 
+void page_reloc(uintptr_t offset)
+{
+	pages = (struct buddy_t *)((void *)pages + offset);
+
+	struct buddy_t *current = pages;
+
+	while (current != 0)
+	{
+		current->arena = (unsigned char *)((void *)current->arena + offset);
+		if (current->next != 0)
+			current->next = (struct buddy_t *)((void *)current->next + offset);
+
+		current = current->next;
+	}
+}
+
 void page_free(void *ptr)
 {
 	spinlock_acquire(&page_lock);

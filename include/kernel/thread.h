@@ -1,11 +1,14 @@
 #ifndef _KERNEL_THREAD_H
 #define _KERNEL_THREAD_H
 
-#include "unistd.h"
+#include "stdint.h"
 #include <kernel/context.h>
 #include <kernel/limits.h>
 #include <kernel/signal.h>
 #include <kernel/vm.h>
+
+typedef int pid_t;
+typedef int tid_t;
 
 typedef struct thread_timing_t
 {
@@ -22,6 +25,7 @@ typedef struct thread_t
 {
 	pid_t pid;
 	struct thread_t *parent;
+	tid_t tid;
 
 	char cmd[CMD_MAX];
 	char argv[ARG_MAX];
@@ -40,8 +44,8 @@ typedef struct thread_t
 	thread_sigactions_t *sigactions;
 
 	// wait cond
-	//  shared mem maps
-	//  queues
+	struct list_head shm;
+	struct list_head queues;
 } thread_t;
 
 // Init a thread

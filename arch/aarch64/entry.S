@@ -1,16 +1,14 @@
-#include "multiboot.S"
-
 _start:
     .globl _start
-    MRS      x0, MPIDR_EL1
-    AND      x0, x0, #0xFFFF                   // Mask off to leave Aff0 and Aff1
-    CBZ      x0, boot                          // If not *.*.0.0, then wait
+    MRS      x10, MPIDR_EL1
+    AND      x10, x10, #0xFFFF                   // Mask off to leave Aff0 and Aff1
+    CBZ      x10, boot                          // If not *.*.0.0, then wait
     B        secondary_boot
 
 boot:
     // Set Stackpointer
-    LDR x0, =stack
-    MOV sp, x0
+    LDR x10, =stack
+    MOV sp, x10
 
     ISB
 
@@ -21,6 +19,18 @@ halt_loop:
     .globl halt_loop
     WFE
     B halt_loop
+
+address_xlate_read:
+    .globl address_xlate_read
+    AT S1E1R, X0
+    MRS X0, PAR_EL1
+    RET
+
+address_xlate_write:
+    .globl address_xlate_write
+    AT S1E1W, X0
+    MRS X0, PAR_EL1
+    RET
 
 .global secondary_boot
 secondary_boot:

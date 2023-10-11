@@ -37,6 +37,8 @@ struct pl011
     uint32_t stop_bits;
 };
 
+static spinlock_t log_lock = 0;
+
 // Write to a specific register given the offset
 static void pl011_regwrite(const struct pl011 *dev, uint32_t offset, uint32_t data)
 {
@@ -190,13 +192,11 @@ void terminal_writestring(char *str)
         terminal_putchar(*str++);
 }
 
-spinlock_t log_lock;
-
 void terminal_log(char *str)
 {
     spinlock_acquire(&log_lock);
 
-    static char buf[8];
+    static char buf[24];
 
     struct clocksource_t *cs = clock_first(CS_GLOBAL);
 
@@ -220,14 +220,14 @@ void terminal_write(const char *data, size_t size)
 
 void terminal_logf(char *fmt, ...)
 {
-    static char buf[2048];
     static spinlock_t buflock = 0;
+    static char buf[2048];
     spinlock_acquire(&buflock);
 
     __builtin_va_list argp;
     __builtin_va_start(argp, fmt);
 
-    ksprintfz((char *)&buf, fmt, argp);
+    ksprintfz((char *)&buf[0], fmt, argp);
 
     __builtin_va_end(argp);
 

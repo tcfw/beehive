@@ -7,17 +7,22 @@
 #include <kernel/tty.h>
 #include <kernel/vm.h>
 
-const uint64_t kernelstart = 0x40000000;
-extern uint64_t kernelend;
+extern uintptr_t kernelstart;
+extern uintptr_t kernelend;
 
-vm_table *kernel_vm_map;
+extern void user_init(void);
+extern uintptr_t address_xlate_read(uintptr_t offset);
+extern uintptr_t address_xlate_write(uintptr_t offset);
 
 static void vm_free_table_block(vm_table_block *block, int level);
 static vm_table_block *vm_table_desc_to_block(uint64_t *desc);
 static vm_table_block *vm_table_entry_to_block(uint64_t *entry);
-static vm_table_block *vm_get_or_alloc_block(vm_table_block *parent, uint16_t entry, uint8_t level);
+static vm_table_block *vm_get_or_alloc_block(vm_table_block *parent, uint16_t entry);
 static vm_table_block *vm_copy_link_table_block(uint64_t *parent, vm_table_block *tocopy);
 static uint64_t *vm_va_to_pte(vm_table *table, uintptr_t vptr);
+static int vm_table_block_is_empty(vm_table_block *table);
+
+vm_table *kernel_vm_map;
 
 static vm_table_block *vm_table_desc_to_block(uint64_t *desc)
 {
@@ -38,25 +43,18 @@ vm_table *vm_get_current_table()
 	return kernel_vm_map;
 }
 
-extern void user_init(void);
-
-void vm_init()
+static int vm_table_block_is_empty(vm_table_block *table)
 {
-	kernel_vm_map = (vm_table *)page_alloc_s(sizeof(vm_table));
+	int c = 0;
 
-	// map device space
-	if (vm_map_region(kernel_vm_map, 0x9000000, DEVICE_REGION, 4095, MEMORY_TYPE_KERNEL | MEMORY_TYPE_DEVICE) < 0)
-		terminal_log("failed to map device region");
+	for (int i = 0; i < 512; i++)
+		if (table->entries[i] != 0)
+		{
+			c = 1;
+			break;
+		}
 
-	// map kernel code & remaining physcial memory regions
-	if (vm_map_region(kernel_vm_map, kernelstart, kernelstart, ram_max() - kernelstart - 1, MEMORY_TYPE_KERNEL) < 0)
-		terminal_log("failed to map kernel code region");
-
-	// move DBT to above RAM
-	if (vm_map_region(kernel_vm_map, 0, ram_max(), 0x100000 - 1, MEMORY_TYPE_KERNEL | MEMORY_TYPE_DEVICE | MEMORY_PERM_RO) < 0)
-		terminal_log("failed to map dbt region");
-
-	terminal_log("Loaded kernel VM map");
+	return !c;
 }
 
 void vm_init_table(vm_table *table)
@@ -70,7 +68,7 @@ void vm_set_kernel()
 	vm_set_table(kernel_vm_map);
 }
 
-static uint64_t *__attribute__((noinline)) vm_va_to_pte(vm_table *table, uintptr_t vptr)
+static uint64_t *vm_va_to_pte(vm_table *table, uintptr_t vptr)
 {
 	uint16_t l0 = vptr >> 39;
 	uint16_t l1 = (vptr >> 30) & 0x1FF;
@@ -182,12 +180,10 @@ void vm_free_table(vm_table *table)
 	page_free(table);
 }
 
-static vm_table_block *vm_get_or_alloc_block(vm_table_block *parent, uint16_t entry, uint8_t level)
+static vm_table_block *vm_get_or_alloc_block(vm_table_block *parent, uint16_t entry)
 {
 	if (entry > 511)
-	{
 		return 0;
-	}
 
 	vm_table_block *block;
 
@@ -200,11 +196,154 @@ static vm_table_block *vm_get_or_alloc_block(vm_table_block *parent, uint16_t en
 		parent->entries[entry] |= (VM_ENTRY_ISTABLE | VM_ENTRY_VALID | VM_ENTRY_NONSECURE);
 	}
 	else
-	{
 		block = vm_table_entry_to_block(&parent->entries[entry]);
-	}
 
 	return block;
+}
+
+int vm_unmap_region(vm_table *table, uintptr_t vstart, size_t size)
+{
+	uint64_t vend = vstart + (uintptr_t)size;
+
+	// check vstart and vend is page aligned
+	if ((vstart & 0xFFF) != 0 || (vend & 0xFFF) != 0xFFF)
+	{
+		terminal_log("WARN: vm region map was not page aligned");
+		return -1;
+	}
+
+	uint16_t l0 = vstart >> 39;
+	uint16_t l1 = (vstart >> 30) & 0x1FF;
+	uint16_t l2 = (vstart >> 21) & 0x1FF;
+	uint16_t l3 = (vstart >> 12) & 0x1FF;
+
+	uint16_t l0_e = (vend >> 39);
+	uint16_t l1_e = ((vend >> 30) & 0x1FF);
+	uint16_t l2_e = ((vend >> 21) & 0x1FF);
+	uint16_t l3_e = ((vend >> 12) & 0x1FF);
+
+	uint16_t l0_d = l0_e - l0;
+	uint16_t l1_d = l1_e - l1;
+	uint16_t l2_d = l2_e - l2;
+
+	int level = 0;
+	int level_start = 0;
+	int level_end = 0;
+
+	if (l0_d != 0)
+	{
+		level = 0;
+		level_start = l0;
+		level_end = l0_e;
+	}
+	else if (l1_d != 0)
+	{
+		level = 1;
+		level_start = l1;
+		level_end = l1_e;
+	}
+	else if (l2_d != 0)
+	{
+		level = 2;
+		level_start = l2;
+		level_end = l2_e;
+	}
+	else
+	{
+		level = 3;
+		level_start = l3;
+		level_end = l3_e;
+	}
+
+	vm_table_block *table_l1 = 0;
+	vm_table_block *table_l2 = 0;
+	vm_table_block *table_l3 = 0;
+	vm_table_block *cur_table = 0;
+
+	int vstart_level = 0;
+
+	uint64_t *desc = &table->descriptors[l0];
+	if (*desc == 0)
+		return 0;
+
+	vstart_level++;
+	table_l1 = vm_table_desc_to_block(desc);
+
+	if ((table_l1->entries[l1] & VM_ENTRY_ISTABLE) != 0)
+	{
+		vstart_level++;
+		table_l2 = vm_table_entry_to_block(&table_l1->entries[l1]);
+	}
+
+	if ((table_l2->entries[l2] & VM_ENTRY_ISTABLE) != 0)
+	{
+		vstart_level++;
+		table_l3 = vm_table_entry_to_block(&table_l2->entries[l2]);
+	}
+
+	switch (level)
+	{
+	case 1:
+		cur_table = table_l1;
+		break;
+	case 2:
+		cur_table = table_l2;
+		break;
+	case 3:
+		cur_table = table_l3;
+		break;
+	default:
+		return -1;
+	}
+
+	for (int li = level_start; li <= level_end; li++)
+	{
+		if ((cur_table->entries[li] & VM_ENTRY_ISTABLE) != 0 && level != 3)
+		{
+
+			if (li == level_start)
+			{
+				terminal_logf("unmapping sublevel at start");
+			}
+			else if (li == level_end)
+			{
+				terminal_logf("unmapping sublevel at end");
+			}
+			else
+			{
+				terminal_logf("unmapping sublevel in middle");
+				vm_free_table_block(vm_table_entry_to_block(&cur_table->entries[li]), level + 1);
+				cur_table->entries[li] = 0;
+			}
+		}
+		else
+		{
+			cur_table->entries[li] = 0;
+		}
+
+		terminal_logf("unmapping L: 0x%x i: 0x%x sub-level: 0x%x", level, li, (cur_table->entries[li] & VM_ENTRY_ISTABLE) != 0);
+	}
+
+	int found_pte = 0;
+	for (int i = 0; i < 512; i++)
+	{
+		if (cur_table->entries[i] != 0)
+		{
+			found_pte = 1;
+			break;
+		}
+	}
+
+	if (found_pte == 0)
+	{
+		// table is empty
+		terminal_logf("table is empty, freeing");
+		vm_free_table_block(cur_table, level);
+	}
+
+	vm_clear_caches();
+
+	return 0;
 }
 
 int vm_map_region(vm_table *table, uintptr_t pstart, uintptr_t vstart, size_t size, uint64_t flags)
@@ -223,11 +362,12 @@ int vm_map_region(vm_table *table, uintptr_t pstart, uintptr_t vstart, size_t si
 	uint16_t l2 = (vstart >> 21) & 0x1FF;
 	uint16_t l3 = (vstart >> 12) & 0x1FF;
 
+	uint64_t *desc = &table->descriptors[l0];
 	vm_table_block *table_l1 = 0;
 	vm_table_block *table_l2 = 0;
 	vm_table_block *table_l3 = 0;
+
 	uint64_t *vpage = 0;
-	uint64_t *desc = &table->descriptors[l0];
 
 	if (*desc == 0)
 	{
@@ -272,31 +412,31 @@ int vm_map_region(vm_table *table, uintptr_t pstart, uintptr_t vstart, size_t si
 		if (range > L1_BLOCK_SIZE && l3 == 0 && l2 == 0)
 		{
 			level = 1;
-			incsize = L1_BLOCK_SIZE + 1;
+			incsize = L1_BLOCK_SIZE;
 			vpage = &table_l1->entries[l1];
 		}
 		else if (range > L2_BLOCK_SIZE && l3 == 0)
 		{
 			if (!table_l2)
-				table_l2 = vm_get_or_alloc_block(table_l1, l1, 1);
+				table_l2 = vm_get_or_alloc_block(table_l1, l1);
 
 			if (table_l2->entries[l2] & VM_ENTRY_LINKED)
 				table_l2 = vm_copy_link_table_block(&table_l1->entries[l1], table_l2);
 
 			level = 2;
-			incsize = L2_BLOCK_SIZE + 1;
+			incsize = L2_BLOCK_SIZE;
 			vpage = &table_l2->entries[l2];
 		}
 		else
 		{
 			if (!table_l2)
-				table_l2 = vm_get_or_alloc_block(table_l1, l1, 1);
+				table_l2 = vm_get_or_alloc_block(table_l1, l1);
 
 			if (table_l2->entries[l2] & VM_ENTRY_LINKED)
 				table_l2 = vm_copy_link_table_block(&table_l1->entries[l1], table_l2);
 
 			if (!table_l3)
-				table_l3 = vm_get_or_alloc_block(table_l2, l2, 2);
+				table_l3 = vm_get_or_alloc_block(table_l2, l2);
 
 			if (table_l3->entries[l3] & VM_ENTRY_LINKED)
 				table_l3 = vm_copy_link_table_block(&table_l2->entries[l2], table_l3);
@@ -309,9 +449,11 @@ int vm_map_region(vm_table *table, uintptr_t pstart, uintptr_t vstart, size_t si
 			terminal_log("WARN: vm region map aleady mapped");
 			return -2;
 		}
+
 		*vpage = 0;
 
 		*vpage = (VM_ENTRY_VALID | VM_ENTRY_MAPPED | VM_ENTRY_NONSECURE | VM_ENTRY_AF | VM_ENTRY_ISH);
+
 		if (flags & MEMORY_TYPE_DEVICE)
 			*vpage |= (1 << VM_ENTRY_ATTR) | VM_ENTRY_OSH;
 		else
@@ -358,15 +500,15 @@ int vm_map_region(vm_table *table, uintptr_t pstart, uintptr_t vstart, size_t si
 		{
 			l3 = 0;
 			l2++;
-			table_l3 = vm_get_or_alloc_block(table_l2, l2, 2);
+			table_l3 = vm_get_or_alloc_block(table_l2, l2);
 		}
 
 		if (l2 > 511)
 		{
 			l2 = 0;
 			l1++;
-			table_l2 = vm_get_or_alloc_block(table_l1, l1, 1);
-			table_l3 = vm_get_or_alloc_block(table_l2, l2, 2);
+			table_l2 = vm_get_or_alloc_block(table_l1, l1);
+			table_l3 = vm_get_or_alloc_block(table_l2, l2);
 		}
 
 		if (l1 > 512)
@@ -374,8 +516,8 @@ int vm_map_region(vm_table *table, uintptr_t pstart, uintptr_t vstart, size_t si
 			l1 = 0;
 			l0++;
 			table_l1 = vm_table_desc_to_block(&table->descriptors[l0]);
-			table_l2 = vm_get_or_alloc_block(table_l1, l1, 1);
-			table_l3 = vm_get_or_alloc_block(table_l2, l2, 2);
+			table_l2 = vm_get_or_alloc_block(table_l1, l1);
+			table_l3 = vm_get_or_alloc_block(table_l2, l2);
 		}
 
 		vstart += incsize;
@@ -398,6 +540,13 @@ void vm_set_table(vm_table *table)
 	__asm__ volatile("MSR SCTLR_EL1, %0" ::"r"(sctlr));
 
 	// invalidate TLBs
+	vm_clear_caches();
+}
+
+void vm_clear_caches()
+{
+	__asm__ volatile("IC IALLU");
+	__asm__ volatile("ISB");
 	__asm__ volatile("TLBI VMALLE1");
 	__asm__ volatile("DSB ISH");
 	__asm__ volatile("ISB");
@@ -422,11 +571,7 @@ void vm_enable()
 
 	__asm__ volatile("msr TCR_EL1, %0" ::"r"(tcr));
 
-	__asm__ volatile("IC IALLU");
-	__asm__ volatile("ISB");
-	__asm__ volatile("TLBI VMALLE1");
-	__asm__ volatile("DSB ISH");
-	__asm__ volatile("ISB");
+	vm_clear_caches();
 
 	uint64_t sctlr = 0;
 	__asm__ volatile("MRS %0, sctlr_el1"
@@ -505,4 +650,29 @@ int access_ok(enum AccessType type, void *addr, size_t n)
 	}
 
 	return 0;
+}
+
+void vm_init()
+{
+	kernel_vm_map = (vm_table *)page_alloc_s(sizeof(vm_table));
+
+	// map terminal device space
+	if (vm_map_region(kernel_vm_map, 0x9000000, DEVICE_REGION, 4095, MEMORY_TYPE_KERNEL | MEMORY_TYPE_DEVICE) < 0)
+		terminal_log("failed to map device region");
+
+	// map kernel code & remaining physcial memory regions
+	// TODO(tcfw) get from dtb
+	if (vm_map_region(kernel_vm_map, &kernelstart, &kernelstart, ram_max() - ((uintptr_t)&kernelstart) - 1, MEMORY_TYPE_KERNEL) < 0)
+		terminal_log("failed to map kernel code region");
+
+	// move DBT to above RAM
+	if (vm_map_region(kernel_vm_map, 0, DEVICE_DESCRIPTOR_REGION, 0x100000 - 1, MEMORY_TYPE_KERNEL | MEMORY_TYPE_DEVICE | MEMORY_PERM_RO) < 0)
+		terminal_log("failed to map dbt region");
+
+	terminal_log("Loaded kernel VM map");
+}
+
+void vm_init_post_enable()
+{
+	// vm_unmap_region(kernel_vm_map, 0x40000000, ram_max() - ((uintptr_t)0x40000000) - 1);
 }

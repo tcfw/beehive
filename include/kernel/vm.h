@@ -1,9 +1,9 @@
 #ifndef _KERNEL_VM_H
 #define _KERNEL_VM_H
 
-#include "unistd.h"
 #include <kernel/paging.h>
 #include <kernel/list.h>
+#include "unistd.h"
 
 #define MEMORY_TYPE_DEVICE (1 << 0)
 #define MEMORY_TYPE_KERNEL (1 << 1)
@@ -14,6 +14,10 @@
 
 // Init virtual memory
 void vm_init();
+
+// Post init handler after kernel has relocated
+// should only be executed by a single core
+void vm_init_post_enable();
 
 // Set the kernel page table into the active page table
 void vm_set_kernel();

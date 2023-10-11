@@ -64,7 +64,7 @@ void k_setup_clock_irq()
 	enable_xrq_n(27);
 }
 
-static void clock_tick(unsigned int type)
+static void clock_tick(__attribute__((unused)) unsigned int _)
 {
 	terminal_logf("TICK! on 0x%x", cpu_id());
 	struct clocksource_t *cs = clock_first(CS_GLOBAL);

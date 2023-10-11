@@ -5,6 +5,9 @@
 
 void init_thread(thread_t *thread)
 {
+	INIT_LIST_HEAD(&thread->shm);
+	INIT_LIST_HEAD(&thread->queues);
+
 	init_context(&thread->ctx);
 
 	thread->affinity = ~0;
