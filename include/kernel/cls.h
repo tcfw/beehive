@@ -17,8 +17,11 @@ enum exception_operation
 typedef struct cls_t
 {
 	uint64_t id;
-	thread_t *currentThread;
-	schedule_queue thread_queue;
+
+	uint64_t pending_irq;
+
+	// schedule runqueue
+	sched_rq_t rq;
 
 	// cause for exception handler
 	enum exception_operation cfe;
@@ -27,6 +30,9 @@ typedef struct cls_t
 
 // Get the core local storage object for the current core
 cls_t *get_cls(void);
+
+// Get the core local storage object for a specific core
+cls_t *get_core_cls(uint8_t n);
 
 // Init the core local storage for all cores given the required
 // number of cores

@@ -3,6 +3,7 @@
 
 #define ESR_EXCEPTION_CLASS(xrq) ((xrq & 0xFC000000) >> 26)
 
+#define ESR_EXCEPTION_SVC (0b010101)
 #define ESR_EXCEPTION_INSTRUCTION_ABORT_LOWER_EL (0b100000)
 #define ESR_EXCEPTION_INSTRUCTION_ABORT_SAME_EL (0b100001)
 #define ESR_EXCEPTION_DATA_ABORT_LOWER_EL (0b100100)
@@ -24,8 +25,10 @@
 #define SPSR_I (1ULL << 7)
 #define SPSR_F (1ULL << 6)
 #define SPSR_M_AARCH32 (1ULL << 4)
+#define SPSR_M_MASK (0b1111)
 #define SPSR_M_EL0 (0b0000)
-#define SPSR_M_EL1 (0b0100)
+#define SPSR_M_EL1 (0b0100)	   // EL1 using SP_EL0
+#define SPSR_M_EL1_SP (0b0101) // EL1 using SP_EL1
 #define SPSR_M_SP (0b0001)
 
 #endif

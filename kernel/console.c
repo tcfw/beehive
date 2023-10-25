@@ -8,7 +8,7 @@ int writeconsole(pid_t pid, void *c, size_t n)
 	if (n > 40960)
 		return -2;
 
-	int aok = access_ok(READ, c, n);
+	int aok = access_ok(ACCESS_TYPE_READ, c, n);
 	if (aok < 0)
 		return aok;
 

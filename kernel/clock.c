@@ -1,6 +1,7 @@
 #include <kernel/clock.h>
 #include <kernel/list.h>
 #include <kernel/panic.h>
+#include "stdint.h"
 
 static LIST_HEAD(clockSources);
 
@@ -33,4 +34,27 @@ void global_clock_init()
 
 	cs->disableIRQ(cs, 0);
 	cs->enable(cs);
+}
+
+void timespec_from_cs(struct clocksource_t *cs, timespec_t *ts)
+{
+	uint64_t current = cs->val(cs);
+	uint64_t freq = cs->getFreq(cs);
+
+	uint64_t seconds = current / freq;
+	uint64_t clock_nanos = (uint64_t)((1.0 / (double)freq) * 1000000000.0);
+	uint64_t nano = (current - (seconds * freq)) * clock_nanos;
+	ts->seconds = seconds;
+	ts->nanoseconds = nano;
+}
+
+void timespec_diff(const timespec_t *a, const timespec_t *b, timespec_t *result)
+{
+	result->seconds = a->seconds - b->seconds;
+	result->nanoseconds = a->nanoseconds - b->nanoseconds;
+	if (result->nanoseconds < 0)
+	{
+		--result->seconds;
+		result->nanoseconds += 1000000000L;
+	}
 }

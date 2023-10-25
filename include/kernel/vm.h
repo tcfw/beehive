@@ -3,6 +3,7 @@
 
 #include <kernel/paging.h>
 #include <kernel/list.h>
+#include <kernel/thread.h>
 #include "unistd.h"
 
 #define MEMORY_TYPE_DEVICE (1 << 0)
@@ -21,6 +22,9 @@ void vm_init_post_enable();
 
 // Set the kernel page table into the active page table
 void vm_set_kernel();
+
+// Get the kernel page table
+vm_table *vm_get_kernel();
 
 // Init a page table
 void vm_init_table(vm_table *table);
@@ -48,7 +52,7 @@ void vm_free_table(vm_table *table);
 
 // Set the given table as the active page table, updating/clearing any
 // required caches
-void vm_set_table(vm_table *table);
+void vm_set_table(vm_table *table, pid_t pid);
 
 // Symbolically map all virtual addresses from table 2 onto table 1
 int vm_link_tables(vm_table *table1, vm_table *table2);
@@ -64,8 +68,8 @@ vm_table *vm_get_current_table();
 
 enum AccessType
 {
-	READ = 0,
-	WRITE = 1,
+	ACCESS_TYPE_READ = 0,
+	ACCESS_TYPE_WRITE = 1,
 };
 
 // Checks if the user space is allowed by the current task

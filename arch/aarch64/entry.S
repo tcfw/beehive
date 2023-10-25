@@ -49,21 +49,40 @@ secondary_boot:
     MOV sp, X1
     B kernel_main2
 
-.global k_exphandler_sync_entry
-k_exphandler_sync_entry:
-    STP x2, x3, [sp, #-16]!
-    STP x0, x1, [sp, #-16]!
+push_elx_sp:
+    MRS x0, SPSR_EL1
+    AND x0, x0, #1
+    CMP x0, #0
+    BNE _el1sp
 
-    // syscall
-    MRS x0, ESR_EL1
-    LSR x0, x0, #26
-    CMP x0, #0x15
-    b.eq syscall_entry
+    MRS x0, SP_EL0
+    b _elxspstore
 
-    //other sync exception
-    LDP x0, x1, [sp], #16
-    LDP x2, x3, [sp], #16
-    
+_el1sp:
+    MOV x0, SP
+_elxspstore:
+    STR x0, [sp, #-8]!
+
+    ret
+
+pull_elx_sp:
+    MRS x0, SPSR_EL1
+    AND x0, x0, #1
+    CMP x0, #0
+    BNE _el1sp_p
+
+    LDR x0, [sp], #8
+    MSR SP_EL0, x0
+    b _elxsp_end
+
+_el1sp_p:
+    LDR x0, [sp], #8
+    MOV SP, x0
+_elxsp_end:
+
+    ret
+
+.macro kexp_trapframe_push
     STR x30, [sp, #-8]!
     STP x28, x29, [sp, #-16]!
     STP x26, x27, [sp, #-16]!
@@ -80,11 +99,25 @@ k_exphandler_sync_entry:
     STP x4, x5, [sp, #-16]!
     STP x2, x3, [sp, #-16]!
     STP x0, x1, [sp, #-16]!
+    
+    MRS x0, ELR_EL1
+    STR x0, [sp, #-8]!
 
-    mov x0, sp
+    bl push_elx_sp
 
-    .global k_exphandler_sync
-    bl k_exphandler_sync
+    MRS x0, SPSR_EL1
+    STR x0, [sp, #-8]!
+    MOV x0, sp
+.endm
+
+.macro kexp_trapframe_pull
+    LDR x0, [sp], #8
+    MSR SPSR_EL1, x0
+
+    bl pull_elx_sp
+
+    LDR x0, [sp], #8
+    MSR ELR_EL1, x0
 
     LDP x0, x1, [sp], #16
     LDP x2, x3, [sp], #16
@@ -102,6 +135,29 @@ k_exphandler_sync_entry:
     LDP x26, x27, [sp], #16
     LDP x28, x29, [sp], #16
     LDR x30, [sp], #8
+.endm
+
+.global k_exphandler_sync_entry
+k_exphandler_sync_entry:
+    STP x2, x3, [sp, #-16]!
+    STP x0, x1, [sp, #-16]!
+
+    // syscall
+    MRS x0, ESR_EL1
+    LSR x0, x0, #26
+    CMP x0, #0x15
+    b.eq syscall_entry
+
+    //other sync exception
+    LDP x0, x1, [sp], #16
+    LDP x2, x3, [sp], #16
+
+    kexp_trapframe_push
+
+    .global k_exphandler_sync
+    bl k_exphandler_sync
+
+    kexp_trapframe_pull
 
     ERET
 
@@ -109,73 +165,33 @@ syscall_entry:
     LDP x0, x1, [sp], #16
     LDP x2, x3, [sp], #16
 
-	STR x30, [sp, #-8]!
-    STP x28, x29, [sp, #-16]!
-    STP x26, x27, [sp, #-16]!
-    STP x24, x25, [sp, #-16]!
-    STP x22, x23, [sp, #-16]!
-    STP x20, x21, [sp, #-16]!
-    STP x18, x19, [sp, #-16]!
-    STP x16, x17, [sp, #-16]!
-    STP x14, x15, [sp, #-16]!
-    STP x12, x13, [sp, #-16]!
-    STP x10, x11, [sp, #-16]!
-    STP x8, x9, [sp, #-16]!
-    STP x6, x7, [sp, #-16]!
-    STP x4, x5, [sp, #-16]!
-    STP x2, x3, [sp, #-16]!
-	STR x1, [sp, #-8]!
-
-    MRS x26, ELR_EL1
-	STR x26, [sp, #-8]!
-    MRS x26, SPSR_EL1
-	STR x26, [sp, #-8]!
+    kexp_trapframe_push
 
     .global k_exphandler_swi_entry
     bl k_exphandler_swi_entry
 
-    LDR x26, [sp], #8
-    MSR SPSR_EL1, x26
-    LDR x26, [sp], #8
-    MSR ELR_EL1, x26
-
-    LDR x1, [sp], #8
-    LDP x2, x3, [sp], #16
-    LDP x4, x5, [sp], #16
-    LDP x6, x7, [sp], #16
-    LDP x8, x9, [sp], #16
-    LDP x10, x11, [sp], #16
-    LDP x12, x13, [sp], #16
-    LDP x14, x15, [sp], #16
-    LDP x16, x17, [sp], #16
-    LDP x18, x19, [sp], #16
-    LDP x20, x21, [sp], #16
-    LDP x22, x23, [sp], #16
-    LDP x24, x25, [sp], #16
-    LDP x26, x27, [sp], #16
-    LDP x28, x29, [sp], #16
-    LDR x30, [sp], #8
+    kexp_trapframe_pull
 
     ERET
 
 .global k_exphandler_irq_entry
 k_exphandler_irq_entry:
-    STR	lr, [sp, #-8]!
+    kexp_trapframe_push
 
     .globl k_exphandler_irq
     bl k_exphandler_irq
-    
-    LDR lr, [sp], #8
+    kexp_trapframe_pull
 
     ERET
 
 .global k_exphandler_fiq_entry
 k_exphandler_fiq_entry:
-    STR	lr, [sp, #-8]!
+    kexp_trapframe_push
+
 
     .globl k_exphandler_fiq
     bl k_exphandler_fiq
     
-    LDR lr, [sp], #8
+    kexp_trapframe_pull
 
     ERET

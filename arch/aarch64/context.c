@@ -16,25 +16,37 @@ void init_context(context_t *ctx)
 	memset(ctx->regs, 0, sizeof(ctx->regs));
 }
 
+void kthread_context(context_t *ctx, void *data)
+{
+	ctx->spsr = SPSR_M_EL1;
+
+	if (data)
+		ctx->regs[0] = (uint64_t)data;
+}
+
 void save_to_context(context_t *ctx, uintptr_t trapFrame)
 {
 	uint64_t *reg = trapFrame;
+
+	ctx->spsr = *reg++;
+	ctx->sp = *reg++;
+	ctx->pc = *reg++;
 
 	// registers x0-x30
 	for (int i = 0; i <= 30; i++)
 		ctx->regs[i] = *reg++;
 
-	// processor states
-	uint64_t elr, sp, spsr = 0;
-	__asm__ volatile("mrs %0, ELR_EL1"
-					 : "=r"(elr));
-	__asm__ volatile("mrs %0, SP_EL0"
-					 : "=r"(sp));
-	__asm__ volatile("mrs %0, SPSR_EL1"
-					 : "=r"(spsr));
-	ctx->pc = elr;
-	ctx->sp = sp;
-	ctx->spsr = spsr;
+	// // processor states
+	// uint64_t elr, sp, spsr = 0;
+	// __asm__ volatile("mrs %0, ELR_EL1"
+	// 				 : "=r"(elr));
+	// __asm__ volatile("mrs %0, SP_EL0"
+	// 				 : "=r"(sp));
+	// __asm__ volatile("mrs %0, SPSR_EL1"
+	// 				 : "=r"(spsr));
+	// ctx->pc = elr;
+	// ctx->sp = sp;
+	// ctx->spsr = spsr;
 
 	// fp registers
 	__asm__ volatile("fmov %0, d0"
@@ -169,11 +181,6 @@ void save_to_context(context_t *ctx, uintptr_t trapFrame)
 
 void set_to_context(context_t *ctx, uintptr_t trapFrame)
 {
-	// setup pc, sp & pstate
-	__asm__ volatile("msr ELR_EL1, %0" ::"r"(ctx->pc));
-	__asm__ volatile("msr SP_EL0, %0" ::"r"(ctx->sp));
-	__asm__ volatile("msr SPSR_EL1, %0" ::"r"(ctx->spsr));
-
 	__asm__ volatile("fmov d0, %0" ::"r"(ctx->fpregs[0]));
 	__asm__ volatile("fmov v0.d[1], %0" ::"r"(ctx->fpregs[1]));
 	__asm__ volatile("fmov d1, %0" ::"r"(ctx->fpregs[2]));
@@ -239,7 +246,16 @@ void set_to_context(context_t *ctx, uintptr_t trapFrame)
 	__asm__ volatile("fmov d31, %0" ::"r"(ctx->fpregs[62]));
 	__asm__ volatile("fmov v31.d[1], %0" ::"r"(ctx->fpregs[63]));
 
-	uint64_t *reg = trapFrame;
+	uint64_t *reg = (uint64_t *)trapFrame;
+
+	// setup pc, sp & pstate
+	// __asm__ volatile("msr ELR_EL1, %0" ::"r"(ctx->pc));
+	// __asm__ volatile("msr SP_EL0, %0" ::"r"(ctx->sp));
+	// __asm__ volatile("msr SPSR_EL1, %0" ::"r"(ctx->spsr));
+
+	*reg++ = ctx->spsr;
+	*reg++ = ctx->sp;
+	*reg++ = ctx->pc;
 
 	// registers x0-x30
 	for (int i = 0; i <= 30; i++)

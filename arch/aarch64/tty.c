@@ -222,7 +222,7 @@ void terminal_logf(char *fmt, ...)
 {
     static spinlock_t buflock = 0;
     static char buf[2048];
-    spinlock_acquire(&buflock);
+    spinlock_acquire_irq(&buflock);
 
     __builtin_va_list argp;
     __builtin_va_start(argp, fmt);
@@ -233,5 +233,5 @@ void terminal_logf(char *fmt, ...)
 
     terminal_log(buf);
 
-    spinlock_release(&buflock);
+    spinlock_release_irq(&buflock);
 }

@@ -8,7 +8,10 @@
 #include <kernel/syscall.h>
 #include <kernel/tty.h>
 #include <kernel/vm.h>
+#include <kernel/thread.h>
+#include <kernel/cls.h>
 #include <stdint.h>
+#include "regs.h"
 
 extern unsigned long stack;
 
@@ -27,35 +30,32 @@ extern unsigned long stack;
 #define PIC_INT_SOFTSET 0x4
 #define PIC_INT_SOFTCLR 0x5
 
-#define KEXP_TOP3                                  \
-	__asm__ volatile("STP x29, x30, [sp, #-16]!"); \
-	__asm__ volatile("STP x18, x19, [sp, #-16]!"); \
-	__asm__ volatile("STP x16, x17, [sp, #-16]!"); \
-	__asm__ volatile("STP x14, x15, [sp, #-16]!"); \
-	__asm__ volatile("STP x12, x13, [sp, #-16]!"); \
-	__asm__ volatile("STP x10, x11, [sp, #-16]!"); \
-	__asm__ volatile("STP x8, x9, [sp, #-16]!");   \
-	__asm__ volatile("STP x6, x7, [sp, #-16]!");   \
-	__asm__ volatile("STP x4, x5, [sp, #-16]!");   \
-	__asm__ volatile("STP x2, x3, [sp, #-16]!");   \
-	__asm__ volatile("STP x0, x1, [sp, #-16]!");
+#define KEXP_TOP3                                                                    \
+	uint64_t spsr = 0;                                                               \
+	__asm__ volatile("mrs %0, SPSR_EL1"                                              \
+					 : "=r"(spsr));                                                  \
+	thread_t *thread = get_cls()->rq.current_thread;                                 \
+	int didsave = 0;                                                                 \
+	if ((spsr & SPSR_M_MASK) == SPSR_M_EL0 || (thread->flags & THREAD_KTHREAD) != 0) \
+	{                                                                                \
+		didsave = 1;                                                                 \
+		save_to_context(&thread->ctx, trapFrame);                                    \
+	}
 
-#define KEXP_BOT3                                \
-	__asm__ volatile("LDP x0, x1, [sp], #16");   \
-	__asm__ volatile("LDP x2, x3, [sp], #16");   \
-	__asm__ volatile("LDP x4, x5, [sp], #16");   \
-	__asm__ volatile("LDP x6, x7, [sp], #16");   \
-	__asm__ volatile("LDP x8, x9, [sp], #16");   \
-	__asm__ volatile("LDP x10, x11, [sp], #16"); \
-	__asm__ volatile("LDP x12, x13, [sp], #16"); \
-	__asm__ volatile("LDP x14, x15, [sp], #16"); \
-	__asm__ volatile("LDP x16, x17, [sp], #16"); \
-	__asm__ volatile("LDP x18, x19, [sp], #16"); \
-	__asm__ volatile("LDP x29, x30, [sp], #16");
+#define KEXP_BOT3                                    \
+	thread_t *next = get_cls()->rq.current_thread;   \
+	if (next != thread && didsave)                   \
+	{                                                \
+		thread = next;                               \
+		vm_set_table(thread->vm_table, thread->pid); \
+		set_to_context(&thread->ctx, trapFrame);     \
+	}
 
 // handle syscall inner
-void k_exphandler_swi_entry(uint64_t x0, uint64_t x1, uint64_t x2, uint64_t x3, uint64_t x4)
+void k_exphandler_swi_entry(uintptr_t trapFrame)
 {
+	KEXP_TOP3
+
 	// check svc number
 	uint8_t int_vector = 0;
 	__asm__ volatile("MRS %0, ESR_EL1"
@@ -70,48 +70,66 @@ void k_exphandler_swi_entry(uint64_t x0, uint64_t x1, uint64_t x2, uint64_t x3, 
 		return;
 	}
 
-	volatile int ret = ksyscall_entry(x0, x1, x2, x3, x4);
+	uint64_t x0, x1, x2, x3, x4;
+	x0 = thread->ctx.regs[0];
+	x1 = thread->ctx.regs[1];
+	x2 = thread->ctx.regs[2];
+	x3 = thread->ctx.regs[3];
+	x4 = thread->ctx.regs[4];
 
-	__asm__ volatile("MOV x0, %0" ::"r"(ret)
-					 : "x0");
+	volatile int ret = ksyscall_entry(x0, x1, x2, x3, x4);
+	thread->ctx.regs[0] = ret;
+
+	uint64_t *pending_irq = &get_cls()->pending_irq;
+	if (*pending_irq)
+	{
+		k_deferred_exphandler(ARM4_XRQ_IRQ, *pending_irq);
+		pending_irq = 0;
+	}
+
+	// clear ESR
+	__asm__ volatile("MOV x0, #0; MSR ESR_EL1, x0");
+
+	KEXP_BOT3
 }
 
 // Handle non-syscall sync exceptions
 void k_exphandler_sync(uintptr_t trapFrame)
 {
-	thread_t *thread = get_cls()->currentThread;
-	save_to_context(&thread->ctx, trapFrame);
+	KEXP_TOP3;
+	disable_irq();
 
 	uint64_t esr = 0;
 	__asm__ volatile("mrs %0, ESR_EL1"
 					 : "=r"(esr));
 
-	k_exphandler(ARM4_XRQ_SYNC, esr);
+	k_exphandler(ARM4_XRQ_SYNC, esr, 0);
 
-	// check if need to switch thread contexts
-	uint64_t tpid = 0;
-	__asm__ volatile("mrs %0, TPIDRRO_EL0"
-					 : "=r"(tpid));
-	thread = get_cls()->currentThread;
-
-	// switch to the new thread
-	if (thread->pid != tpid)
-	{
-		__asm__ volatile("msr TPIDRRO_EL0, %0" ::"rm"(thread->pid));
-		vm_set_table(thread->vm_table);
-		set_to_context(&thread->ctx, trapFrame);
-	}
+	KEXP_BOT3;
 }
 
 // Handle IRQ
-void k_exphandler_irq()
+void k_exphandler_irq(uintptr_t trapFrame)
 {
 	KEXP_TOP3;
-	volatile uint64_t esr;
+
+	disable_irq();
+
+	volatile uint64_t xrq;
 	__asm__ volatile("MRS %0, S3_0_c12_c12_0" // ICC_IAR1_EL1
+					 : "=r"(xrq));
+
+	volatile uint64_t esr;
+	__asm__ volatile("MRS %0, ESR_EL1"
 					 : "=r"(esr));
 
-	k_exphandler(ARM4_XRQ_IRQ, esr);
+	if (ESR_EXCEPTION_CLASS(esr) == ESR_EXCEPTION_SVC)
+	{
+		// defer IRQ until syscall is complete
+		get_cls()->pending_irq |= (1 << xrq);
+	}
+	else
+		k_exphandler(ARM4_XRQ_IRQ, xrq, 0);
 
 	KEXP_BOT3;
 }
@@ -119,14 +137,14 @@ void k_exphandler_irq()
 // Handle FIQ
 void k_exphandler_fiq()
 {
-	k_exphandler(ARM4_XRQ_FIQ, 0);
+	k_exphandler(ARM4_XRQ_FIQ, 0, 0);
 }
 
 // Handle serrors
-void k_exphandler_serror_entry()
+void k_exphandler_serror_entry(uintptr_t trapFrame)
 {
 	KEXP_TOP3;
-	k_exphandler(ARM4_XRQ_SERROR, 0);
+	k_exphandler(ARM4_XRQ_SERROR, 0, 0);
 	KEXP_BOT3;
 }
 
@@ -154,7 +172,7 @@ void enable_xrq()
 void disable_irq(void)
 {
 	// Disable all DAIF
-	__asm__ volatile("MOV x0, #0; MSR DAIF, X0");
+	__asm__ volatile("MOV x0, #0x3C0; MSR DAIF, X0; ISB");
 }
 
 // Enable interrupts for the local core
@@ -162,7 +180,7 @@ void disable_irq(void)
 void enable_irq(void)
 {
 	// Enable all DAIF
-	__asm__ volatile("MOV x0, #0x3C0; MSR DAIF, X0");
+	__asm__ volatile("ISB; MOV x0, #0; MSR DAIF, X0; ISB");
 }
 
 // enable the specific interrupt number and route
@@ -173,7 +191,7 @@ void enable_xrq_n(unsigned int xrq)
 	uint32_t affinity = cpu_id();
 	uint32_t rd = getRedistID(affinity);
 
-	gic_redist_set_int_priority(xrq, rd, 1);
+	gic_redist_set_int_priority(xrq, rd, 0);
 	gic_redist_set_int_group(xrq, rd, GICV3_GROUP1_NON_SECURE);
 	gic_redist_enable_int(xrq, rd);
 	gic_dist_enable_xrq_n(affinity, xrq);
@@ -217,8 +235,8 @@ void k_fiq_exphandler(unsigned int xrq)
 	{
 	case ESR_EXCEPTION_INSTRUCTION_ABORT_LOWER_EL:
 		terminal_logf("instruction abort from EL0 addr 0x%x", far);
-		if (cls->currentThread != 0)
-			terminal_logf("on PID 0x%x", cls->currentThread->pid);
+		if (cls->rq.current_thread != 0)
+			terminal_logf("on PID 0x%x", cls->rq.current_thread->pid);
 		// send SIGILL
 		break;
 	case ESR_EXCEPTION_INSTRUCTION_ABORT_SAME_EL:
@@ -232,8 +250,8 @@ void k_fiq_exphandler(unsigned int xrq)
 			panicf("Instruction abort at 0x%x", far);
 	case ESR_EXCEPTION_DATA_ABORT_LOWER_EL:
 		terminal_logf("data abort from EL0 addr 0x%x", far);
-		if (cls->currentThread != 0)
-			terminal_logf("on PID 0x%x", cls->currentThread->pid);
+		if (cls->rq.current_thread != 0)
+			terminal_logf("on PID 0x%x", cls->rq.current_thread->pid);
 		// send SIGSEGV
 
 		break;

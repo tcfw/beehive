@@ -14,13 +14,12 @@ struct syscall_handler_t syscall_handlers[SYSCALL_MAX];
 // syscall entry router
 int ksyscall_entry(uint64_t type, uint64_t arg0, uint64_t arg1, uint64_t arg2, uint64_t arg3)
 {
-	disable_irq();
-
 	struct clocksource_t *clk = clock_first(CS_GLOBAL);
-	thread_t *cthread = get_cls()->currentThread;
+	thread_t *cthread = get_cls()->rq.current_thread;
 
 	uint64_t clkval = clk->val(clk);
-	cthread->timing.total_user += clkval - cthread->timing.last_user;
+	if ((cthread->flags & THREAD_KTHREAD) == 0)
+		cthread->timing.total_user += clkval - cthread->timing.last_user;
 	cthread->timing.last_system = clkval;
 
 	int ret = -ERRNOSYS;
@@ -50,9 +49,8 @@ int ksyscall_entry(uint64_t type, uint64_t arg0, uint64_t arg1, uint64_t arg2, u
 
 	clkval = clk->val(clk);
 	cthread->timing.total_system += clkval - cthread->timing.last_system;
-	cthread->timing.last_user = clkval;
-
-	enable_irq();
+	if ((cthread->flags & THREAD_KTHREAD) == 0)
+		cthread->timing.last_user = clkval;
 
 	return ret;
 }

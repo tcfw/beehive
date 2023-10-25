@@ -8,6 +8,7 @@
  */
 spinlock_acquire:
 	.globl	spinlock_acquire
+
 	/*
 	mov	w2, #1
 1:	mov	w1, wzr

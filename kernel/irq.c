@@ -4,6 +4,7 @@
 #include <kernel/irq.h>
 #include <kernel/arch.h>
 #include <kernel/clock.h>
+#include <kernel/sched.h>
 #include "stdint.h"
 
 extern void halt_loop();
@@ -15,7 +16,7 @@ static void clock_tick(unsigned int type);
 struct irq_handler_t irq_handlers[IRQ_HANDLER_MAX];
 
 // FIQ & IRQ handler
-void k_exphandler(unsigned int type, unsigned int xrq)
+void k_exphandler(unsigned int type, unsigned int xrq, int deferred)
 {
 	if (type != 0x2)
 	{
@@ -26,7 +27,7 @@ void k_exphandler(unsigned int type, unsigned int xrq)
 		struct irq_handler_t *handler = &irq_handlers[xrq];
 		if (handler->khandler)
 		{
-			handler->khandler(type);
+			handler->khandler(xrq);
 		}
 		else if (handler->pid)
 		{
@@ -37,6 +38,24 @@ void k_exphandler(unsigned int type, unsigned int xrq)
 	ack_xrq(xrq);
 
 	return;
+}
+
+void k_deferred_exphandler(unsigned int type, uint64_t xrq_map)
+{
+	while (xrq_map != 0)
+	{
+		uint64_t fsb = xrq_map & -xrq_map;
+		xrq_map &= ~fsb;
+
+		uint64_t xrq = 0;
+		while (fsb != 0)
+		{
+			xrq++;
+			fsb >>= 1;
+		}
+
+		k_exphandler(type, xrq - 1, 1);
+	}
 }
 
 // Assign an interrupt to a callback
@@ -64,11 +83,18 @@ void k_setup_clock_irq()
 	enable_xrq_n(27);
 }
 
-static void clock_tick(__attribute__((unused)) unsigned int _)
+static void clock_tick(unsigned int xrq)
 {
-	terminal_logf("TICK! on 0x%x", cpu_id());
 	struct clocksource_t *cs = clock_first(CS_GLOBAL);
+	cs->disable(cs);
 	cs->disableIRQ(cs, 0);
+
+	schedule();
+
+	uint64_t freq = cs->getFreq(cs);
+	cs->countNTicks(cs, freq / 25);
+	cs->enableIRQ(cs, 0);
+	cs->enable(cs);
 }
 
 static void halt_core(__attribute__((unused)) unsigned int _)

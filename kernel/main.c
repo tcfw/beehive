@@ -15,8 +15,9 @@
 #include "stdint.h"
 
 extern void user_init(void);
+static void thread_test(void *data);
 
-static void setup_init_thread(void)
+static void setup_init_threads(void)
 {
     thread_t *init = (thread_t *)page_alloc_s(sizeof(thread_t));
     init_thread(init);
@@ -36,6 +37,26 @@ static void setup_init_thread(void)
         terminal_logf("failed to map user region: 0x%x", r);
 
     sched_append_pending(init);
+
+    thread_t *kthread1 = create_kthread(&thread_test, "[hello world]", (void *)"test");
+    sched_append_pending(kthread1);
+}
+
+static void thread_test(void *data)
+{
+    struct clocksource_t *cs = clock_first(CS_GLOBAL);
+    timespec_t now;
+
+    terminal_logf("data was: %s", (char *)data);
+    while (1)
+    {
+        timespec_from_cs(cs, &now);
+        terminal_logf("kthread ellapsed: %x %x", now.seconds, now.nanoseconds);
+
+        for (int i = 0; i < 100000; i++)
+        {
+        }
+    }
 }
 
 void kernel_main2(void)
@@ -56,10 +77,11 @@ void kernel_main2(void)
     sched_local_init();
 
     enable_xrq();
+    disable_irq();
     terminal_set_bar(DEVICE_REGION);
     remaped_devicetreeoffset(DEVICE_DESCRIPTOR_REGION);
 
-    __atomic_add_fetch(&booted, 1, __ATOMIC_RELAXED);
+    __atomic_add_fetch(&booted, 1, __ATOMIC_ACQ_REL);
     terminal_logf("Booted core 0x%x", get_cls()->id);
 
     struct clocksource_t *cs = clock_first(CS_GLOBAL);
@@ -67,7 +89,7 @@ void kernel_main2(void)
     if (cpu_id() == 0)
     {
         int cpuN = devicetree_count_dev_type("cpu");
-        while (cpuN >= __atomic_load_n(&booted, __ATOMIC_RELAXED))
+        while (cpuN >= __atomic_load_n(&booted, __ATOMIC_ACQ_REL))
         {
         }
 
@@ -82,28 +104,23 @@ void kernel_main2(void)
         }
     }
 
-    if (cpu_id() == 0)
-    {
-        setup_init_thread();
+    uint64_t freq = cs->getFreq(cs);
+    uint64_t val = cs->val(cs);
+    cs->countNTicks(cs, freq / 4);
+    cs->enable(cs);
+    cs->enableIRQ(cs, 0);
 
-        thread_t *thread1 = sched_get_pending(sched_affinity(cpu_id()));
-        if (thread1 != NULL)
-        {
-            set_current_thread(thread1);
-            arch_thread_prep_switch(thread1);
-            vm_set_table(thread1->vm_table);
-            switch_to_context(&thread1->ctx);
-        }
-    }
-    else if (cpu_id() == 1)
+    while (1)
     {
-        terminal_logf("Clock Global 0x%x", cs->val(cs));
-        uint64_t freq = cs->getFreq(cs);
-        uint64_t val = cs->val(cs);
-        cs->countNTicks(cs, freq / 2);
-        cs->enable(cs);
-        cs->enableIRQ(cs, 0);
-        __asm__ volatile("ISB");
+        thread_t *fthread = sched_get_pending(sched_affinity(cpu_id()));
+        if (fthread != NULL)
+        {
+            set_current_thread(fthread);
+            arch_thread_prep_switch(fthread);
+            vm_set_table(fthread->vm_table, fthread->pid);
+            switch_to_context(&fthread->ctx);
+        }
+        break;
     }
 
     wait_task();
@@ -131,6 +148,8 @@ void kernel_main(void)
     syscall_init();
     mod_init();
 
-    wake_cores();
+    setup_init_threads();
+
+    // wake_cores();
     kernel_main2();
 }

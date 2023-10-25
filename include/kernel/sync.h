@@ -17,4 +17,10 @@ void spinlock_release(spinlock_t *lock);
 // Check if the lock is currently held
 bool spinlock_is_locked(spinlock_t *lock);
 
+// Acquire the lock and disable IRQ
+void spinlock_acquire_irq(spinlock_t *lock);
+
+// Release the lock from disabled IRQ
+void spinlock_release_irq(spinlock_t *lock);
+
 #endif

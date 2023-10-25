@@ -2,16 +2,51 @@
 #define _KERNEL_THREAD_H
 
 #include "stdint.h"
+#include <kernel/clock.h>
 #include <kernel/context.h>
 #include <kernel/limits.h>
+#include <kernel/list.h>
+#include <kernel/sched.h>
 #include <kernel/signal.h>
+#include <kernel/sync.h>
 #include <kernel/vm.h>
+
+#define THREAD_KTHREAD (1)
+
+enum Thread_State
+{
+	RUNNING,
+	SLEEPING,
+	UNINT_SLEEPING,
+	STOPPED,
+	ZOMBIE,
+};
+
+enum Wait_Cond_Type
+{
+	SLEEP,
+	QUEUE_IO,
+	WAIT,
+};
+
+typedef struct thread_wait_cond
+{
+	enum Wait_Cond_Type type;
+} thread_wait_cond;
+
+struct thread_wait_cond_sleep
+{
+	thread_wait_cond cond;
+	timespec_t timer;
+	timespec_t *user_rem;
+};
 
 typedef int pid_t;
 typedef int tid_t;
 
 typedef struct thread_timing_t
 {
+	uint64_t total_execution;
 	uint64_t total_system;
 	uint64_t total_user;
 	uint64_t total_wait;
@@ -20,6 +55,8 @@ typedef struct thread_timing_t
 	uint64_t last_user;
 	uint64_t last_wait;
 } thread_timing_t;
+
+typedef struct sched_class_t sched_class_t;
 
 typedef struct thread_t
 {
@@ -37,16 +74,33 @@ typedef struct thread_t
 
 	context_t ctx;
 	uint64_t flags;
+	enum Thread_State state;
 	uint64_t affinity;
 	vm_table *vm_table;
+
 	thread_timing_t timing;
+	sched_class_t *sched_class;
 
 	thread_sigactions_t *sigactions;
 
 	// wait cond
+	thread_wait_cond *wc;
 	struct list_head shm;
 	struct list_head queues;
+	struct list_head vm_maps;
 } thread_t;
+
+typedef struct thread_list_entry_t
+{
+	struct list_head list;
+	thread_t *thread;
+} thread_list_entry_t;
+
+typedef struct thread_table
+{
+	thread_list_entry_t list;
+	spinlock_t lock;
+} thread_table;
 
 // Init a thread
 void init_thread(thread_t *thread);
@@ -54,6 +108,21 @@ void init_thread(thread_t *thread);
 // Init a thread context
 void init_context(context_t *ctx);
 
+// Update the thread context to be runnable in a kernel exception level
+void kthread_context(context_t *ctx, void *data);
+
 void arch_thread_prep_switch(thread_t *thread);
+
+// create a kernel thread
+thread_t *create_kthread(void *(entry)(void), const char *name, void *data);
+
+// Mark a thread as awake
+void wake_thread(thread_t *thread);
+
+// Put thread to sleep for ts time
+void sleep_thread(thread_t *thread, const timespec_t *ts, timespec_t *user_rem);
+
+// Populate data for return from wait cond
+void thread_return_wc(thread_t *thread, void *data1);
 
 #endif

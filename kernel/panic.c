@@ -31,5 +31,5 @@ void panicf(char *fmt, ...)
 static void _panic()
 {
 	stop_cores();
-	k_exphandler(0x2, 0);
+	k_exphandler(0x2, 0, 0);
 }

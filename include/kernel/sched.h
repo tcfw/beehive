@@ -4,30 +4,52 @@
 #include <kernel/list.h>
 #include <kernel/sync.h>
 #include <kernel/thread.h>
+#include <kernel/skiplist.h>
 #include "stdint.h"
 
-#define MAX_PRIORITY (10)
+#define SCHED_MIN_TICK_DURATION (0UL)
 
-typedef struct thread_list_entry_t
+enum Sched_Classes
 {
-	struct list_head list;
-	thread_t *thread;
-} thread_list_entry_t;
+	SCHED_CLASS_LRF = 0,
+};
 
-typedef struct priority_queue_t
-{
-	thread_list_entry_t *active;
-	thread_list_entry_t *complete;
-} priority_queue_t;
+typedef struct thread_t thread_t;
+typedef struct sched_class_t sched_class_t;
 
-typedef struct sched_mlq_t
+typedef struct sched_rq_t
 {
-	priority_queue_t queue[MAX_PRIORITY];
+	thread_t *current_thread;
+
+	skiplist_t lrf;
+
 	spinlock_t lock;
-	uint8_t active_priority;
-} sched_mlq_t;
 
-typedef sched_mlq_t schedule_queue;
+	uint64_t last_tick;
+} sched_rq_t;
+
+typedef struct sched_class_t
+{
+	sched_class_t *next;
+
+	enum Sched_Classes class;
+
+	// Put a new thread in the queue
+	void (*enqueue_thread)(sched_rq_t *rq, thread_t *thread);
+
+	// Remove a thread from the queue
+	void (*dequeue_thread)(sched_rq_t *rq, thread_t *thread);
+
+	// Put a thread back in the queue
+	void (*requeue_thread)(sched_rq_t *rq, thread_t *thread);
+
+	// Get the next thread to run
+	thread_t *(*next_thread)(sched_rq_t *rq);
+
+	// Denote when this queue is about to be entered
+	void (*tick)(sched_rq_t *rq);
+
+} sched_class_t;
 
 void sched_init(void);
 
@@ -38,5 +60,9 @@ thread_t *sched_get_pending(uint64_t affinity);
 void sched_append_pending(thread_t *thread);
 
 uint64_t sched_affinity(uint64_t cpu_id);
+
+sched_class_t *sched_get_class(enum Sched_Classes class);
+
+void schedule(void);
 
 #endif

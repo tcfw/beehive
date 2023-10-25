@@ -1,4 +1,5 @@
 #include <kernel/clock.h>
+#include <kernel/tty.h>
 
 void enableSystemInterruptMask(struct clocksource_t *cs, uint64_t mask);
 void disableSystemInterruptMask(struct clocksource_t *cs, uint64_t mask);
@@ -20,6 +21,12 @@ void enableSystemCounter(struct clocksource_t *cs)
 
 	cnt_ctl |= (1ULL << 0);
 
+	__asm__ volatile("MSR CNTP_CTL_EL0, %0" ::"r"(cnt_ctl));
+}
+
+void disableSystemCounter(struct clocksource_t *cs)
+{
+	uint64_t cnt_ctl = 0;
 	__asm__ volatile("MSR CNTP_CTL_EL0, %0" ::"r"(cnt_ctl));
 }
 
@@ -54,8 +61,7 @@ void setSystemCounterValue(struct clocksource_t *cs, uint64_t value)
 
 void setSystemCounterCompareValue(struct clocksource_t *cs, uint64_t value)
 {
-	__asm__ volatile("MSR CNTP_CVAL_EL0, %0"
-					 : "=r"(value));
+	__asm__ volatile("MSR CNTP_CVAL_EL0, %0" ::"r"(value));
 }
 
 void enableSystemInterruptMask(struct clocksource_t *cs, uint64_t mask)
@@ -83,6 +89,7 @@ void disableSystemInterruptMask(struct clocksource_t *cs, uint64_t mask)
 static struct clocksource_t systemClock = {
 	.type = CS_GLOBAL,
 	.enable = enableSystemCounter,
+	.disable = disableSystemCounter,
 	.getFreq = getSystemCounterFreq,
 	.setFreq = setSystemCounterFreq,
 	.val = getSysCounterValue,

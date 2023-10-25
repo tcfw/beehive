@@ -11,6 +11,12 @@ enum ClockSourceType
 	CS_RTC = 3,
 };
 
+typedef struct timespec_t
+{
+	int64_t seconds;
+	int64_t nanoseconds;
+} timespec_t;
+
 struct clocksource_t
 {
 	struct list_head list;
@@ -61,5 +67,15 @@ struct clocksource_t *clock_first(enum ClockSourceType type);
 void RegisterClockSource(struct clocksource_t *clockSource);
 
 void global_clock_init(void);
+
+void timespec_from_cs(struct clocksource_t *cs, timespec_t *ts);
+
+// Compare timespecs.
+//  0 if equal
+//  1 if t2 is after t1
+//  -1 if t2 is before t1
+int timespec_compare(const timespec_t *t1, const timespec_t *t2);
+
+void timespec_diff(const timespec_t *a, const timespec_t *b, timespec_t *result);
 
 #endif

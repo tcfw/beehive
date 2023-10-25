@@ -6,6 +6,7 @@
 #include <kernel/strings.h>
 #include <kernel/tty.h>
 #include <kernel/vm.h>
+#include <kernel/thread.h>
 
 extern uintptr_t kernelstart;
 extern uintptr_t kernelend;
@@ -36,10 +37,15 @@ static vm_table_block *vm_table_entry_to_block(uint64_t *entry)
 
 vm_table *vm_get_current_table()
 {
-	vm_table *uvm = get_cls()->currentThread->vm_table;
+	vm_table *uvm = get_cls()->rq.current_thread->vm_table;
 	if (uvm != 0)
 		return uvm;
 
+	return kernel_vm_map;
+}
+
+vm_table *vm_get_kernel()
+{
 	return kernel_vm_map;
 }
 
@@ -65,7 +71,7 @@ void vm_init_table(vm_table *table)
 
 void vm_set_kernel()
 {
-	vm_set_table(kernel_vm_map);
+	vm_set_table(kernel_vm_map, 0);
 }
 
 static uint64_t *vm_va_to_pte(vm_table *table, uintptr_t vptr)
@@ -527,9 +533,9 @@ int vm_map_region(vm_table *table, uintptr_t pstart, uintptr_t vstart, size_t si
 	return 0;
 }
 
-void vm_set_table(vm_table *table)
+void vm_set_table(vm_table *table, pid_t pid)
 {
-	uint64_t ttbr0 = ((uintptr_t)table & TTBR_BADDR_MASK) + 1;
+	uint64_t ttbr0 = ((pid << TTBR_ASID_SHIFT & TTBR_ASID_MASK)) | (((uintptr_t)table & TTBR_BADDR_MASK) + 1);
 	__asm__ volatile("MSR TTBR0_EL1, %0" ::"r"(ttbr0));
 
 	// Enable E/S PAN
@@ -639,7 +645,7 @@ int access_ok(enum AccessType type, void *addr, size_t n)
 			return -1;
 		}
 
-		if (type == WRITE && (*vpage & VM_ENTRY_PERM_RO) != 0)
+		if (type == ACCESS_TYPE_WRITE && (*vpage & VM_ENTRY_PERM_RO) != 0)
 		{
 			return -1;
 		}

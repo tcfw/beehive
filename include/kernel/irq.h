@@ -34,7 +34,7 @@ void ack_all_xrq(void);
 
 // Handles the specific interrupt given it's type (e.g. IRQ, FIQ, etc.) and
 // number identifier
-void k_exphandler(unsigned int type, unsigned int xrq);
+void k_exphandler(unsigned int type, unsigned int xrq, int deferred);
 
 // Handles FIQ interrupts
 void k_fiq_exphandler(unsigned int xrq);
@@ -44,6 +44,9 @@ void k_setup_soft_irq();
 
 // Initiate clock interrupts
 void k_setup_clock_irq();
+
+// handle deferred xrqs
+void k_deferred_exphandler(unsigned int type, uint64_t xrq_map);
 
 // Interrupt handler
 typedef void (*irq_handler_cb)(unsigned int type);
