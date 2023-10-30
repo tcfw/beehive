@@ -1,6 +1,6 @@
 /*
 while(1) {
-	writeconsole((void *)0x1002, 1);
+	writeconsole("Hello!", 7);
 }
 */
 

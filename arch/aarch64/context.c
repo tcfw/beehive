@@ -7,8 +7,6 @@ void init_context(context_t *ctx)
 {
 	// set sane values for SPSR
 	ctx->spsr = (SPSR_Z | SPSR_PAN | // SPSR_IL |
-				 SPSR_A |
-				 SPSR_I | SPSR_F |
 				 SPSR_M_EL0);
 	ctx->sp = 0;
 	ctx->pc = 0;

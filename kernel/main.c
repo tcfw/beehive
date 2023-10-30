@@ -53,7 +53,7 @@ static void thread_test(void *data)
         timespec_from_cs(cs, &now);
         terminal_logf("kthread ellapsed: %x %x", now.seconds, now.nanoseconds);
 
-        for (int i = 0; i < 100000; i++)
+        for (int i = 0; i < 1000000; i++)
         {
         }
     }
@@ -84,8 +84,6 @@ void kernel_main2(void)
     __atomic_add_fetch(&booted, 1, __ATOMIC_ACQ_REL);
     terminal_logf("Booted core 0x%x", get_cls()->id);
 
-    struct clocksource_t *cs = clock_first(CS_GLOBAL);
-
     if (cpu_id() == 0)
     {
         int cpuN = devicetree_count_dev_type("cpu");
@@ -98,32 +96,11 @@ void kernel_main2(void)
         __atomic_store_n(&vm_ready, 1, __ATOMIC_RELAXED);
     }
     else
-    {
         while (__atomic_load_n(&vm_ready, __ATOMIC_RELAXED) == 0)
         {
         }
-    }
 
-    uint64_t freq = cs->getFreq(cs);
-    uint64_t val = cs->val(cs);
-    cs->countNTicks(cs, freq / 4);
-    cs->enable(cs);
-    cs->enableIRQ(cs, 0);
-
-    while (1)
-    {
-        thread_t *fthread = sched_get_pending(sched_affinity(cpu_id()));
-        if (fthread != NULL)
-        {
-            set_current_thread(fthread);
-            arch_thread_prep_switch(fthread);
-            vm_set_table(fthread->vm_table, fthread->pid);
-            switch_to_context(&fthread->ctx);
-        }
-        break;
-    }
-
-    wait_task();
+    schedule_start();
 }
 
 void kernel_main(void)

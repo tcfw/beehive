@@ -83,11 +83,11 @@ struct page *page_alloc_s(size_t size)
 
 struct page *page_alloc(unsigned int order)
 {
-	spinlock_acquire_irq(&page_lock);
+	int state = spinlock_acquire_irq(&page_lock);
 
 	void *addr = buddy_alloc(pages, order);
 
-	spinlock_release_irq(&page_lock);
+	spinlock_release_irq(state, &page_lock);
 
 	return (struct page *)addr;
 }
@@ -110,11 +110,11 @@ void page_reloc(uintptr_t offset)
 
 void page_free(void *ptr)
 {
-	spinlock_acquire_irq(&page_lock);
+	int state = spinlock_acquire_irq(&page_lock);
 
 	buddy_free(pages, ptr);
 
-	spinlock_release_irq(&page_lock);
+	spinlock_release_irq(state, &page_lock);
 }
 
 void *kmalloc(size_t size)

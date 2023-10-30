@@ -15,15 +15,21 @@ bool spinlock_is_locked(spinlock_t *lock)
 }
 
 // Acquire the lock and disable IRQ
-void spinlock_acquire_irq(spinlock_t *lock)
+int spinlock_acquire_irq(spinlock_t *lock)
 {
+	int daif = 0;
+	__asm__ volatile("MRS %0, DAIF" ::"r"(daif));
+
 	disable_irq();
 	spinlock_acquire(lock);
+
+	return daif;
 }
 
 // Release the lock from disabled IRQ
-void spinlock_release_irq(spinlock_t *lock)
+void spinlock_release_irq(int state, spinlock_t *lock)
 {
 	spinlock_release(lock);
-	enable_irq();
+	__asm__ volatile("MSR DAIF, %0"
+					 : "=r"(state));
 }

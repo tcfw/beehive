@@ -12,6 +12,7 @@
 enum Sched_Classes
 {
 	SCHED_CLASS_LRF = 0,
+	SCHED_CLASS_IDLE = 1,
 };
 
 typedef struct thread_t thread_t;
@@ -22,6 +23,7 @@ typedef struct sched_rq_t
 	thread_t *current_thread;
 
 	skiplist_t lrf;
+	thread_t *idle;
 
 	spinlock_t lock;
 
@@ -64,5 +66,7 @@ uint64_t sched_affinity(uint64_t cpu_id);
 sched_class_t *sched_get_class(enum Sched_Classes class);
 
 void schedule(void);
+
+void schedule_start(void);
 
 #endif

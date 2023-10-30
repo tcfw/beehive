@@ -92,7 +92,7 @@ static void clock_tick(unsigned int xrq)
 	schedule();
 
 	uint64_t freq = cs->getFreq(cs);
-	cs->countNTicks(cs, freq / 25);
+	cs->countNTicks(cs, freq / 250);
 	cs->enableIRQ(cs, 0);
 	cs->enable(cs);
 }
