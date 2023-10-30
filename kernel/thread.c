@@ -31,14 +31,14 @@ void init_thread(thread_t *thread)
 
 	thread->sched_class = sched_get_class(SCHED_CLASS_LRF);
 
-	spinlock_acquire(threads_lock);
+	spinlock_acquire(&threads_lock);
 
 	thread_list_entry_t *entry = (thread_list_entry_t *)kmalloc(sizeof(thread_list_entry_t));
 	entry->thread = thread;
 
 	list_add_tail(&threads, entry);
 
-	spinlock_release(threads_lock);
+	spinlock_release(&threads_lock);
 }
 
 thread_t *create_kthread(void *(entry)(void), const char *name, void *data)

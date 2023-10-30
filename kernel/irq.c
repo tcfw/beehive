@@ -1,10 +1,11 @@
-#include <kernel/irq.h>
-#include <kernel/tty.h>
-#include <kernel/strings.h>
-#include <kernel/irq.h>
 #include <kernel/arch.h>
 #include <kernel/clock.h>
+#include <kernel/irq.h>
+#include <kernel/irq.h>
 #include <kernel/sched.h>
+#include <kernel/strings.h>
+#include <kernel/tty.h>
+#include <kernel/wait.h>
 #include "stdint.h"
 
 extern void halt_loop();

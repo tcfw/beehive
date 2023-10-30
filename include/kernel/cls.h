@@ -3,6 +3,7 @@
 
 #include <kernel/thread.h>
 #include <kernel/sched.h>
+#include <kernel/wait.h>
 #include "stdint.h"
 
 enum exception_operation
@@ -22,6 +23,9 @@ typedef struct cls_t
 
 	// schedule runqueue
 	sched_rq_t rq;
+
+	// sleep queue
+	waitqueue_head_t sleepq;
 
 	// cause for exception handler
 	enum exception_operation cfe;

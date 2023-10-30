@@ -10,6 +10,7 @@
 #include <kernel/strings.h>
 #include <kernel/sync.h>
 #include <kernel/thread.h>
+#include <kernel/wait.h>
 
 static LIST_HEAD(pending);
 
@@ -46,6 +47,7 @@ void sched_local_init(void)
 	spinlock_init(&cls->rq.lock);
 
 	skl_init(&cls->rq.lrf, SKIPLIST_DEFAULT_LEVELS, thread_runtime_comparator, 0);
+	INIT_WAITQUEUE(&cls->sleepq);
 }
 
 void schedule_start(void)
@@ -150,6 +152,9 @@ sched_class_t *sched_get_class(enum Sched_Classes class)
 void schedule(void)
 {
 	cls_t *cls = get_cls();
+
+	try_wake_waitqueue(&cls->sleepq);
+
 	struct clocksource_t *clk = clock_first(CS_GLOBAL);
 
 	uint64_t clkval = clk->val(clk);

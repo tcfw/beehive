@@ -16,7 +16,7 @@ void init_context(context_t *ctx)
 
 void kthread_context(context_t *ctx, void *data)
 {
-	ctx->spsr = SPSR_M_EL1;
+	ctx->spsr |= SPSR_M_EL1;
 
 	if (data)
 		ctx->regs[0] = (uint64_t)data;
