@@ -220,6 +220,8 @@ void *buddy_alloc(struct buddy_t *buddy, int order)
 				candidate->freelist[orderToUpdate] = buddy_order_next_free_pos(candidate, orderToUpdate);
 			}
 
+			buddy->allocs++;
+
 			return addr;
 		}
 
@@ -248,6 +250,8 @@ void *buddy_alloc(struct buddy_t *buddy, int order)
 		{
 			candidate->freelist[orderToUpdate] = buddy_order_next_free_pos(candidate, orderToUpdate);
 		}
+
+		buddy->allocs++;
 
 		return addr;
 	}
@@ -297,5 +301,7 @@ void buddy_free(struct buddy_t *buddy, void *ptr)
 		}
 	}
 
-	return buddy_coalese(candidate, order, pos);
+	buddy_coalese(candidate, order, pos);
+
+	buddy->frees++;
 }

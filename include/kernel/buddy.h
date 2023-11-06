@@ -94,7 +94,12 @@ struct buddy_t
 {
 	struct buddy_t *next;
 	size_t size;
+
+	uint64_t allocs;
+	uint64_t frees;
+
 	unsigned char *arena;
+
 	uint16_t freelist[BUDDY_MAX_ORDER + 1];
 	uint8_t buddy_tree[BUDDY_TREE_SIZE];
 };

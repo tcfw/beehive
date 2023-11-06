@@ -57,6 +57,7 @@ typedef struct thread_timing_t
 } thread_timing_t;
 
 typedef struct sched_class_t sched_class_t;
+typedef struct sched_entity_t sched_entity_t;
 
 typedef struct thread_t
 {
@@ -80,6 +81,7 @@ typedef struct thread_t
 
 	thread_timing_t timing;
 	sched_class_t *sched_class;
+	sched_entity_t sched_entity;
 
 	thread_sigactions_t *sigactions;
 

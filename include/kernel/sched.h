@@ -9,6 +9,9 @@
 
 #define SCHED_MIN_TICK_DURATION (0UL)
 
+#define MAX_PRIO (20)
+#define PRIO_INTERVAL_BASE (50000.0)
+
 enum Sched_Classes
 {
 	SCHED_CLASS_LRF = 0,
@@ -52,6 +55,13 @@ typedef struct sched_class_t
 	void (*tick)(sched_rq_t *rq);
 
 } sched_class_t;
+
+typedef struct sched_entity_t
+{
+	int64_t deadline;
+	uint64_t last_deadline;
+	uint64_t prio;
+} sched_entity_t;
 
 void sched_init(void);
 

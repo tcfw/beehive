@@ -1,4 +1,5 @@
 #include <kernel/arch.h>
+#include <kernel/clock.h>
 #include <kernel/cls.h>
 #include <kernel/context.h>
 #include <kernel/list.h>
@@ -18,7 +19,9 @@ static spinlock_t pending_lock;
 
 static sched_class_t *sched_class_head;
 
-static int thread_runtime_comparator(void *n1, void *n2)
+static double prio_ratios[MAX_PRIO];
+
+static int thread_deadline_comparator(void *n1, void *n2)
 {
 
 	if (n2 == NULL || n1 == NULL)
@@ -30,8 +33,8 @@ static int thread_runtime_comparator(void *n1, void *n2)
 	if (tn1->pid == tn2->pid)
 		return 0;
 
-	uint64_t tn1e = tn1->timing.total_execution;
-	uint64_t tn2e = tn2->timing.total_execution;
+	uint64_t tn1e = tn1->sched_entity.deadline;
+	uint64_t tn2e = tn2->sched_entity.deadline;
 
 	if (tn1e == tn2e)
 		return 0;
@@ -46,7 +49,7 @@ void sched_local_init(void)
 	cls_t *cls = get_cls();
 	spinlock_init(&cls->rq.lock);
 
-	skl_init(&cls->rq.lrf, SKIPLIST_DEFAULT_LEVELS, thread_runtime_comparator, 0);
+	skl_init(&cls->rq.lrf, SKIPLIST_DEFAULT_LEVELS, thread_deadline_comparator, 0);
 	INIT_WAITQUEUE(&cls->sleepq);
 }
 
@@ -142,8 +145,7 @@ sched_class_t *sched_get_class(enum Sched_Classes class)
 	{
 		if (cs->class == class)
 			return cs;
-		else
-			cs = cs->next;
+		cs = cs->next;
 	}
 
 	return NULL;
@@ -171,6 +173,7 @@ void schedule(void)
 
 	prev->timing.total_user += clkval - prev->timing.last_user;
 	prev->timing.total_execution = prev->timing.total_system + prev->timing.total_user;
+	prev->sched_entity.deadline -= clkval - prev->sched_entity.last_deadline;
 
 	prev->sched_class->requeue_thread(&cls->rq, prev);
 
@@ -196,12 +199,12 @@ void schedule(void)
 		{
 			spinlock_release(&cls->rq.lock);
 			if (next == prev)
-				// no need for context change
 				return;
 
 			prev->timing.last_wait = clkval;
 			next->timing.last_user = clkval;
 			next->timing.total_wait += clkval - next->timing.last_wait;
+			next->sched_entity.last_deadline = clkval;
 
 			cls->rq.current_thread = next;
 			arch_thread_prep_switch(next);
@@ -225,6 +228,12 @@ void lrf_dequeue_thread(sched_rq_t *rq, thread_t *thread)
 
 void lrf_requeue_thread(sched_rq_t *rq, thread_t *thread)
 {
+	if (thread->sched_entity.deadline <= 0)
+	{
+		struct clocksource_t *cs = clock_first(CS_GLOBAL);
+		thread->sched_entity.deadline = cs->val(cs) + prio_ratios[thread->sched_entity.prio];
+	}
+
 	skl_insert(&rq->lrf, thread);
 }
 
@@ -283,4 +292,11 @@ void sched_init(void)
 
 	lrf.next = &idle;
 	sched_class_head = &lrf;
+
+	prio_ratios[0] = PRIO_INTERVAL_BASE;
+
+	for (int i = 1; i < MAX_PRIO; i++)
+	{
+		prio_ratios[i] = prio_ratios[i - 1] * 11 / 10;
+	}
 }

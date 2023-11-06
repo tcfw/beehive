@@ -266,7 +266,7 @@ void k_fiq_exphandler(unsigned int xrq)
 		else
 		{
 			pa = vm_va_to_pa(vm_get_current_table(), far);
-			panicf("Unhandlable Data Abort: \n\tESR: 0x%x \n\tVirtual Address: 0x%x\n\tPhysical Address: 0x%x\n\tPAR: 0x%x", xrq, far, pa, par);
+			panicf("Unhandlable Data Abort: \n\tELR: 0x%x \n\tESR: 0x%x \n\tVirtual Address: 0x%x\n\tPhysical Address: 0x%x\n\tPAR: 0x%x", elr, xrq, far, pa, par);
 		}
 		break;
 	default:
