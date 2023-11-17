@@ -19,6 +19,10 @@ SECTIONS
         __start_init = .;
         KEEP(*(.init*))
         __stop_init = .;
+
+        __start_tests = .;
+        KEEP(*(.tests*))
+        __stop_tests = .;
     }
 
     .data : { *(.data*) }

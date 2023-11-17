@@ -8,7 +8,7 @@ LIBS?=
 
 BUILD_DIR:=.build
 
-DESTDIR?=
+DESTDIR?=.build
 PREFIX?=/usr/local
 EXEC_PREFIX?=$(PREFIX)
 BOOTDIR?=$(EXEC_PREFIX)/boot
@@ -22,10 +22,10 @@ LIBS:=$(LIBS) -nostdlib
 
 include $(ARCHDIR)/make.config
 
-KERNEL_OBJS=$(KERNEL_ARCH_OBJS) $(patsubst %.c,%.o,$(wildcard kernel/*.c))
+TEST_OBJS=$(patsubst %.c,%.o,$(wildcard kernel/tests/*.c))
+KERNEL_OBJS=$(KERNEL_ARCH_OBJS) $(TEST_OBJS) $(patsubst %.c,%.o,$(wildcard kernel/*.c))
 # OBJS=$(KERNEL_OBJS)
-OBJS=$(KERNEL_OBJS)
-# OBJS=$(addprefix ${BUILD_DIR}/,${KERNEL_OBJS})
+OBJS=$(addprefix ${BUILD_DIR}/,${KERNEL_OBJS})
 LINK_LIST=$(LDFLAGS) $(addprefix ${BUILD_DIR}/,${KERNEL_OBJS}) $(LIBS)
 # LINK_LIST=$(LDFLAGS) $(KERNEL_OBJS) $(LIBS)
  
@@ -44,13 +44,17 @@ CC:=$(or $(CC),$(ARCH)$(ARCHEXT))
 .PHONY: clean
 .SUFFIXES: .o .c .S
 
-.c.o:
-	@mkdir -p $(BUILD_DIR)/$(dir $@)
-	$(CC)-gcc -MD -c $< -o $(BUILD_DIR)/$@ $(CFLAGS) $(CPPFLAGS)
+$(addprefix ${BUILD_DIR}/,%.o): %.c
+	# @mkdir -p $(BUILD_DIR)/$(dir $@)
+	# $(CC)-gcc -MD -c $< -o $(BUILD_DIR)/$@ $(CFLAGS) $(CPPFLAGS)
+	@mkdir -p $(dir $@)
+	$(CC)-gcc -MD -c $< -o $@ $(CFLAGS) $(CPPFLAGS)
  
-.S.o:
-	@mkdir -p $(BUILD_DIR)/$(dir $@)
-	$(CC)-gcc -MD -c $< -o $(BUILD_DIR)/$@ $(CFLAGS) $(CPPFLAGS)
+$(addprefix ${BUILD_DIR}/,%.o): %.S
+	# @mkdir -p $(BUILD_DIR)/$(dir $@)
+	# $(CC)-gcc -MD -c $< -o $(BUILD_DIR)/$@ $(CFLAGS) $(CPPFLAGS)
+	@mkdir -p $(dir $@)
+	$(CC)-gcc -MD -c $< -o $@ $(CFLAGS) $(CPPFLAGS)
 
 all: beehive.kernel
 

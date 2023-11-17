@@ -1,3 +1,4 @@
+#include "stdint.h"
 #include <devicetree.h>
 #include <kernel/arch.h>
 #include <kernel/clock.h>
@@ -12,7 +13,7 @@
 #include <kernel/thread.h>
 #include <kernel/tty.h>
 #include <kernel/vm.h>
-#include "stdint.h"
+#include <tests/tests.h>
 
 extern void user_init(void);
 static void thread_test(void *data);
@@ -124,6 +125,9 @@ void kernel_main(void)
     sched_init();
     syscall_init();
     mod_init();
+
+    if (RUN_SELF_TESTS == 1)
+        run_self_tests();
 
     setup_init_threads();
 

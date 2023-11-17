@@ -2,13 +2,21 @@
 #define _KERNEL_MM_H
 
 #include "unistd.h"
+#include <kernel/slub.h>
 
 struct page
 {
+	union
+	{
+		slub_cache_entry_t slub;
+	};
 };
 
 // Init the page allocator
 void page_alloc_init(void);
+
+// Get address of the start of the arena
+void *page_start_of_arena(void);
 
 // Get a free page at the order size
 struct page *page_alloc(unsigned int order);

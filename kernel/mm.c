@@ -12,6 +12,11 @@ extern uint64_t kernelend;
 struct buddy_t *pages;
 static spinlock_t page_lock;
 
+void *page_start_of_arena()
+{
+	return (void *)pages->arena;
+}
+
 void page_alloc_init()
 {
 	spinlock_init(&page_lock);
@@ -31,7 +36,7 @@ void page_alloc_init()
 	pages = (struct buddy_t *)&kernelend;
 	pages->size = BUDDY_ARENA_SIZE;
 	pages->arena = (unsigned char *)end_of_buddies;
-	pages->arena += ARCH_PAGE_SIZE - ((uintptr_t)pages->arena % ARCH_PAGE_SIZE); // page align
+	pages->arena += PAGE_SIZE - ((uintptr_t)pages->arena % PAGE_SIZE); // page align
 
 	buddy_init(pages);
 

@@ -412,7 +412,7 @@ int vm_map_region(vm_table *table, uintptr_t pstart, uintptr_t vstart, size_t si
 	{
 		int level = 3;
 		int range = vend - vstart;
-		int incsize = ARCH_PAGE_SIZE;
+		int incsize = PAGE_SIZE;
 		uint64_t addr = pstart & VM_ENTRY_OA_MASK;
 
 		if (range > L1_BLOCK_SIZE && l3 == 0 && l2 == 0)
@@ -650,8 +650,8 @@ int access_ok(enum AccessType type, void *addr, size_t n)
 			return -1;
 		}
 
-		addr += ARCH_PAGE_SIZE;
-		if (__builtin_usubl_overflow(n, ARCH_PAGE_SIZE, &n))
+		addr += PAGE_SIZE;
+		if (__builtin_usubl_overflow(n, PAGE_SIZE, &n))
 			break;
 	}
 

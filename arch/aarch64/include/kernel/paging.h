@@ -4,10 +4,10 @@
 #include "stdint.h"
 #include <kernel/list.h>
 
-#define ARCH_PAGE_SIZE 4096
+#define PAGE_SIZE 4096
 #define RAM_MAX (0x40000000 + 0x20000000)
 
-#define L3_BLOCK_SIZE (ARCH_PAGE_SIZE)
+#define L3_BLOCK_SIZE (PAGE_SIZE)
 #define L2_BLOCK_SIZE (2 * 1024 * 1024)
 #define L1_BLOCK_SIZE (1024 * 1024 * 1024)
 #define L0_BLOCK_SIZE (512 * 1024 * 1024 * 1024)

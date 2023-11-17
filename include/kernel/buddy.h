@@ -111,7 +111,7 @@ struct buddy_t
 #define BUDDY_COMPANION_POSITION(p) (((p & 0x1) == 1) ? (p + 1) : (p - 1))
 #define BUDDY_ORDER_POSITION_OFFSET(o, f) (BUDDY_MIN_BUDDY_FOR_ORDER(o) + (f))
 #define BUDDY_GET_POSITION(buddy, p) ((buddy->buddy_tree[p / 8] >> (p % 8)) & 0x1)
-#define BUDDY_ARENA_SIZE ((1 << (BUDDY_MAX_ORDER + 1)) * ARCH_PAGE_SIZE)
+#define BUDDY_ARENA_SIZE ((1 << (BUDDY_MAX_ORDER + 1)) * PAGE_SIZE)
 
 /*
 Note: the functions below not are thread safe. It's assumed the caller, usually mm.c, will do correct locking
