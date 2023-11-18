@@ -35,24 +35,26 @@ TEST("slub free")
 	page_free(slub);
 }
 
-NAMED_TEST("slub large alloc", test_slub_large_alloc)
+TEST("slub huge alloc")
 {
 	slub_t *slub = DEFINE_DYN_SLUB(3800U);
 	void *addr = slub_alloc(slub);
 
+	assert_neq(addr, NULL);
 	assert_neq_msg(addr, NULL, "addr should not be null");
 	assert_eq_msg(slub->per_cpu_partial[0], NULL, "slub per_cpu cache should be full");
 
 	slub_free(addr);
 
-	assert_list_not_empty_msg(&slub->partial, "slub partial should not be empty");
+	assert_list_empty_msg(&slub->partial, "slub partial should not be empty");
 	assert_eq_msg(slub->per_cpu_partial[0], NULL, "per-cpu cache should be empty");
 
-	void *addr1 = slub_alloc(slub);
+	void *addr2 = slub_alloc(slub);
+	assert_neq(addr2, NULL);
+	assert_eq_msg(slub->per_cpu_partial[0], NULL, "per-cpu cache should still be empty");
+	assert_list_empty_msg(&slub->partial, "slub partial should still be empty");
 
-	assert_eq_msg(addr, addr1, "addr and addr1 should be the same allocation");
-	assert_list_empty_msg(&slub->partial, "slub partial now be empty");
+	slub_free(addr2);
 
-	page_free(slub->per_cpu_partial[0]);
 	page_free(slub);
 }

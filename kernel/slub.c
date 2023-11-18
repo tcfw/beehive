@@ -125,9 +125,20 @@ void *slub_alloc(slub_t *slub)
 	return addr;
 }
 
+static int slub_is_per_cpu_cache(slub_t *slub, slub_cache_entry_t *entry)
+{
+	int cpuN = devicetree_count_dev_type("cpu");
+	for (int i = 0; i < cpuN; i++)
+	{
+		if (slub->per_cpu_partial[i] == entry)
+			return 1;
+	}
+
+	return 0;
+}
+
 void slub_free(void *obj)
 {
-	int was_partial = 0;
 	int lstate_c, lstate_n;
 
 	slub_cache_entry_t *cache = (void *)obj - ((uintptr_t)obj % PAGE_SIZE);
@@ -144,8 +155,6 @@ void slub_free(void *obj)
 		list_add(cache, &slub->partial);
 		spinlock_release_irq(lstate_n, &slub->lock);
 	}
-	else
-		was_partial = 1;
 
 	entry->next_offset = cache->first;
 	cache->first = entry;
@@ -157,20 +166,16 @@ void slub_free(void *obj)
 
 	spinlock_release_irq(lstate_c, &cache->lock);
 
-	if (was_partial)
-	{
-		if (slub_cache_entry_is_empty(slub, cache))
-		{
-			lstate_n = spinlock_acquire_irq(&slub->lock);
-			list_del(cache);
-			page_free(cache);
-			spinlock_release_irq(lstate_n, &slub->lock);
-		}
-	}
+	lstate_n = spinlock_acquire_irq(&slub->lock);
 
-	int state = spinlock_acquire_irq(&slub->lock);
+	if (slub_cache_entry_is_empty(slub, cache) && !slub_is_per_cpu_cache(slub, cache))
+	{
+		list_del(cache);
+		page_free(cache);
+	}
 	slub->object_count--;
-	spinlock_release_irq(state, &slub->lock);
+
+	spinlock_release_irq(lstate_n, &slub->lock);
 }
 
 slub_t *DEFINE_DYN_SLUB(unsigned int objsize)
