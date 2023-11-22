@@ -3,6 +3,7 @@
 #include <kernel/arch.h>
 #include <kernel/clock.h>
 #include <kernel/cls.h>
+#include <kernel/devices.h>
 #include <kernel/irq.h>
 #include <kernel/mm.h>
 #include <kernel/modules.h>
@@ -75,12 +76,12 @@ void kernel_main2(void)
 
     vm_set_kernel();
     vm_enable();
+    remaped_devicetreeoffset(DEVICE_DESCRIPTOR_REGION + 4ULL);
     sched_local_init();
 
     enable_xrq();
     disable_irq();
     terminal_set_bar(DEVICE_REGION);
-    remaped_devicetreeoffset(DEVICE_DESCRIPTOR_REGION);
 
     __atomic_add_fetch(&booted, 1, __ATOMIC_ACQ_REL);
     terminal_logf("Booted core 0x%x", get_cls()->id);
@@ -88,7 +89,7 @@ void kernel_main2(void)
     if (cpu_id() == 0)
     {
         int cpuN = devicetree_count_dev_type("cpu");
-        while (cpuN >= __atomic_load_n(&booted, __ATOMIC_ACQ_REL))
+        while (cpuN != __atomic_load_n(&booted, __ATOMIC_ACQ_REL))
         {
         }
 
@@ -120,6 +121,7 @@ void kernel_main(void)
     terminal_logf("CPU Count: 0x%x", coreCount);
 
     page_alloc_init();
+    slub_alloc_init();
     vm_init();
     init_cls(coreCount);
     sched_init();
@@ -131,6 +133,6 @@ void kernel_main(void)
 
     setup_init_threads();
 
-    // wake_cores();
+    wake_cores();
     kernel_main2();
 }

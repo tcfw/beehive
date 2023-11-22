@@ -5,6 +5,7 @@
 #include <kernel/list.h>
 
 #define PAGE_SIZE 4096
+#define CACHE_LINE_SIZE 64
 #define RAM_MAX (0x40000000 + 0x20000000)
 
 #define L3_BLOCK_SIZE (PAGE_SIZE)

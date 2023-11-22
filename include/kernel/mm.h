@@ -15,6 +15,9 @@ struct page
 // Init the page allocator
 void page_alloc_init(void);
 
+// Init the page allocator
+void slub_alloc_init(void);
+
 // Get address of the start of the arena
 void *page_start_of_arena(void);
 

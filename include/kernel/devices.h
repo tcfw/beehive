@@ -2,25 +2,28 @@
 #define _KERNEL_DEVICES_H
 
 #include "unistd.h"
-#include "stdbool.h"
+#include <kernel/list.h>
 
-struct device_node_t
+typedef struct device_node_t
 {
+	struct list_head list;
 	char *name;
 	char *device_type;
 	char *compatibility;
 	uint64_t bar_size;
 	void *bar;
 	struct device_node_property_t *properties;
-	bool is_dma_coherent;
-};
+	unsigned int is_dma_coherent : 1;
+} device_node_t;
 
-struct device_node_property_t
+typedef struct device_node_property_t
 {
+	struct device_node_property_t *next;
 	char *key;
 	size_t data_len;
 	void *data;
-	struct device_node_property_t *next;
-};
+} device_node_property_t;
+
+int discover_devices(uintptr_t ddr);
 
 #endif

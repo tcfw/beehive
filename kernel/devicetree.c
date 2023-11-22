@@ -103,8 +103,8 @@ uint32_t devicetree_count_nodes_with_prop(char *propkey, char *cmpdata, size_t s
 	uint32_t count = 0;
 
 	volatile struct fdt_header_t *dtb_header = (struct fdt_header_t *)dbt_offset;
-	uint32_t off_dt_strings = BIG_ENDIAN_UINT32(dtb_header->off_dt_strings);
-	uint32_t *data = BIG_ENDIAN_UINT32(dtb_header->off_dt_struct);
+	uintptr_t off_dt_strings = dbt_offset + BIG_ENDIAN_UINT32(dtb_header->off_dt_strings);
+	uint32_t *data = (uint32_t *)(dbt_offset + BIG_ENDIAN_UINT32(dtb_header->off_dt_struct));
 	char *keyn;
 
 	while (data < off_dt_strings + BIG_ENDIAN_UINT32(dtb_header->size_dt_struct))

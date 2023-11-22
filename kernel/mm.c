@@ -1,16 +1,36 @@
+#include <kernel/arch.h>
 #include <kernel/buddy.h>
 #include <kernel/mm.h>
-#include <kernel/vm.h>
-#include <kernel/tty.h>
+#include <kernel/slub.h>
 #include <kernel/strings.h>
 #include <kernel/sync.h>
-#include <kernel/arch.h>
+#include <kernel/tty.h>
+#include <kernel/vm.h>
 #include "stdint.h"
 
 extern uint64_t kernelend;
 
 struct buddy_t *pages;
 static spinlock_t page_lock;
+
+slub_t *slub_head;
+
+#define MAX_SLUB_CLASSES (10)
+
+const slub_class_catalogue_t slub_classes[MAX_SLUB_CLASSES] = {
+	{8},
+	{16},
+	{24},
+	{32},
+	{56},
+	{72},
+	{88},
+	{128},
+	{1024},
+	{2048},
+	{3072},
+	{PAGE_SIZE - sizeof(slub_cache_entry_t)},
+};
 
 void *page_start_of_arena()
 {
@@ -122,13 +142,48 @@ void page_free(void *ptr)
 	spinlock_release_irq(state, &page_lock);
 }
 
+void slub_alloc_init(void)
+{
+	int cpuN = devicetree_count_dev_type("cpu");
+
+	int slub_size = sizeof(slub_t) + (sizeof(slub_cache_entry_t *) * cpuN);
+	slub_size += CACHE_LINE_SIZE - (slub_size % CACHE_LINE_SIZE);
+
+	char *slubs = (char *)page_alloc_s(slub_size * MAX_SLUB_CLASSES);
+	slub_t *prev = 0;
+
+	for (int i = 0; i < MAX_SLUB_CLASSES; i++)
+	{
+		slub_t *slub = (slub_t *)(slubs + (slub_size * i));
+		slub->object_size = slub_classes[i].object_size;
+
+		slub_init(slub);
+
+		if (prev != 0)
+			prev->next = slub;
+		else
+			slub_head = slub;
+
+		prev = slub;
+	}
+}
+
 void *kmalloc(size_t size)
 {
-	// for now allocate full pages
-	return page_alloc_s(size);
+	slub_t *slub_class = slub_head;
+
+	while (slub_class)
+	{
+		if (size <= (size_t)slub_class->object_size)
+			return slub_alloc(slub_class);
+
+		slub_class = slub_class->next;
+	}
+
+	return 0;
 }
 
 void kfree(void *obj)
 {
-	return page_free(obj);
+	return slub_free(obj);
 }

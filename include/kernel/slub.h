@@ -53,12 +53,12 @@ Slubs:
 - object_count is the number of active objects in the slub
 */
 
-#define POISON_VALUE (0x6c6c6c6c)
+#define POISON_VALUE (0x6C6C6C6CUL)
 
 typedef struct slub_entry_t
 {
 	void *next_offset;
-	uint8_t poison;
+	uint32_t poison;
 } slub_entry_t;
 
 typedef struct slub_t slub_t;
@@ -94,6 +94,11 @@ typedef struct slub_t
 
 	slub_cache_entry_t **per_cpu_partial;
 } slub_t;
+
+typedef struct slub_class_catalogue_t
+{
+	unsigned int object_size
+} slub_class_catalogue_t;
 
 slub_t *DEFINE_DYN_SLUB(unsigned int objsize);
 

@@ -30,7 +30,7 @@ int skl_insert(skiplist_t *skl, void *rnode)
 
 	int i, level;
 
-	for (i = skl->levels; i >= 0; i--)
+	for (i = skl->levels - 1; i >= 0; i--)
 	{
 		skl_node_t *fnode = x->forward[i];
 		if (fnode)
@@ -54,7 +54,6 @@ int skl_insert(skiplist_t *skl, void *rnode)
 	x = (skl_node_t *)kmalloc(sizeof(skl_node_t));
 	x->rnode = rnode;
 	x->forward = (skl_node_t **)kmalloc(sizeof(skl_node_t *) * skl->levels);
-	memset(x->forward, 0, sizeof(skl_node_t *) * skl->levels);
 	for (i = 0; i < level; i++)
 	{
 		x->forward[i] = update[i]->forward[i];
@@ -72,7 +71,7 @@ int skl_delete(skiplist_t *skl, void *rnode)
 	skl_node_t *x = &skl->head;
 
 	int i;
-	for (i = skl->levels; i >= 0; i--)
+	for (i = skl->levels - 1; i >= 0; i--)
 	{
 		skl_node_t *fnode = x->forward[i];
 		if (fnode)
@@ -111,7 +110,7 @@ void *skl_search(skiplist_t *skl, void *rnode, skiplist_compare search_comparato
 {
 	skl_node_t *x = &skl->head;
 
-	for (int i = skl->levels; i >= 0; i--)
+	for (int i = skl->levels - 1; i >= 0; i--)
 	{
 		if (x->forward[i] == 0)
 			continue;
@@ -146,7 +145,7 @@ void *skl_pull_first(skiplist_t *skl)
 	{
 		skl_node_t *next = x->forward[0];
 
-		for (int i = skl->levels; i >= 0; i--)
+		for (int i = skl->levels-1; i >= 0; i--)
 		{
 			if (skl->head.forward[i] == x)
 				skl->head.forward[i] = next;

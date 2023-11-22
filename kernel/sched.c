@@ -118,7 +118,7 @@ void sched_append_pending(thread_t *thread)
 {
 	spinlock_acquire(&pending_lock);
 
-	struct thread_list_entry_t *entry = (struct thread_list_entry_t *)page_alloc_s(sizeof(struct thread_list_entry_t));
+	struct thread_list_entry_t *entry = (struct thread_list_entry_t *)kmalloc(sizeof(struct thread_list_entry_t));
 	entry->thread = thread;
 
 	list_add_tail((struct list_head *)entry, &pending);

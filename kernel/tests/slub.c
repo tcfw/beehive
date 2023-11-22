@@ -35,6 +35,26 @@ TEST("slub free")
 	page_free(slub);
 }
 
+NAMED_TEST("slub multi cache", test_slub_multi_cache)
+{
+	slub_t *slub = DEFINE_DYN_SLUB(2000U);
+	void *addr0 = slub_alloc(slub);
+	void *addr1 = slub_alloc(slub);
+	void *addr2 = slub_alloc(slub);
+	slub_free(addr1);
+	void *addr3 = slub_alloc(slub);
+
+	assert_neq_msg(addr1, addr3, "addr3 should have same allocd from per-cpu cache first");
+	assert_eq_msg(slub->object_count, 3, "slub should only have 2 objects");
+	assert_eq_msg(slub->per_cpu_partial[0], NULL, "slub per_cpu cache should be full");
+	assert_list_not_empty_msg(&slub->partial, "slub partial should cotain a cache");
+
+	slub_free(addr3);
+	page_free(slub->partial.next);
+	page_free(slub->partial.next->next);
+	page_free(slub);
+}
+
 TEST("slub huge alloc")
 {
 	slub_t *slub = DEFINE_DYN_SLUB(3800U);

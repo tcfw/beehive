@@ -8,8 +8,10 @@
 void slub_init(slub_t *slub)
 {
 	slub->object_count = 0;
+	slub->cache_alloc_order = (1 << (slub->object_size / PAGE_SIZE)) >> 1;
+
 	INIT_LIST_HEAD(&slub->partial);
-	slub->per_cpu_partial = (slub_cache_entry_t **)((void *)slub + sizeof(slub_t));
+	slub->per_cpu_partial = (slub_cache_entry_t **)((char *)slub + sizeof(slub_t));
 }
 
 static void slub_init_cache_entry(slub_t *slub, slub_cache_entry_t *cache_entry)
@@ -23,7 +25,7 @@ static void slub_init_cache_entry(slub_t *slub, slub_cache_entry_t *cache_entry)
 	unsigned int obj_count = (((1 << slub->cache_alloc_order) * PAGE_SIZE) - reserved_area) / slub->object_size;
 	cache_entry->used = 0;
 
-	slub_entry_t *prev;
+	slub_entry_t *prev = 0;
 	for (int i = 0; i < obj_count; i++)
 	{
 		slub_entry_t *entry = (slub_entry_t *)(((char *)cache_entry->first + (i * slub->object_size)));
@@ -31,7 +33,7 @@ static void slub_init_cache_entry(slub_t *slub, slub_cache_entry_t *cache_entry)
 		if (slub->object_size >= sizeof(slub_entry_t))
 			entry->poison = POISON_VALUE;
 
-		if (prev)
+		if (prev != 0)
 			prev->next_offset = entry;
 
 		prev = entry;
@@ -111,6 +113,8 @@ void *slub_alloc(slub_t *slub)
 		addr = slub_alloc_from_cache_entry(slub, cpu_cache);
 	}
 
+	memset(addr, 0, slub->object_size);
+
 	int state = spinlock_acquire_irq(&slub->lock);
 	slub->object_count++;
 	spinlock_release_irq(state, &slub->lock);
@@ -128,6 +132,7 @@ void *slub_alloc(slub_t *slub)
 static int slub_is_per_cpu_cache(slub_t *slub, slub_cache_entry_t *entry)
 {
 	int cpuN = devicetree_count_dev_type("cpu");
+
 	for (int i = 0; i < cpuN; i++)
 	{
 		if (slub->per_cpu_partial[i] == entry)
@@ -168,11 +173,12 @@ void slub_free(void *obj)
 
 	lstate_n = spinlock_acquire_irq(&slub->lock);
 
-	if (slub_cache_entry_is_empty(slub, cache) && !slub_is_per_cpu_cache(slub, cache))
+	if ((slub_cache_entry_is_empty(slub, cache) == 0) && (slub_is_per_cpu_cache(slub, cache) == 0))
 	{
-		list_del(cache);
-		page_free(cache);
+		list_del((struct list_head *)cache);
+		page_free((void *)cache);
 	}
+
 	slub->object_count--;
 
 	spinlock_release_irq(lstate_n, &slub->lock);

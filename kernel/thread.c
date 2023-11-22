@@ -114,7 +114,7 @@ void wake_thread(thread_t *thread)
 
 void sleep_thread(thread_t *thread, const timespec_t *ts, timespec_t *user_rem)
 {
-	struct thread_wait_cond_sleep *sleep_cond = (struct thread_wait_cond_sleep *)page_alloc_s(sizeof(struct thread_wait_cond_sleep));
+	struct thread_wait_cond_sleep *sleep_cond = (struct thread_wait_cond_sleep *)kmalloc(sizeof(struct thread_wait_cond_sleep));
 
 	sleep_cond->cond.type = SLEEP;
 	sleep_cond->timer.seconds = ts->seconds;
