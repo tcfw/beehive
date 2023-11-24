@@ -26,4 +26,6 @@ typedef struct device_node_property_t
 
 int discover_devices(uintptr_t ddr);
 
+struct list_head *get_devices_head();
+
 #endif

@@ -195,3 +195,23 @@ k_exphandler_fiq_entry:
     kexp_trapframe_pull
 
     ERET
+
+syscall1:
+    .globl syscall1
+    SVC #0
+    RET
+    
+syscall2:
+    .globl syscall2
+    SVC #0
+    RET
+
+syscall3:
+    .globl syscall3
+    SVC #0
+    RET
+
+syscall4:
+    .globl syscall4
+    SVC #0
+    RET

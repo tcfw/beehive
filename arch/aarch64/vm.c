@@ -7,6 +7,7 @@
 #include <kernel/tty.h>
 #include <kernel/vm.h>
 #include <kernel/thread.h>
+#include "errno.h"
 
 extern uintptr_t kernelstart;
 extern uintptr_t kernelend;
@@ -637,17 +638,17 @@ int access_ok(enum AccessType type, void *addr, size_t n)
 
 		if (vpage == 0 || *vpage == 0)
 		{
-			return -2;
+			return -ERRFAULT;
 		}
 
 		if (*vpage & VM_ENTRY_USER == 0)
 		{
-			return -1;
+			return -ERRACCESS;
 		}
 
 		if (type == ACCESS_TYPE_WRITE && (*vpage & VM_ENTRY_PERM_RO) != 0)
 		{
-			return -1;
+			return -ERRACCESS;
 		}
 
 		addr += PAGE_SIZE;

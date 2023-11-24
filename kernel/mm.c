@@ -32,6 +32,16 @@ const slub_class_catalogue_t slub_classes[MAX_SLUB_CLASSES] = {
 	{PAGE_SIZE - sizeof(slub_cache_entry_t)},
 };
 
+slub_t *get_slub_head()
+{
+	return slub_head;
+}
+
+struct buddy_t *get_pages_head()
+{
+	return pages;
+}
+
 void *page_start_of_arena()
 {
 	return (void *)pages->arena;

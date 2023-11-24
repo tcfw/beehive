@@ -1,6 +1,7 @@
 #include "stdint.h"
 #include <devicetree.h>
 #include <kernel/arch.h>
+#include <kernel/buddy.h>
 #include <kernel/clock.h>
 #include <kernel/cls.h>
 #include <kernel/devices.h>
@@ -21,24 +22,24 @@ static void thread_test(void *data);
 
 static void setup_init_threads(void)
 {
-    thread_t *init = (thread_t *)page_alloc_s(sizeof(thread_t));
-    init_thread(init);
-    strcpy(init->cmd, "init");
-    init->pid = 1;
-    init->uid = 0;
-    init->euid = 0;
-    init->gid = 0;
-    init->egid = 0;
-    init->ctx.pc = 0x1000ULL;
+    // thread_t *init = (thread_t *)page_alloc_s(sizeof(thread_t));
+    // init_thread(init);
+    // strcpy(init->cmd, "init");
+    // init->pid = 1;
+    // init->uid = 0;
+    // init->euid = 0;
+    // init->gid = 0;
+    // init->egid = 0;
+    // init->ctx.pc = 0x1000ULL;
 
-    void *prog = page_alloc_s(0x1c);
-    memcpy(prog, &user_init, 0x1c);
+    // void *prog = page_alloc_s(0x1c);
+    // memcpy(prog, &user_init, 0x1c);
 
-    int r = vm_map_region(init->vm_table, (uintptr_t)prog, 0x1000ULL, 4095, MEMORY_TYPE_USER);
-    if (r < 0)
-        terminal_logf("failed to map user region: 0x%x", r);
+    // int r = vm_map_region(init->vm_table, (uintptr_t)prog, 0x1000ULL, 4095, MEMORY_TYPE_USER);
+    // if (r < 0)
+    //     terminal_logf("failed to map user region: 0x%x", r);
 
-    sched_append_pending(init);
+    // sched_append_pending(init);
 
     thread_t *kthread1 = create_kthread(&thread_test, "[hello world]", (void *)"test");
     sched_append_pending(kthread1);
@@ -55,9 +56,27 @@ static void thread_test(void *data)
         timespec_from_cs(cs, &now);
         terminal_logf("kthread ellapsed: %x %x", now.seconds, now.nanoseconds);
 
-        for (int i = 0; i < 1000000; i++)
+        slub_t *slub = get_slub_head();
+
+        while (slub != 0)
         {
+            terminal_logf("\tSlub %d used %d", slub->object_size, slub->object_count);
+            slub = slub->next;
         }
+
+        struct buddy_t *pages = get_pages_head();
+        int allocd = 0;
+
+        while (pages != 0)
+        {
+            allocd += pages->allocs - pages->frees;
+            pages = pages->next;
+        }
+        terminal_logf("\tPages delta %d\n", allocd);
+
+        timespec_t ss = {seconds : 10};
+        timespec_t rem;
+        sleep_kthread(&ss, &rem);
     }
 }
 

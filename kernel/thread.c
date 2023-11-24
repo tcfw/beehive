@@ -1,11 +1,12 @@
+#include <errno.h>
 #include <kernel/clock.h>
 #include <kernel/context.h>
 #include <kernel/mm.h>
-#include <kernel/thread.h>
-#include <kernel/vm.h>
 #include <kernel/strings.h>
+#include <kernel/thread.h>
 #include <kernel/uaccess.h>
-#include <errno.h>
+#include <kernel/syscall.h>
+#include <kernel/vm.h>
 
 #define KTHREAD_STACK_SIZE (1024 * 1024)
 
@@ -31,13 +32,11 @@ void init_thread(thread_t *thread)
 
 	thread->sched_class = sched_get_class(SCHED_CLASS_LRF);
 
-	spinlock_acquire(&threads_lock);
-
 	thread_list_entry_t *entry = (thread_list_entry_t *)kmalloc(sizeof(thread_list_entry_t));
 	entry->thread = thread;
 
+	spinlock_acquire(&threads_lock);
 	list_add_tail(&threads, entry);
-
 	spinlock_release(&threads_lock);
 }
 
@@ -112,15 +111,70 @@ void wake_thread(thread_t *thread)
 	thread->state = RUNNING;
 }
 
+static int can_wake_thread_from_sleep(thread_t *thread)
+{
+	struct thread_wait_cond_sleep *sleepcond = (struct thread_wait_cond_sleep *)thread->wc;
+	struct clocksource_t *cs = clock_first(CS_GLOBAL);
+	timespec_t ts;
+	timespec_t d;
+	timespec_from_cs(cs, &ts);
+	timespec_diff(&ts, &sleepcond->timer, &d);
+	if (d.seconds >= 0)
+		return 1;
+	return 0;
+}
+
+int can_wake_thread(thread_t *thread)
+{
+	if (thread->wc)
+	{
+		switch (thread->wc->type)
+		{
+		case SLEEP:
+			return can_wake_thread_from_sleep(thread);
+			break;
+		case QUEUE_IO:
+			break;
+		}
+
+		kfree(thread->wc);
+	}
+
+	return 1;
+}
+
 void sleep_thread(thread_t *thread, const timespec_t *ts, timespec_t *user_rem)
 {
+	struct clocksource_t *cs = clock_first(CS_GLOBAL);
+	timespec_t sts;
+	timespec_from_cs(cs, &sts);
+
 	struct thread_wait_cond_sleep *sleep_cond = (struct thread_wait_cond_sleep *)kmalloc(sizeof(struct thread_wait_cond_sleep));
 
 	sleep_cond->cond.type = SLEEP;
-	sleep_cond->timer.seconds = ts->seconds;
-	sleep_cond->timer.nanoseconds = ts->nanoseconds;
+	sleep_cond->timer.seconds = sts.seconds + ts->seconds;
+	sleep_cond->timer.nanoseconds = sts.nanoseconds + ts->nanoseconds;
 	sleep_cond->user_rem = user_rem;
 
 	thread->wc = sleep_cond;
 	thread->state = SLEEPING;
+}
+
+void sleep_kthread(const timespec_t *ts, timespec_t *rem)
+{
+	syscall2(SYSCALL_NANOSLEEP, ts, rem);
+}
+
+thread_t *get_thread_by_pid(pid_t pid)
+{
+	thread_list_entry_t *current;
+	list_head_for_each(current, &threads)
+	{
+		if (current->thread->pid == pid && current->thread->tid == (tid_t)pid)
+		{
+			return current->thread;
+		}
+	}
+
+	return 0;
 }

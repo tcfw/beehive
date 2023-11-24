@@ -121,10 +121,16 @@ thread_t *create_kthread(void *(entry)(void), const char *name, void *data);
 // Mark a thread as awake
 void wake_thread(thread_t *thread);
 
+void sleep_kthread(const timespec_t *ts, timespec_t *rem);
+
 // Put thread to sleep for ts time
 void sleep_thread(thread_t *thread, const timespec_t *ts, timespec_t *user_rem);
 
 // Populate data for return from wait cond
 void thread_return_wc(thread_t *thread, void *data1);
+
+int can_wake_thread(thread_t *thread);
+
+thread_t *get_thread_by_pid(pid_t pid);
 
 #endif

@@ -25,10 +25,16 @@ char *itoa(long i, char *buf, int base)
 {
 	char *s = buf + 256;
 	int wn = 0;
-	if (i < 0)
+	if (i > 0)
 		wn = 1;
 
 	*--s = 0; // null terminate
+
+	if (i == 0)
+	{
+		*--s = '0';
+		return s;
+	}
 
 	while (i != 0)
 	{
@@ -39,7 +45,7 @@ char *itoa(long i, char *buf, int base)
 		i /= base;
 	}
 
-	if (wn == 1)
+	if (wn == 0)
 		*--s = '-';
 
 	return s;

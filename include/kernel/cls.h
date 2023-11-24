@@ -17,7 +17,7 @@ enum exception_operation
 // Holds the stateful store for each processor
 typedef struct cls_t
 {
-	uint64_t id;
+	uint32_t id;
 
 	uint64_t pending_irq;
 

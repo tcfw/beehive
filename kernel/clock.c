@@ -14,7 +14,7 @@ struct clocksource_t *clock_first(enum ClockSourceType type)
 {
 	struct clocksource_t *cs;
 
-	list_head_foreach(cs, &clockSources)
+	list_head_for_each(cs, &clockSources)
 	{
 		if (cs->type == type)
 			return cs;

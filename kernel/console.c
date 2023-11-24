@@ -1,9 +1,10 @@
+#include <kernel/mm.h>
 #include <kernel/syscall.h>
+#include <kernel/thread.h>
 #include <kernel/tty.h>
 #include <kernel/uaccess.h>
-#include <kernel/mm.h>
 
-int writeconsole(pid_t pid, void *c, size_t n)
+int writeconsole(thread_t *t, void *c, size_t n)
 {
 	if (n > 40960)
 		return -2;

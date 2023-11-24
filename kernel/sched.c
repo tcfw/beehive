@@ -98,7 +98,8 @@ thread_t *sched_get_pending(uint64_t affinity)
 	}
 
 	struct thread_list_entry_t *current;
-	list_head_foreach(current, &pending)
+	struct thread_list_entry_t *tmp;
+	list_head_for_each_safe(current, tmp, &pending)
 	{
 		if ((current->thread->affinity & affinity) != 0)
 		{
@@ -175,7 +176,8 @@ void schedule(void)
 	prev->timing.total_execution = prev->timing.total_system + prev->timing.total_user;
 	prev->sched_entity.deadline -= clkval - prev->sched_entity.last_deadline;
 
-	prev->sched_class->requeue_thread(&cls->rq, prev);
+	if (prev->state == RUNNING)
+		prev->sched_class->requeue_thread(&cls->rq, prev);
 
 	sched_class_t *sc = sched_class_head;
 	if (sched_should_tick(&cls->rq))

@@ -18,6 +18,9 @@ void page_alloc_init(void);
 // Init the page allocator
 void slub_alloc_init(void);
 
+slub_t *get_slub_head();
+struct buddy_t *get_pages_head();
+
 // Get address of the start of the arena
 void *page_start_of_arena(void);
 

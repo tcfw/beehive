@@ -62,7 +62,16 @@ static inline void list_add_tail(struct list_head *new, struct list_head *head)
 	__list_add(new, head->prev, head);
 }
 
-#define list_head_foreach(pos, head) \
+#define list_head_for_each(pos, head) \
 	for (pos = (head)->next; !list_is_head((struct list_head *)pos, (struct list_head *)head); pos = pos->list.next)
+
+#define list_head_for_each_safe(pos, n, head) \
+	for (pos = (head)->next, n = pos->list.next; !list_is_head((struct list_head *)pos, (struct list_head *)head); pos = n, n = pos->list.next)
+
+#define list_for_each(pos, head) \
+	for (pos = (head)->next; !list_is_head((struct list_head *)pos, (struct list_head *)head); pos = pos->list.next)
+
+#define list_for_each_safe(pos, n, head) \
+	for (pos = (head)->next, n = pos->next; !list_is_head((struct list_head *)pos, (struct list_head *)head); pos = n, n = pos->next)
 
 #endif
