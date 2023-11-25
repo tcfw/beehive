@@ -585,7 +585,7 @@ void vm_enable()
 					 : "=r"(sctlr));
 
 	sctlr &= ~((1 << 25) | (1 << 24) | (1 << 19) | (1 << 12) | (1 << 4) | (1 << 3) | (1 << 2) | (1 << 1));
-	sctlr |= (1 << 0);
+	sctlr |= (1 << 0) | (1 << 12) | (1 << 2);
 
 	__asm__ volatile("MSR sctlr_el1, %0" ::"r"(sctlr));
 	__asm__ volatile("ISB");

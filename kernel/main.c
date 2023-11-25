@@ -56,24 +56,6 @@ static void thread_test(void *data)
         timespec_from_cs(cs, &now);
         terminal_logf("kthread ellapsed: %x %x", now.seconds, now.nanoseconds);
 
-        slub_t *slub = get_slub_head();
-
-        while (slub != 0)
-        {
-            terminal_logf("\tSlub %d used %d", slub->object_size, slub->object_count);
-            slub = slub->next;
-        }
-
-        struct buddy_t *pages = get_pages_head();
-        int allocd = 0;
-
-        while (pages != 0)
-        {
-            allocd += pages->allocs - pages->frees;
-            pages = pages->next;
-        }
-        terminal_logf("\tPages delta %d\n", allocd);
-
         timespec_t ss = {seconds : 10};
         timespec_t rem;
         sleep_kthread(&ss, &rem);
