@@ -1,19 +1,88 @@
+.section .boot.text, "a"
 _start:
     .globl _start
-    MRS      x10, MPIDR_EL1
-    AND      x10, x10, #0xFFFF                   // Mask off to leave Aff0 and Aff1
-    CBZ      x10, boot                          // If not *.*.0.0, then wait
-    B        secondary_boot
 
-boot:
-    // Set Stackpointer
-    LDR x10, =stack
-    MOV sp, x10
+    //TODO(tcfw) check if in EL1
+
+    ADRP x1, init_vm_map
+    ADD  x1, x1, #:lo12:init_vm_map
+    MSR TTBR0_EL1, x1
+    LDR x1, init_tcr
+    MSR TCR_EL1, x1
+    LDR x1, init_mair
+    MSR MAIR_EL1, x1
+
+    MRS x1, SCTLR_EL1
+    ORR x1, x1, #1 //Enable MMU
+    MSR SCTLR_EL1, x1
 
     ISB
 
+    MRS x10, MPIDR_EL1
+    AND x10, x10, #0xFFFF                 // Mask off to leave Aff0 and Aff1
+    CBZ x10, boot_j                       // If not *.*.0.0, then wait
+    LDR x1, secondary_boot_addr
+    BR x1
+
+boot_j:
+    LDR x1, boot_addr
+    BR x1
+
+boot_addr: .quad boot
+secondary_boot_addr: .quad secondary_boot
+init_tcr: .quad 0x1480543514
+init_mair: .quad 0x4404FF
+    .balign 4096
+init_vm_map: 
+    // L0 (0@512GB):
+    .quad 0x4000000000000701
+    // L0 (15@512GB):
+    .quad 0x0000000040002701
+    .quad 0x0000000040002701
+    .quad 0x0000000040002701
+    .quad 0x0000000040002701
+    .quad 0x0000000040002701
+    .quad 0x0000000040002701
+    .quad 0x0000000040002701
+    .quad 0x0000000040002701
+    .quad 0x0000000040002701
+    .quad 0x0000000040002701
+    .quad 0x0000000040002701
+    .quad 0x0000000040002701
+    .quad 0x0000000040002701
+    .quad 0x0000000040002701
+    .quad 0x0000000040002701
+    .quad 0x0000000040002701
+    //.fill 4080
+    .balign 4096
+
+.section .text
+boot:
+    .globl boot
+    // Set Stackpointer
+    ADRP x10, stack
+    ADD  x10, x10, #:lo12:stack
+    MOV sp, x10
+
     .globl  kernel_main
-    BL      kernel_main          // Jump to the main function
+    B       kernel_main          // Jump to the main function
+
+secondary_boot:
+    .globl secondary_boot
+    WFE
+    
+    MRS X0, MPIDR_EL1
+    AND x0, x0, #0xFFFF //Get CPU ID
+
+    .global cpu_spin_table
+    LDR x2, =cpu_spin_table
+    
+    LDR X1, [X2, X0, LSL #3] //Get cpu_spin_table[cpu_id]
+
+    CBZ X1, secondary_boot //If not empty, set sp = cpu_spin_table[cpu_id]
+
+    MOV sp, X1
+    B kernel_main2
 
 halt_loop:
     .globl halt_loop
@@ -31,23 +100,6 @@ address_xlate_write:
     AT S1E1W, X0
     MRS X0, PAR_EL1
     RET
-
-.global secondary_boot
-secondary_boot:
-    WFE
-    
-    MRS X0, MPIDR_EL1
-    AND x0, x0, #0xFFFF //Get CPU ID
-
-    .global cpu_spin_table
-    LDR x2, =cpu_spin_table
-    
-    LDR X1, [X2, X0, LSL #3] //Get cpu_spin_table[cpu_id]
-
-    CBZ X1, secondary_boot //If not empty, set sp = cpu_spin_table[cpu_id]
-
-    MOV sp, X1
-    B kernel_main2
 
 push_elx_sp:
     MRS x0, SPSR_EL1
@@ -198,19 +250,10 @@ k_exphandler_fiq_entry:
 
 syscall1:
     .globl syscall1
-    SVC #0
-    RET
-    
 syscall2:
     .globl syscall2
-    SVC #0
-    RET
-
 syscall3:
     .globl syscall3
-    SVC #0
-    RET
-
 syscall4:
     .globl syscall4
     SVC #0

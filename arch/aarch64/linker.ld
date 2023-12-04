@@ -3,25 +3,22 @@ ENTRY (_start)
 SECTIONS
 {
     . = 0x40000000;
-
     kernelstart = .;
-    kernelvmbase = 0x40000000;
 
-    . = kernelvmbase;
-    /* . = 0x7F000000000; */
-    /* High mem kernel, otherwise would be limited to 
-        1GB user space, but needs a bootloader to set up 
-        virtual memory first */
+    .boot.text : {
+        *(.boot.text*)
+    }
 
+    . += 0x70000000000;
+    kernelvstart = . - SIZEOF(.boot.text);
+    kernelvbase = .;
 
-    .text ALIGN(4K) : /* AT(. - kernelvmbase) */
+    .text ALIGN(4k) : AT( ADDR (.text) - 0x70000000000 )
     { 
-        KEEP(*(.boot*))
-
         *(.text*) 
 
-        __start_init = .;
-        KEEP(*(.init*))
+        __start_init = ALIGN(8);
+        KEEP(*(mod.init*))
         __stop_init = .;
 
         __start_tests = .;
@@ -29,24 +26,27 @@ SECTIONS
         __stop_tests = .;
     }
 
-    .rodata ALIGN(4K) : /* AT(. - kernelvmbase) */
-    {
+    .rodata ALIGN(4k) : AT( ADDR (.rodata) - 0x70000000000 )
+    { 
         *(.rodata*)
     }
 
-    .data ALIGN(4K) : /* AT(. - kernelvmbase) */
+    .data ALIGN(4k) : AT( ADDR (.data) - 0x70000000000 )
     { 
-        *(COMMON*)
         *(.data*)
-        *(.bss*)
     }
 
-    . = ALIGN(64);
-    . += 0x20000; /* 128kB of stack memory */
-    stack = .;
+    .bss ALIGN(4k) : AT( ADDR (.bss) - 0x70000000000 )
+    {
+        *(COMMON*)
+        *(.bss*)
 
-    . += 0x1;
-    . = ALIGN(8);
+        . = ALIGN(8);
+        . += 0x20000; /* 128kB of stack memory */
+        stack = .;
+        . += 0x1;
+        . = ALIGN(8);
+    }
 
     kernelend = .;
 }

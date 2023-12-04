@@ -9,6 +9,7 @@
 #include "stdint.h"
 
 extern uint64_t kernelend;
+extern uint64_t kernelvstart;
 
 struct buddy_t *pages;
 static spinlock_t page_lock;
@@ -51,7 +52,7 @@ void page_alloc_init()
 {
 	spinlock_init(&page_lock);
 
-	uintptr_t ram_max_addr = (uintptr_t)ram_max();
+	uintptr_t ram_max_addr = (uintptr_t)&kernelvstart + ram_size();
 	uint64_t buddy_struct_size = sizeof(struct buddy_t) + __alignof__(struct buddy_t);
 	uint64_t buddy_size = buddy_struct_size + BUDDY_ARENA_SIZE;
 	uint64_t n_arenas = (uint64_t)(ram_max_addr - (uintptr_t)&kernelend) / buddy_size;

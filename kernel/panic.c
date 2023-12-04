@@ -28,7 +28,7 @@ void panicf(char *fmt, ...)
 	_panic();
 }
 
-static void _panic()
+static void __attribute__((noreturn)) _panic()
 {
 	stop_cores();
 	k_exphandler(0x2, 0, 0);

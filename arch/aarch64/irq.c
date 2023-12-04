@@ -30,16 +30,19 @@ extern unsigned long stack;
 #define PIC_INT_SOFTSET 0x4
 #define PIC_INT_SOFTCLR 0x5
 
-#define KEXP_TOP3                                                                    \
-	uint64_t spsr = 0;                                                               \
-	__asm__ volatile("mrs %0, SPSR_EL1"                                              \
-					 : "=r"(spsr));                                                  \
-	thread_t *thread = get_cls()->rq.current_thread;                                 \
-	int didsave = 0;                                                                 \
-	if ((spsr & SPSR_M_MASK) == SPSR_M_EL0 || (thread->flags & THREAD_KTHREAD) != 0) \
-	{                                                                                \
-		didsave = 1;                                                                 \
-		save_to_context(&thread->ctx, trapFrame);                                    \
+#define KEXP_TOP3                                             \
+	uint64_t spsr = 0;                                        \
+	__asm__ volatile("mrs %0, SPSR_EL1"                       \
+					 : "=r"(spsr));                           \
+	thread_t *thread = get_cls()->rq.current_thread;          \
+	int didsave = 0;                                          \
+	int iskthread = 0;                                        \
+	if (thread != 0)                                          \
+		iskthread = thread->flags & THREAD_KTHREAD;           \
+	if ((spsr & SPSR_M_MASK) == SPSR_M_EL0 || iskthread != 0) \
+	{                                                         \
+		didsave = 1;                                          \
+		save_to_context(&thread->ctx, trapFrame);             \
 	}
 
 #define KEXP_BOT3                                    \

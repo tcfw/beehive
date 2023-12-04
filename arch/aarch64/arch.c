@@ -3,6 +3,7 @@
 #include <kernel/tty.h>
 #include <kernel/clock.h>
 #include <kernel/mm.h>
+#include <kernel/vm.h>
 #include <devicetree.h>
 #include "stdint.h"
 #include "clocks.h"
@@ -10,6 +11,7 @@
 uintptr_t cpu_spin_table[256] = {0};
 
 extern void secondary_boot();
+extern void _start();
 extern void halt_loop();
 
 extern uintptr_t stack;
@@ -90,7 +92,7 @@ static uint64_t psci_cpu_on(uint64_t affinity, uint64_t entrypoint)
 
 void wake_cores(void)
 {
-	cpu_spin_table[0] = stack;
+	cpu_spin_table[0] = (uintptr_t)&stack;
 
 	int cpuN = devicetree_count_dev_type("cpu");
 	// int usePSCI = devicetree_count_dev_type("psci");
@@ -98,7 +100,7 @@ void wake_cores(void)
 	for (int i = 1; i < cpuN; i++)
 	{
 		cpu_spin_table[i] = (uintptr_t)page_alloc_s(CORE_BOOT_SP_SIZE) + CORE_BOOT_SP_SIZE;
-		int ret = psci_cpu_on(i, secondary_boot);
+		int ret = psci_cpu_on(i, (uint64_t)_start);
 		if (ret < 0)
 			terminal_logf("failed to boot CPU: %x", ret);
 	}
@@ -129,6 +131,12 @@ uintptr_t ram_max(void)
 {
 	// TODO(tcfw): use DTB to find allocatable areas
 	return RAM_MAX;
+}
+
+uintptr_t ram_size(void)
+{
+	// TODO(tcfw): use DTB to find allocatable size
+	return RAM_SIZE;
 }
 
 void wait_task(void)

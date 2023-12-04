@@ -11,6 +11,7 @@
 
 extern uintptr_t kernelstart;
 extern uintptr_t kernelend;
+extern uintptr_t kernelvstart;
 
 extern void user_init(void);
 extern uintptr_t address_xlate_read(uintptr_t offset);
@@ -23,24 +24,33 @@ static vm_table_block *vm_get_or_alloc_block(vm_table_block *parent, uint16_t en
 static vm_table_block *vm_copy_link_table_block(uint64_t *parent, vm_table_block *tocopy);
 static uint64_t *vm_va_to_pte(vm_table *table, uintptr_t vptr);
 static int vm_table_block_is_empty(vm_table_block *table);
+static uintptr_t vm_va_to_pa_current(uintptr_t addr);
+static uintptr_t vm_pa_to_va_current(uintptr_t addr);
+uintptr_t vm_va_to_pa(vm_table *table, uintptr_t vptr);
+uintptr_t vm_pa_to_va(vm_table *table, uintptr_t pptr);
+uintptr_t vm_pa_to_kva(uintptr_t pptr);
 
 vm_table *kernel_vm_map;
 
 static vm_table_block *vm_table_desc_to_block(uint64_t *desc)
 {
-	return (vm_table_block *)(*desc & VM_ENTRY_OA_MASK);
+	return (vm_table_block *)vm_pa_to_kva(*desc & VM_ENTRY_OA_MASK);
 }
 
 static vm_table_block *vm_table_entry_to_block(uint64_t *entry)
 {
-	return (vm_table_block *)(*entry & VM_ENTRY_OA_MASK);
+	return (vm_table_block *)vm_pa_to_kva(*entry & VM_ENTRY_OA_MASK);
 }
 
 vm_table *vm_get_current_table()
 {
-	vm_table *uvm = get_cls()->rq.current_thread->vm_table;
-	if (uvm != 0)
-		return uvm;
+	thread_t *thread = get_cls()->rq.current_thread;
+	if (thread != 0)
+	{
+		vm_table *uvm = thread->vm_table;
+		if (uvm != 0)
+			return uvm;
+	}
 
 	return kernel_vm_map;
 }
@@ -48,6 +58,35 @@ vm_table *vm_get_current_table()
 vm_table *vm_get_kernel()
 {
 	return kernel_vm_map;
+}
+
+static uintptr_t __attribute__((noinline)) vm_va_to_pa_current(uintptr_t addr)
+{
+	__asm__ volatile("AT S1E1R, %0" ::"r"(addr));
+
+	uint64_t par;
+	__asm__ volatile("MRS %0, PAR_EL1" : "=r"(par));
+
+	if (par & 0x1UL == 1)
+		return 0;
+
+	uint64_t inpage = addr & 0xFFF;
+	return (par & VM_ENTRY_OA_MASK) | inpage;
+}
+
+static uintptr_t vm_pa_to_va_current(uintptr_t addr)
+{
+	return vm_pa_to_va(vm_get_current_table(), addr);
+}
+
+uintptr_t vm_pa_to_va(vm_table *table, uintptr_t pptr)
+{
+	return 0;
+}
+
+uintptr_t vm_pa_to_kva(uintptr_t pptr)
+{
+	return pptr + ((uintptr_t)(&kernelvstart) - RAM_BASE);
 }
 
 static int vm_table_block_is_empty(vm_table_block *table)
@@ -199,7 +238,7 @@ static vm_table_block *vm_get_or_alloc_block(vm_table_block *parent, uint16_t en
 		block = (vm_table_block *)page_alloc_s(sizeof(vm_table_block));
 		memset(block, 0, sizeof(vm_table_block));
 
-		parent->entries[entry] = (uintptr_t)block & VM_ENTRY_OA_MASK;
+		parent->entries[entry] = vm_va_to_pa_current(block) & VM_ENTRY_OA_MASK;
 		parent->entries[entry] |= (VM_ENTRY_ISTABLE | VM_ENTRY_VALID | VM_ENTRY_NONSECURE);
 	}
 	else
@@ -383,7 +422,7 @@ int vm_map_region(vm_table *table, uintptr_t pstart, uintptr_t vstart, size_t si
 		memset(table_l1, 0, sizeof(vm_table_block));
 
 		*desc = (VM_DESC_VALID | VM_DESC_IS_DESC | VM_DESC_NONSECURE | VM_DESC_AF | VM_ENTRY_ISH);
-		*desc |= ((uintptr_t)table_l1 & VM_DESC_NEXT_LEVEL_MASK);
+		*desc |= vm_va_to_pa_current((uintptr_t)table_l1) & VM_DESC_NEXT_LEVEL_MASK;
 
 		// if (flags & MEMORY_TYPE_KERNEL)
 		// 	*desc |= VM_DESC_AP_KERNEL;
@@ -536,7 +575,8 @@ int vm_map_region(vm_table *table, uintptr_t pstart, uintptr_t vstart, size_t si
 
 void vm_set_table(vm_table *table, pid_t pid)
 {
-	uint64_t ttbr0 = ((pid << TTBR_ASID_SHIFT & TTBR_ASID_MASK)) | (((uintptr_t)table & TTBR_BADDR_MASK) + 1);
+	uintptr_t table_pa = vm_va_to_pa_current((uintptr_t)table);
+	uint64_t ttbr0 = ((pid << TTBR_ASID_SHIFT & TTBR_ASID_MASK)) | (((uintptr_t)table_pa & TTBR_BADDR_MASK) + 1);
 	__asm__ volatile("MSR TTBR0_EL1, %0" ::"r"(ttbr0));
 
 	// Enable E/S PAN
@@ -606,7 +646,7 @@ static vm_table_block *vm_copy_link_table_block(uint64_t *parent, vm_table_block
 	}
 
 	*parent &= ~(VM_ENTRY_LINKED | VM_ENTRY_OA_MASK);
-	*parent |= (uintptr_t)block & VM_ENTRY_OA_MASK;
+	*parent |= vm_va_to_pa_current((uintptr_t)block & VM_ENTRY_OA_MASK);
 
 	return block;
 }
@@ -669,11 +709,11 @@ void vm_init()
 
 	// map kernel code & remaining physcial memory regions
 	// TODO(tcfw) get from dtb
-	if (vm_map_region(kernel_vm_map, &kernelstart, &kernelstart, ram_max() - ((uintptr_t)&kernelstart) - 1, MEMORY_TYPE_KERNEL) < 0)
+	if (vm_map_region(kernel_vm_map, &kernelstart, &kernelvstart, ram_max() - ((uintptr_t)&kernelstart) - 1, MEMORY_TYPE_KERNEL) < 0)
 		terminal_log("failed to map kernel code region");
 
 	// move DBT to above RAM
-	if (vm_map_region(kernel_vm_map, 0, DEVICE_DESCRIPTOR_REGION, 0x100000 - 1, MEMORY_TYPE_KERNEL | MEMORY_TYPE_DEVICE | MEMORY_PERM_RO) < 0)
+	if (vm_map_region(kernel_vm_map, 0, DEVICE_DESCRIPTOR_REGION, 0x100000 - 1, MEMORY_TYPE_KERNEL | MEMORY_PERM_RO) < 0)
 		terminal_log("failed to map dbt region");
 
 	terminal_log("Loaded kernel VM map");

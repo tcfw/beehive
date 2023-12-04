@@ -43,6 +43,9 @@ void set_to_context(context_t *ctx, uintptr_t trapFrame);
 // Get the max address available in RAM
 uintptr_t ram_max(void);
 
+// Get size of available in RAM
+uintptr_t ram_size(void);
+
 // Switch to the wait task
 void wait_task(void);
 

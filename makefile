@@ -61,6 +61,7 @@ all: beehive.kernel
 beehive.kernel: $(OBJS) $(ARCHDIR)/linker.ld
 	@echo ${BUILD_INFO}
 	$(CC)-ld -T $(ARCHDIR)/linker.ld -o $@ $(LDFLAGS) $(LINK_LIST)
+	$(CC)-objcopy -O binary $@ $@.bin
 	@echo "Finished build successfully"
  
 clean:
