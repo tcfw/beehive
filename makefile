@@ -1,7 +1,7 @@
 ARCH?=aarch64
 ARCHEXT?=-none-eabi
 
-CFLAGS?=-O2 -g -fPIC
+CFLAGS?=-O4 -g -fPIC -Wstack-usage=131072
 CPPFLAGS?=
 LDFLAGS?=
 LIBS?=
@@ -62,6 +62,7 @@ beehive.kernel: $(OBJS) $(ARCHDIR)/linker.ld
 	@echo ${BUILD_INFO}
 	$(CC)-ld -T $(ARCHDIR)/linker.ld -o $@ $(LDFLAGS) $(LINK_LIST)
 	$(CC)-objcopy -O binary $@ $@.bin
+	mv $@.bin ../sysroot/boot
 	@echo "Finished build successfully"
  
 clean:

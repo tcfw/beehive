@@ -1,13 +1,16 @@
 #include <kernel/cls.h>
 #include <kernel/mm.h>
 #include <kernel/arch.h>
+#include "devicetree.h"
 #include "stdint.h"
 
 static cls_t *cls;
 static uint8_t max_cls;
 
-void init_cls(uint8_t n)
+void init_cls()
 {
+	uint32_t n = devicetree_count_dev_type("cpu");
+
 	max_cls = n;
 
 	cls = (cls_t *)page_alloc_s(n * sizeof(cls_t));

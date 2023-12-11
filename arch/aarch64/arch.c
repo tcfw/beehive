@@ -1,12 +1,15 @@
-#include <kernel/irq.h>
-#include <kernel/arch.h>
-#include <kernel/tty.h>
-#include <kernel/clock.h>
-#include <kernel/mm.h>
-#include <kernel/vm.h>
-#include <devicetree.h>
-#include "stdint.h"
 #include "clocks.h"
+#include "devicetree.h"
+#include "stdint.h"
+#include <devicetree.h>
+#include <kernel/arch.h>
+#include <kernel/clock.h>
+#include <kernel/irq.h>
+#include <kernel/mm.h>
+#include <kernel/tty.h>
+#include <kernel/strings.h>
+#include <kernel/panic.h>
+#include <kernel/vm.h>
 
 uintptr_t cpu_spin_table[256] = {0};
 
@@ -129,14 +132,73 @@ void arch_init(void)
 
 uintptr_t ram_max(void)
 {
-	// TODO(tcfw): use DTB to find allocatable areas
-	return RAM_MAX;
+	void *mem_map = devicetree_find_node("/memory");
+	if (mem_map == 0)
+		panic("could not find memory node in device tree");
+
+	if (strcmp(devicetree_get_property(mem_map, "device_type"), "memory") != 0)
+		panic("memory node has unexpected device_type propert");
+
+	uint32_t *regs = devicetree_get_property(mem_map, "reg");
+	uint32_t *addrCells = devicetree_get_root_property("#address-cells");
+	uint32_t *sizeCells = devicetree_get_root_property("#size-cells");
+
+	uint64_t start = 0;
+	uint64_t size = 0;
+
+	if (BIG_ENDIAN_UINT32(*addrCells) == 2)
+	{
+		start = BIG_ENDIAN_UINT64(*(uint64_t *)regs);
+		regs += 2;
+	}
+	else if (BIG_ENDIAN_UINT32(*addrCells) == 1)
+	{
+		start = (uint32_t)BIG_ENDIAN_UINT32(*(uint32_t *)regs);
+		regs++;
+	}
+	else
+		panic("unsupported #address-cells");
+
+	if (BIG_ENDIAN_UINT32(*sizeCells) == 2)
+		size = BIG_ENDIAN_UINT64(*(uint64_t *)regs);
+	else if (BIG_ENDIAN_UINT32(*sizeCells) == 1)
+		size = BIG_ENDIAN_UINT32(*regs);
+	else
+		panic("unsupported #size-cells");
+
+	return start + size;
 }
 
 uintptr_t ram_size(void)
 {
-	// TODO(tcfw): use DTB to find allocatable size
-	return RAM_SIZE;
+	void *mem_map = devicetree_find_node("/memory");
+	if (mem_map == 0)
+		panic("could not find memory node in device tree");
+
+	if (strcmp(devicetree_get_property(mem_map, "device_type"), "memory") != 0)
+		panic("memory node has unexpected device_type propert");
+
+	uint32_t *regs = devicetree_get_property(mem_map, "reg");
+	uint32_t *addrCells = devicetree_get_root_property("#address-cells");
+	uint32_t *sizeCells = devicetree_get_root_property("#size-cells");
+
+	uint64_t size = 0;
+
+	if (BIG_ENDIAN_UINT32(*addrCells) == 2)
+		regs += 2;
+	else if (BIG_ENDIAN_UINT32(*addrCells) == 1)
+		regs++;
+	else
+		panic("unsupported #address-cells");
+
+	if (BIG_ENDIAN_UINT32(*sizeCells) == 2)
+		size = BIG_ENDIAN_UINT64(*(uint64_t *)regs);
+	else if (BIG_ENDIAN_UINT32(*sizeCells) == 1)
+		size = BIG_ENDIAN_UINT32(*regs);
+	else
+		panic("unsupported #size-cells");
+
+	return size;
 }
 
 void wait_task(void)

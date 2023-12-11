@@ -97,10 +97,14 @@ typedef struct slub_t
 
 typedef struct slub_class_catalogue_t
 {
-	unsigned int object_size
+	unsigned int object_size;
 } slub_class_catalogue_t;
 
 slub_t *DEFINE_DYN_SLUB(unsigned int objsize);
+
+typedef void (*slub_callback)(int op, void *addr);
+
+void slub_register_cb(slub_callback cb);
 
 void slub_init(slub_t *slub);
 

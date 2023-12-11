@@ -69,9 +69,22 @@ static inline void list_add_tail(struct list_head *new, struct list_head *head)
 	for (pos = (head)->next, n = pos->list.next; !list_is_head((struct list_head *)pos, (struct list_head *)head); pos = n, n = pos->list.next)
 
 #define list_for_each(pos, head) \
-	for (pos = (head)->next; !list_is_head((struct list_head *)pos, (struct list_head *)head); pos = pos->list.next)
+	for (pos = (head)->next; !list_is_head((struct list_head *)pos, (struct list_head *)head); pos = pos->next)
 
 #define list_for_each_safe(pos, n, head) \
 	for (pos = (head)->next, n = pos->next; !list_is_head((struct list_head *)pos, (struct list_head *)head); pos = n, n = pos->next)
+
+static inline unsigned long long list_len(struct list_head *head)
+{
+	unsigned long long count = 0;
+
+	struct list_head *pos;
+	list_for_each(pos, head)
+	{
+		count++;
+	}
+
+	return count;
+}
 
 #endif

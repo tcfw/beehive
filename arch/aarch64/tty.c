@@ -73,7 +73,7 @@ static void pl011_calculate_divisors(const struct pl011 *dev, uint32_t *integer,
 }
 
 // Reset the PL011 device
-// Enables interrupts for recieve only
+// Enables interrupts for receive only
 static int pl011_reset(const struct pl011 *dev)
 {
     uint32_t lcr = pl011_regread(dev, PL011_LCR_OFFSET);

@@ -22,7 +22,7 @@ typedef struct skl_node_t
 // this accordingly
 typedef int (*skiplist_compare)(void *rnode, void *list_rnode);
 
-// Probablistic skip list header
+// Probabilistic skip list header
 typedef struct skiplist_t
 {
 	// max levels for skiplist

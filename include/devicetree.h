@@ -16,7 +16,7 @@
 
 struct fdt_header_t
 {
-	// uint32_t magic;
+	uint32_t magic;
 	uint32_t totalsize;
 	uint32_t off_dt_struct;
 	uint32_t off_dt_strings;
@@ -49,7 +49,13 @@ void remaped_devicetreeoffset(uintptr_t offset);
 // Count the number of matching device types
 uint32_t devicetree_count_dev_type(char *);
 
-// Get a properly for the first instance of a device with a matching type
-struct fdt_reserve_entry_t *devicetree_get_property_by_first_device_type(char *);
+// Get the first node of a device with a matching type
+void *devicetree_first_with_device_type(char *type);
+
+void *devicetree_find_node(char *path);
+
+char *devicetree_get_property(void *node, char *propkey);
+
+char *devicetree_get_root_property(char *propkey);
 
 #endif

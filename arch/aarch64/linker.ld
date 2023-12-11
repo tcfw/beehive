@@ -2,13 +2,12 @@ ENTRY (_start)
 
 SECTIONS
 {
-    . = 0x40000000;
+    . = 0x40100000;
     kernelstart = .;
 
     .boot.text : {
         *(.boot.text*)
     }
-
     . += 0x70000000000;
     kernelvstart = . - SIZEOF(.boot.text);
     kernelvbase = .;

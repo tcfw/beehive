@@ -24,8 +24,8 @@ static void buddy_set_position(struct buddy_t *buddy, uint16_t p, uint8_t v);
 // if the split can be done it'll mark the parent as split
 static uint16_t buddy_split_mark_parent(struct buddy_t *buddy, uint16_t p);
 
-// buddy_coalese attempts to free and collapse/coalese buddies to mark parents as free
-static void buddy_coalese(struct buddy_t *buddy, uint8_t o, uint16_t p);
+// buddy_coalesce attempts to free and collapse/coalesce buddies to mark parents as free
+static void buddy_coalesce(struct buddy_t *buddy, uint8_t o, uint16_t p);
 
 bool buddy_is_full(struct buddy_t *buddy, uint8_t order)
 {
@@ -149,7 +149,7 @@ static void buddy_set_position(struct buddy_t *buddy, uint16_t p, uint8_t v)
 	buddy->buddy_tree[pChar] = v | cbv;
 }
 
-static void buddy_coalese(struct buddy_t *buddy, uint8_t order, uint16_t p)
+static void buddy_coalesce(struct buddy_t *buddy, uint8_t order, uint16_t p)
 {
 	buddy_set_position(buddy, p, 0);
 
@@ -165,7 +165,7 @@ static void buddy_coalese(struct buddy_t *buddy, uint8_t order, uint16_t p)
 
 	if (BUDDY_GET_POSITION(buddy, BUDDY_COMPANION_POSITION(p)) == 0)
 	{
-		return buddy_coalese(buddy, order + 1, BUDDY_PARENT_POSITION(p));
+		return buddy_coalesce(buddy, order + 1, BUDDY_PARENT_POSITION(p));
 	}
 }
 
@@ -301,7 +301,7 @@ void buddy_free(struct buddy_t *buddy, void *ptr)
 		}
 	}
 
-	buddy_coalese(candidate, order, pos);
+	buddy_coalesce(candidate, order, pos);
 
 	buddy->frees++;
 }

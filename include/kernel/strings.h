@@ -31,4 +31,6 @@ void *memcpy(void *dest, const void *src, size_t n);
 // Set the memory at dest with val for the given length
 void *memset(void *dest, int val, size_t len);
 
+int memcmp(const void *, const void *, size_t);
+
 #endif

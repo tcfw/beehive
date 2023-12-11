@@ -58,6 +58,10 @@ thread_t *create_kthread(void *(entry)(void), const char *name, void *data)
 
 	thread->sched_class = sched_get_class(SCHED_CLASS_LRF);
 
+	INIT_LIST_HEAD(&thread->shm);
+	INIT_LIST_HEAD(&thread->queues);
+	INIT_LIST_HEAD(&thread->vm_maps);
+
 	init_context(&thread->ctx);
 	kthread_context(&thread->ctx, data);
 
@@ -68,6 +72,13 @@ thread_t *create_kthread(void *(entry)(void), const char *name, void *data)
 
 	struct clocksource_t *cs = clock_first(CS_GLOBAL);
 	thread->timing.last_system = cs->val(cs);
+
+	thread_list_entry_t *tentry = (thread_list_entry_t *)kmalloc(sizeof(thread_list_entry_t));
+	tentry->thread = thread;
+
+	spinlock_acquire(&threads_lock);
+	list_add_tail(tentry, &threads);
+	spinlock_release(&threads_lock);
 
 	return thread;
 }

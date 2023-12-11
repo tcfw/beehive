@@ -38,9 +38,8 @@ cls_t *get_cls(void);
 // Get the core local storage object for a specific core
 cls_t *get_core_cls(uint8_t n);
 
-// Init the core local storage for all cores given the required
-// number of cores
-void init_cls(uint8_t n);
+// Init the core local storage for all cores
+void init_cls();
 
 // Set the current working thread
 void set_current_thread(thread_t *thread);

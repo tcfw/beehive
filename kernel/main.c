@@ -9,6 +9,7 @@
 #include <kernel/mm.h>
 #include <kernel/modules.h>
 #include <kernel/msgs.h>
+#include <kernel/queue.h>
 #include <kernel/regions.h>
 #include <kernel/strings.h>
 #include <kernel/syscall.h>
@@ -17,6 +18,7 @@
 #include <kernel/vm.h>
 #include <tests/tests.h>
 
+void kernel_main2(void);
 extern void user_init(void);
 static void thread_test(void *data);
 
@@ -62,6 +64,35 @@ static void thread_test(void *data)
     }
 }
 
+void kernel_main(void)
+{
+    registerClocks();
+    core_init();
+    arch_init();
+    terminal_initialize();
+
+    terminal_write(HELLO_HEADER, sizeof(HELLO_HEADER));
+    terminal_write(BUILD_INFO, sizeof(BUILD_INFO));
+    terminal_write(HELLO_FOOTER, sizeof(HELLO_FOOTER));
+
+    page_alloc_init();
+    slub_alloc_init();
+    vm_init();
+    init_cls();
+    sched_init();
+    syscall_init();
+    queues_init();
+    mod_init();
+
+    if (RUN_SELF_TESTS == 1)
+        run_self_tests();
+
+    setup_init_threads();
+
+    wake_cores();
+    kernel_main2();
+}
+
 void kernel_main2(void)
 {
     static uint32_t booted;
@@ -77,7 +108,7 @@ void kernel_main2(void)
 
     vm_set_kernel();
     vm_enable();
-    remaped_devicetreeoffset(DEVICE_DESCRIPTOR_REGION + 4ULL);
+    remaped_devicetreeoffset(DEVICE_DESCRIPTOR_REGION);
     sched_local_init();
 
     enable_xrq();
@@ -104,36 +135,4 @@ void kernel_main2(void)
         }
 
     schedule_start();
-}
-
-void kernel_main(void)
-{
-    registerClocks();
-    core_init();
-    arch_init();
-    terminal_initialize();
-
-    uint32_t coreCount = devicetree_count_dev_type("cpu");
-
-    terminal_write(HELLO_HEADER, sizeof(HELLO_HEADER));
-    terminal_write(BUILD_INFO, sizeof(BUILD_INFO));
-    terminal_write(HELLO_FOOTER, sizeof(HELLO_FOOTER));
-    terminal_logf("CPU Brand: 0x%x", cpu_brand());
-    terminal_logf("CPU Count: 0x%x", coreCount);
-
-    page_alloc_init();
-    slub_alloc_init();
-    vm_init();
-    init_cls(coreCount);
-    sched_init();
-    syscall_init();
-    mod_init();
-
-    if (RUN_SELF_TESTS == 1)
-        run_self_tests();
-
-    setup_init_threads();
-
-    wake_cores();
-    kernel_main2();
 }

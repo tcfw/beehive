@@ -1,9 +1,10 @@
-#include <kernel/slub.h>
+#include "devicetree.h"
+#include <kernel/arch.h>
 #include <kernel/list.h>
 #include <kernel/mm.h>
-#include <kernel/arch.h>
 #include <kernel/paging.h>
-#include "devicetree.h"
+#include <kernel/slub.h>
+#include <kernel/strings.h>
 
 void slub_init(slub_t *slub)
 {
@@ -26,7 +27,7 @@ static void slub_init_cache_entry(slub_t *slub, slub_cache_entry_t *cache_entry)
 	cache_entry->used = 0;
 
 	slub_entry_t *prev = 0;
-	for (int i = 0; i < obj_count; i++)
+	for (unsigned int i = 0; i < obj_count; i++)
 	{
 		slub_entry_t *entry = (slub_entry_t *)(((char *)cache_entry->first + (i * slub->object_size)));
 
@@ -186,7 +187,7 @@ void slub_free(void *obj)
 
 slub_t *DEFINE_DYN_SLUB(unsigned int objsize)
 {
-	slub_t *slub = page_alloc_s(sizeof(slub_t));
+	slub_t *slub = (slub_t *)page_alloc_s(sizeof(slub_t));
 	memset(slub, 0, PAGE_SIZE);
 
 	slub->object_size = objsize;

@@ -6,5 +6,9 @@
 #define ERRACCESS (3)
 #define ERRFAULT (4)
 #define ERRNOPROC (5)
+#define ERRSIZE (6)
+#define ERREXISTS (7)
+#define ERREXHAUSTED (8)
+#define ERRINUSE (9)
 
 #endif

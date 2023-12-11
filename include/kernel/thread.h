@@ -85,7 +85,6 @@ typedef struct thread_t
 
 	thread_sigactions_t *sigactions;
 
-	// wait cond
 	thread_wait_cond *wc;
 	struct list_head shm;
 	struct list_head queues;

@@ -1,0 +1,23 @@
+/dts-v1/;
+
+/ {
+    description = "BeehiveOS";
+    #address-cells = <1>;
+
+    images {
+        script-1 {
+            description = "Beehive Boot Script";
+            type = "script";
+            data = /incbin/("./boot.scr");
+            compression = "none";
+        };
+    };
+
+    configurations {
+        default = "config-1";
+        config-1 {
+            description = "Boot Beehive";
+            script = "script-1";
+        };
+    };
+};

@@ -85,8 +85,10 @@ typedef struct test_func_ptr_t
 	static int func_name()
 
 #define TEST_FAIL_MSG(msg) \
-	terminal_log(msg);     \
-	TEST_FAIL
+	{                      \
+		terminal_log(msg); \
+		TEST_FAIL          \
+	}
 
 #define TEST_FAIL \
 	return -1;

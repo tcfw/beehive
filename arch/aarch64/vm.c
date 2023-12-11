@@ -672,6 +672,9 @@ int access_ok(enum AccessType type, void *addr, size_t n)
 	vm_table *cpt = vm_get_current_table();
 	uint64_t *vpage;
 
+	if (addr == 0)
+		return -ERRFAULT;
+
 	while (n > 0)
 	{
 		vpage = vm_va_to_pte(cpt, (uintptr_t)addr);
@@ -707,13 +710,13 @@ void vm_init()
 	if (vm_map_region(kernel_vm_map, 0x9000000, DEVICE_REGION, 4095, MEMORY_TYPE_KERNEL | MEMORY_TYPE_DEVICE) < 0)
 		terminal_log("failed to map device region");
 
-	// map kernel code & remaining physcial memory regions
+	// map kernel code & remaining physical memory regions
 	// TODO(tcfw) get from dtb
 	if (vm_map_region(kernel_vm_map, &kernelstart, &kernelvstart, ram_max() - ((uintptr_t)&kernelstart) - 1, MEMORY_TYPE_KERNEL) < 0)
 		terminal_log("failed to map kernel code region");
 
 	// move DBT to above RAM
-	if (vm_map_region(kernel_vm_map, 0, DEVICE_DESCRIPTOR_REGION, 0x100000 - 1, MEMORY_TYPE_KERNEL | MEMORY_PERM_RO) < 0)
+	if (vm_map_region(kernel_vm_map, 0x40000000, DEVICE_DESCRIPTOR_REGION, 0x100000 - 1, MEMORY_TYPE_KERNEL | MEMORY_PERM_RO) < 0)
 		terminal_log("failed to map dbt region");
 
 	terminal_log("Loaded kernel VM map");
@@ -721,5 +724,4 @@ void vm_init()
 
 void vm_init_post_enable()
 {
-	// vm_unmap_region(kernel_vm_map, 0x40000000, ram_max() - ((uintptr_t)0x40000000) - 1);
 }
