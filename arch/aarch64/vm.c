@@ -32,7 +32,7 @@ uintptr_t vm_pa_to_kva(uintptr_t pptr);
 
 vm_table *kernel_vm_map;
 
-static vm_table_block *vm_table_desc_to_block(uint64_t *desc)
+vm_table_block *vm_table_desc_to_block(uint64_t *desc)
 {
 	return (vm_table_block *)vm_pa_to_kva(*desc & VM_ENTRY_OA_MASK);
 }
@@ -86,7 +86,7 @@ uintptr_t vm_pa_to_va(vm_table *table, uintptr_t pptr)
 
 uintptr_t vm_pa_to_kva(uintptr_t pptr)
 {
-	return pptr + ((uintptr_t)(&kernelvstart) - RAM_BASE);
+	return pptr + ((uintptr_t)(&kernelvstart) - PHYS_START);
 }
 
 static int vm_table_block_is_empty(vm_table_block *table)
@@ -440,13 +440,10 @@ int vm_map_region(vm_table *table, uintptr_t pstart, uintptr_t vstart, size_t si
 		if (flags & MEMORY_TYPE_DEVICE)
 			*desc |= (1 << VM_DESC_ATTR) | VM_ENTRY_OSH;
 	}
+	else if ((*desc & VM_DESC_LINKED) != 0)
+		table_l1 = vm_copy_link_table_block(desc, table_l1);
 	else
-	{
 		table_l1 = vm_table_desc_to_block(desc);
-
-		if (*desc & VM_DESC_LINKED)
-			table_l1 = vm_copy_link_table_block(desc, table_l1);
-	}
 
 	while (vstart < vend)
 	{
@@ -707,16 +704,15 @@ void vm_init()
 	kernel_vm_map = (vm_table *)page_alloc_s(sizeof(vm_table));
 
 	// map terminal device space
-	if (vm_map_region(kernel_vm_map, 0x9000000, DEVICE_REGION, 4095, MEMORY_TYPE_KERNEL | MEMORY_TYPE_DEVICE) < 0)
+	if (vm_map_region(kernel_vm_map, PHY_DEVICE_REGION, DEVICE_REGION, 4095, MEMORY_TYPE_KERNEL | MEMORY_TYPE_DEVICE) < 0)
 		terminal_log("failed to map device region");
 
 	// map kernel code & remaining physical memory regions
-	// TODO(tcfw) get from dtb
 	if (vm_map_region(kernel_vm_map, &kernelstart, &kernelvstart, ram_max() - ((uintptr_t)&kernelstart) - 1, MEMORY_TYPE_KERNEL) < 0)
 		terminal_log("failed to map kernel code region");
 
 	// move DBT to above RAM
-	if (vm_map_region(kernel_vm_map, 0x40000000, DEVICE_DESCRIPTOR_REGION, 0x100000 - 1, MEMORY_TYPE_KERNEL | MEMORY_PERM_RO) < 0)
+	if (vm_map_region(kernel_vm_map, PHY_DEVICE_DESCRIPTOR_REGION, DEVICE_DESCRIPTOR_REGION, 0x100000 - 1, MEMORY_TYPE_KERNEL) < 0)
 		terminal_log("failed to map dbt region");
 
 	terminal_log("Loaded kernel VM map");

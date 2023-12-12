@@ -1,7 +1,7 @@
 ARCH?=aarch64
 ARCHEXT?=-none-eabi
 
-CFLAGS?=-O4 -g -fPIC -Wstack-usage=131072
+CFLAGS?=-O3 -g -fPIC -Wstack-usage=131072
 CPPFLAGS?=
 LDFLAGS?=
 LIBS?=
@@ -24,10 +24,8 @@ include $(ARCHDIR)/make.config
 
 TEST_OBJS=$(patsubst %.c,%.o,$(wildcard kernel/tests/*.c))
 KERNEL_OBJS=$(KERNEL_ARCH_OBJS) $(TEST_OBJS) $(patsubst %.c,%.o,$(wildcard kernel/*.c))
-# OBJS=$(KERNEL_OBJS)
 OBJS=$(addprefix ${BUILD_DIR}/,${KERNEL_OBJS})
 LINK_LIST=$(LDFLAGS) $(addprefix ${BUILD_DIR}/,${KERNEL_OBJS}) $(LIBS)
-# LINK_LIST=$(LDFLAGS) $(KERNEL_OBJS) $(LIBS)
  
 CFLAGS:=$(CFLAGS) $(KERNEL_ARCH_CFLAGS)
 CPPFLAGS:=$(CPPFLAGS) $(KERNEL_ARCH_CPPFLAGS)
@@ -45,8 +43,6 @@ CC:=$(or $(CC),$(ARCH)$(ARCHEXT))
 .SUFFIXES: .o .c .S
 
 $(addprefix ${BUILD_DIR}/,%.o): %.c
-	# @mkdir -p $(BUILD_DIR)/$(dir $@)
-	# $(CC)-gcc -MD -c $< -o $(BUILD_DIR)/$@ $(CFLAGS) $(CPPFLAGS)
 	@mkdir -p $(dir $@)
 	$(CC)-gcc -MD -c $< -o $@ $(CFLAGS) $(CPPFLAGS)
  
@@ -70,5 +66,9 @@ clean:
 	rm -f $(OBJS) *.o */*.o */*/*.o
 	rm -f $(OBJS:.o=.d) *.d */*.d */*/*.d
 	rm -rf $(BUILD_DIR)
+
+u-boot-script:
+	../u-boot/tools/mkimage -f ./arch/aarch64/scripts/u-boot.its beehive.itb 
+	mv ./beehive.itb ../sysroot/boot.scr
 
 -include $(OBJS:.o=.d)

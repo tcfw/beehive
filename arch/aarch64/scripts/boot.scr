@@ -1,2 +1,2 @@
-load virtio 0:1 0x40100000 /boot/beehive.kernel.bin
-go 0x40100000
+load virtio 0:1 $kernel_addr_r /boot/beehive.kernel.bin
+go $kernel_addr_r

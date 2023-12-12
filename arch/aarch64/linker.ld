@@ -2,17 +2,19 @@ ENTRY (_start)
 
 SECTIONS
 {
-    . = 0x40100000;
+    . = 0x40400000;
     kernelstart = .;
 
     .boot.text : {
         *(.boot.text*)
     }
-    . += 0x70000000000;
+
+    kernelvoffset = 0x70000000000;
+    . += kernelvoffset;
     kernelvstart = . - SIZEOF(.boot.text);
     kernelvbase = .;
 
-    .text ALIGN(4k) : AT( ADDR (.text) - 0x70000000000 )
+    .text ALIGN(4k) : AT( ADDR (.text) - kernelvoffset )
     { 
         *(.text*) 
 
@@ -25,17 +27,17 @@ SECTIONS
         __stop_tests = .;
     }
 
-    .rodata ALIGN(4k) : AT( ADDR (.rodata) - 0x70000000000 )
+    .rodata ALIGN(4k) : AT( ADDR (.rodata) - kernelvoffset )
     { 
         *(.rodata*)
     }
 
-    .data ALIGN(4k) : AT( ADDR (.data) - 0x70000000000 )
+    .data ALIGN(4k) : AT( ADDR (.data) - kernelvoffset )
     { 
         *(.data*)
     }
 
-    .bss ALIGN(4k) : AT( ADDR (.bss) - 0x70000000000 )
+    .bss ALIGN(4k) : AT( ADDR (.bss) - kernelvoffset )
     {
         *(COMMON*)
         *(.bss*)

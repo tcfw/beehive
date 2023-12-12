@@ -1,12 +1,13 @@
+#include "stdint.h"
 #include <kernel/arch.h>
 #include <kernel/buddy.h>
 #include <kernel/mm.h>
+#include <kernel/regions.h>
 #include <kernel/slub.h>
 #include <kernel/strings.h>
 #include <kernel/sync.h>
 #include <kernel/tty.h>
 #include <kernel/vm.h>
-#include "stdint.h"
 
 extern uint64_t kernelend;
 extern uint64_t kernelvstart;
@@ -52,7 +53,7 @@ void page_alloc_init()
 {
 	spinlock_init(&page_lock);
 
-	uintptr_t ram_max_addr = (uintptr_t)&kernelvstart + ram_size();
+	uintptr_t ram_max_addr = VIRT_OFFSET + ram_max();
 	uint64_t buddy_struct_size = sizeof(struct buddy_t) + __alignof__(struct buddy_t);
 	uint64_t buddy_size = buddy_struct_size + BUDDY_ARENA_SIZE;
 	uint64_t n_arenas = (uint64_t)(ram_max_addr - (uintptr_t)&kernelend) / buddy_size;
@@ -90,7 +91,7 @@ void page_alloc_init()
 		if ((uintptr_t)(current->arena + current->size) > ram_max_addr)
 			current->size = ram_max_addr - (uint64_t)current->arena;
 
-		// terminal_logf("Buddy: *0x%x size: 0x%x arena: 0x%x", current, current->size, current->arena);
+		terminal_logf("Buddy: *0x%x size: 0x%x arena: 0x%x", current, current->size, current->arena);
 
 		prev->next = current;
 		prev = current;
