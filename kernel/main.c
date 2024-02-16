@@ -1,5 +1,5 @@
-#include "stdint.h"
-#include <devicetree.h>
+#include <kernel/stdint.h>
+#include <kernel/devicetree.h>
 #include <kernel/arch.h>
 #include <kernel/buddy.h>
 #include <kernel/clock.h>
@@ -53,6 +53,7 @@ static void thread_test(void *data)
     timespec_t now;
 
     terminal_logf("data was: %s", (char *)data);
+
     while (1)
     {
         timespec_from_cs(cs, &now);

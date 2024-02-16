@@ -4,18 +4,49 @@ _start:
 
     //TODO(tcfw) check if in EL1
 
-    ADRP x1, init_vm_map
-    ADD  x1, x1, #:lo12:init_vm_map
-    MSR TTBR0_EL1, x1
-    LDR x1, init_tcr
+    ADRP x1, init_tcr
+    ADD  x1, x1, #:lo12:init_tcr
+    LDR x1, [x1]
     MSR TCR_EL1, x1
-    LDR x1, init_mair
+
+    ADRP x1, init_mair
+    ADD  x1, x1, #:lo12:init_mair
+    LDR x1, [x1]
     MSR MAIR_EL1, x1
 
+    ADRP x2, init_vm_map
+    ADD  x2, x2, #:lo12:init_vm_map
+
+    ADRP x3, l0_vm_map_attrs
+    ADD  x3, x3, #:lo12:l0_vm_map_attrs
+    LDR x3, [x3]
+
+    //populate init_vm_map L0
+    LDR x1, [x2]
+    ORR x1, x1, x3
+    LDR x3, =0x1
+    ORR x1, x1, x3, lsl #63 //NSTable
+
+    //Copy for all records in L0
+    MOV x4, #0
+    MOV x5, x2
+copy_l0:
+    STR x1, [x2]
+    ADD x4, x4, #1
+    ADD x2, x2, #8
+    CMP x4, #512
+    BNE copy_l0
+
+    MSR TTBR0_EL1, x5
+
     MRS x1, SCTLR_EL1
-    ORR x1, x1, #1 //Enable MMU
+    ORR x1, x1, #1 //MMU
     MSR SCTLR_EL1, x1
 
+    IC IALLU
+    ISB
+    TLBI VMALLE1
+    DSB ISH
     ISB
 
     MRS x10, MPIDR_EL1
@@ -26,34 +57,29 @@ _start:
 
 boot_j:
     LDR x1, boot_addr
+    LDR x2, term_entry
+    AT S1E1R, x1
+    AT S1E1R, x2
     BR x1
 
 boot_addr: .quad boot
 secondary_boot_addr: .quad secondary_boot
 init_tcr: .quad 0x1480543514
 init_mair: .quad 0x4404FF
+l0_vm_map_attrs: .quad 0x2F23
+term_entry: .quad 0x0000000009000000
+
     .balign 4096
 init_vm_map: 
     // L0 (0@512GB):
-    .quad 0x4000000000000701
-    // L0 (15@512GB):
-    .quad 0x0000000040102701
-    .quad 0x0000000040102701
-    .quad 0x0000000040102701
-    .quad 0x0000000040102701
-    .quad 0x0000000040102701
-    .quad 0x0000000040102701
-    .quad 0x0000000040102701
-    .quad 0x0000000040102701
-    .quad 0x0000000040102701
-    .quad 0x0000000040102701
-    .quad 0x0000000040102701
-    .quad 0x0000000040102701
-    .quad 0x0000000040102701
-    .quad 0x0000000040102701
-    .quad 0x0000000040102701
-    .quad 0x0000000040102701
-    //.fill 4080
+    .quad l1_vm_map
+
+    .balign 4096
+
+l1_vm_map:
+    .quad 0x0010000000000625 //Device Region 0x0 -> 0x40000000
+    .quad 0x0000000040000421 //RAM @ 1Gb - 0x40000000 -> 0x60000000 (0x80000000)
+
     .balign 4096
 
 .section .text

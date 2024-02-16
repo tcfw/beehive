@@ -1,8 +1,8 @@
-#include "devicetree.h"
+#include <kernel/devicetree.h>
 #include <kernel/endian.h>
 #include <kernel/strings.h>
 #include <kernel/tty.h>
-#include "unistd.h"
+#include <kernel/unistd.h>
 
 static uintptr_t dbt_offset = 0x40000000;
 
@@ -36,7 +36,7 @@ void dumpdevicetree()
 	terminal_logf("DBT DT STRUCT OFF: 0x%x", off_dt_struct);
 	terminal_logf("DBT DT STRING OFF: 0x%x", off_dt_strings);
 
-	uint32_t *data = off_dt_struct;
+	uint32_t *data = (uint32_t *)off_dt_struct;
 	struct fdt_prop_t *prop;
 	char *keyn;
 	unsigned int ndepth = 0;
@@ -71,7 +71,7 @@ void dumpdevicetree()
 			prop = data; // data already moved halfway through sizeof(prop)
 			data += 2;
 			print_indents(ndepth);
-			terminal_writestring(off_dt_strings + BIG_ENDIAN_UINT32(prop->nameoff));
+			terminal_writestring((char *)off_dt_strings + BIG_ENDIAN_UINT32(prop->nameoff));
 			terminal_writestring(" => ");
 			keyn = data;
 			uint32_t len = BIG_ENDIAN_UINT32(prop->len);
@@ -234,7 +234,7 @@ uint32_t devicetree_count_nodes_with_prop(char *propkey, char *cmpdata, size_t s
 			struct fdt_prop_t *prop = data; // data already moved halfway through sizeof(prop)
 			data += 2;
 
-			char *nodePropKey = off_dt_strings + BIG_ENDIAN_UINT32(prop->nameoff);
+			char *nodePropKey = (char *)(off_dt_strings + BIG_ENDIAN_UINT32(prop->nameoff));
 			if (strcmp(nodePropKey, propkey) == 0)
 				keymatch = 1;
 

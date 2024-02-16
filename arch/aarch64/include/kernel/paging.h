@@ -1,7 +1,7 @@
 #ifndef _ARCH_VM_H
 #define _ARCH_VM_H
 
-#include "stdint.h"
+#include <kernel/stdint.h>
 #include <kernel/list.h>
 
 #define PAGE_SIZE 4096

@@ -72,7 +72,7 @@ void schedule_start(void)
 			uint64_t freq = cs->getFreq(cs);
 			uint64_t val = cs->val(cs);
 			cs->countNTicks(cs, freq / 250);
-			cs->enableIRQ(cs, 0);
+			cs->enableIRQ(cs);
 			cs->enable(cs);
 
 			spinlock_release(&cls->rq.lock);

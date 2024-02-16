@@ -40,7 +40,7 @@ void init_thread(thread_t *thread)
 	spinlock_release(&threads_lock);
 }
 
-thread_t *create_kthread(void *(entry)(void), const char *name, void *data)
+thread_t *create_kthread(void (entry)(void*), const char *name, void *data)
 {
 	thread_t *thread = (thread_t *)page_alloc_s(sizeof(thread_t));
 	void *stack = (void *)page_alloc_s((size_t)KTHREAD_STACK_SIZE);
@@ -99,7 +99,7 @@ static void thread_wake_from_sleep(thread_t *thread)
 		if (sleep_cond->user_rem != 0)
 			copy_to_user(&rem, sleep_cond->user_rem, sizeof(timespec_t));
 
-		thread_return_wc(thread, -ERRINTR);
+		thread_return_wc(thread, (void*)-ERRINTR);
 	}
 }
 
@@ -173,7 +173,7 @@ void sleep_thread(thread_t *thread, const timespec_t *ts, timespec_t *user_rem)
 
 void sleep_kthread(const timespec_t *ts, timespec_t *rem)
 {
-	syscall2(SYSCALL_NANOSLEEP, ts, rem);
+	syscall2(SYSCALL_NANOSLEEP, (uint64_t)ts, (uint64_t)rem);
 }
 
 thread_t *get_thread_by_pid(pid_t pid)

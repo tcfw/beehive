@@ -5,7 +5,7 @@
 #include <kernel/sync.h>
 #include <kernel/thread.h>
 #include <kernel/skiplist.h>
-#include "stdint.h"
+#include <kernel/stdint.h>
 
 #define SCHED_MIN_TICK_DURATION (0UL)
 

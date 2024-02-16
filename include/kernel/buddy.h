@@ -1,9 +1,9 @@
 #ifndef _KERNEL_BUDDY_H
 #define _KERNEL_BUDDY_H
 
-#include "unistd.h"
-#include "stdint.h"
-#include "stdbool.h"
+#include <kernel/unistd.h>
+#include <kernel/stdint.h>
+#include <kernel/stdbool.h>
 #include <kernel/vm.h>
 
 #define BUDDY_TREE_SIZE 1024 // for 1 bit per ordered slot (2 ^ (n+1) / 8) where n is max order

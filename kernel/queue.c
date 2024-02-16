@@ -1,5 +1,5 @@
 #include "errno.h"
-#include "stdint.h"
+#include <kernel/stdint.h>
 #include <kernel/list.h>
 #include <kernel/mm.h>
 #include <kernel/queue.h>
@@ -55,8 +55,7 @@ void queues_init()
 	queue_id_counter = 1;
 }
 
-int syscall_mq_open(thread_t *thread, const struct mq_open_params *params)
-{
+DEFINE_SYSCALL1(syscall_mq_open, SYSCALL_MQ_OPEN, const struct mq_open_params *,params)
 	int ok = access_ok(ACCESS_TYPE_READ, params, sizeof(struct mq_open_params));
 	if (ok < 0)
 		return ok;
@@ -119,7 +118,7 @@ int syscall_mq_open(thread_t *thread, const struct mq_open_params *params)
 	return queue->id;
 }
 
-static free_mq_buffers(queue_t *queue)
+static void free_mq_buffers(queue_t *queue)
 {
 	struct list_head *pos;
 	struct list_head *tmp;
@@ -130,8 +129,7 @@ static free_mq_buffers(queue_t *queue)
 	}
 }
 
-int syscall_mq_close(thread_t *thread, const uint32_t id)
-{
+DEFINE_SYSCALL1(syscall_mq_close, SYSCALL_MQ_CLOSE, const uint32_t, id)
 	queue_ref_t *ref;
 	queue_t *q;
 
@@ -186,8 +184,7 @@ free_queue:
 	return 0;
 }
 
-int syscall_mq_ctrl(thread_t *thread, const uint32_t id, enum MQ_CTRL_OP op, uint64_t data)
-{
+DEFINE_SYSCALL3(syscall_mq_ctrl, SYSCALL_MQ_CTRL, const uint32_t, id, enum MQ_CTRL_OP, op, uint64_t, data)
 	queue_ref_t *ref;
 	queue_t *q;
 
@@ -232,7 +229,3 @@ int syscall_mq_ctrl(thread_t *thread, const uint32_t id, enum MQ_CTRL_OP op, uin
 
 	return 0;
 }
-
-SYSCALL(SYSCALL_MQ_OPEN, syscall_mq_open, 1);
-SYSCALL(SYSCALL_MQ_CLOSE, syscall_mq_close, 1);
-SYSCALL(SYSCALL_MQ_CTRL, syscall_mq_ctrl, 3);

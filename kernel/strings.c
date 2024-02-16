@@ -1,7 +1,7 @@
 #include <kernel/strings.h>
 #include <kernel/tty.h>
-#include "stdint.h"
-#include "stdbool.h"
+#include <kernel/stdint.h>
+#include <kernel/stdbool.h>
 
 // Int to Hex
 char *itoh(unsigned long i, char *buf)

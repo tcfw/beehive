@@ -1,7 +1,7 @@
 #ifndef _KERNEL_LIST_H
 #define _KERNEL_LIST_H
 
-#include "stdbool.h"
+#include <kernel/stdbool.h>
 
 struct list_head
 {

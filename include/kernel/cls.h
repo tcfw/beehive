@@ -4,7 +4,7 @@
 #include <kernel/thread.h>
 #include <kernel/sched.h>
 #include <kernel/wait.h>
-#include "stdint.h"
+#include <kernel/stdint.h>
 
 enum exception_operation
 {

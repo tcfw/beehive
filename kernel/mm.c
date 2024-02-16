@@ -1,9 +1,10 @@
-#include "stdint.h"
 #include <kernel/arch.h>
 #include <kernel/buddy.h>
+#include <kernel/devicetree.h>
 #include <kernel/mm.h>
 #include <kernel/regions.h>
 #include <kernel/slub.h>
+#include <kernel/stdint.h>
 #include <kernel/strings.h>
 #include <kernel/sync.h>
 #include <kernel/tty.h>
@@ -91,7 +92,7 @@ void page_alloc_init()
 		if ((uintptr_t)(current->arena + current->size) > ram_max_addr)
 			current->size = ram_max_addr - (uint64_t)current->arena;
 
-		terminal_logf("Buddy: *0x%x size: 0x%x arena: 0x%x", current, current->size, current->arena);
+		// terminal_logf("Buddy: *0x%x size: 0x%x arena: 0x%x", current, current->size, current->arena);
 
 		prev->next = current;
 		prev = current;

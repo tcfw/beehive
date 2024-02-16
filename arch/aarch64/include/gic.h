@@ -1,7 +1,7 @@
 #ifndef _KERNEL_ARCH_GIC_H
 #define _KERNEL_ARCH_GIC_H
 
-#include "stdint.h"
+#include <kernel/stdint.h>
 
 #define GIC_DIST_BASE 0x08000000
 #define GIC_CPU_BASE 0x08010000

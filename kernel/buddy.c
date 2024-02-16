@@ -1,4 +1,4 @@
-#include "stdbool.h"
+#include <kernel/stdbool.h>
 #include <kernel/buddy.h>
 #include <kernel/tty.h>
 

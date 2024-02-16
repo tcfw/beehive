@@ -36,8 +36,7 @@ int wq_can_wake_thread(waitqueue_entry_t *wq_entry, void *_)
 	return can_wake_thread(wq_entry->thread);
 }
 
-void syscall_nanosleep(thread_t *thread, void *ts, void *remaining)
-{
+DEFINE_SYSCALL2(syscall_nanosleep, SYSCALL_NANOSLEEP, void *, ts, void *, remaining)
 	cls_t *cls = get_cls();
 	spinlock_acquire(&cls->sleepq.lock);
 
@@ -53,5 +52,3 @@ void syscall_nanosleep(thread_t *thread, void *ts, void *remaining)
 
 	schedule();
 }
-
-SYSCALL(120, syscall_nanosleep, 3);

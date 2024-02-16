@@ -1,7 +1,7 @@
 #ifndef _KERNEL_STRINGS_H
 #define _KERNEL_STRINGS_H
 
-#include "unistd.h"
+#include <kernel/unistd.h>
 
 // Int to 32-bit hex string
 char *itoh(unsigned long i, char *buf);

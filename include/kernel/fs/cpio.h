@@ -1,7 +1,7 @@
 #ifndef _KERNEL_FS_CPIO_H
 #define _KERNEL_FS_CPIO_H
 
-#include "stdint.h"
+#include <kernel/stdint.h>
 
 #define CPIO_HEADER_MAGIC (0xC771)
 

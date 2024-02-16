@@ -1,7 +1,8 @@
 #ifndef _KERNEL_DEVICES_H
 #define _KERNEL_DEVICES_H
 
-#include "unistd.h"
+#include <kernel/unistd.h>
+#include <kernel/stdint.h>
 #include <kernel/list.h>
 
 typedef struct device_node_t

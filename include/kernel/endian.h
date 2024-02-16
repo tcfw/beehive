@@ -1,7 +1,7 @@
 #ifndef _KERNEL_ENDIAN_H
 #define _KERNEL_ENDIAN_H
 
-#include <stdint.h>
+#include <kernel/stdint.h>
 #define REVERSE_UINT16(n) ((uint16_t)((((n) & 0xFF) << 8) | \
 									  (((n) & 0xFF00) >> 8)))
 

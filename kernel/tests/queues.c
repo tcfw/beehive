@@ -1,6 +1,7 @@
 #include <tests/tests.h>
 #include <kernel/queue.h>
 #include <kernel/thread.h>
+#include <kernel/unistd.h>
 
 NAMED_TEST("mq_open_id", test_mq_open_id)
 {

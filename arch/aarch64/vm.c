@@ -238,7 +238,7 @@ static vm_table_block *vm_get_or_alloc_block(vm_table_block *parent, uint16_t en
 		block = (vm_table_block *)page_alloc_s(sizeof(vm_table_block));
 		memset(block, 0, sizeof(vm_table_block));
 
-		parent->entries[entry] = vm_va_to_pa_current(block) & VM_ENTRY_OA_MASK;
+		parent->entries[entry] = vm_va_to_pa_current((uintptr_t)block) & VM_ENTRY_OA_MASK;
 		parent->entries[entry] |= (VM_ENTRY_ISTABLE | VM_ENTRY_VALID | VM_ENTRY_NONSECURE);
 	}
 	else
@@ -708,7 +708,7 @@ void vm_init()
 		terminal_log("failed to map device region");
 
 	// map kernel code & remaining physical memory regions
-	if (vm_map_region(kernel_vm_map, &kernelstart, &kernelvstart, ram_max() - ((uintptr_t)&kernelstart) - 1, MEMORY_TYPE_KERNEL) < 0)
+	if (vm_map_region(kernel_vm_map, (uintptr_t)&kernelstart, (uintptr_t)&kernelvstart, ram_max() - ((uintptr_t)&kernelstart) - 1, MEMORY_TYPE_KERNEL) < 0)
 		terminal_log("failed to map kernel code region");
 
 	// move DBT to above RAM

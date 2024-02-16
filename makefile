@@ -39,26 +39,28 @@ CFLAGS:=$(CFLAGS) -DBUILD_INFO='"$(ARCH_BUILD_INFO)\n$(BUILD_INFO)"' -DSYSINFO_V
 
 CC:=$(or $(CC),$(ARCH)$(ARCHEXT))
 
+CCOMPILER?=$(CC)-gcc
+CLINKER?=$(CC)-ld
+COBJCOPY?=$(CC)-objcopy
+
 .PHONY: clean
 .SUFFIXES: .o .c .S
 
 $(addprefix ${BUILD_DIR}/,%.o): %.c
 	@mkdir -p $(dir $@)
-	$(CC)-gcc -MD -c $< -o $@ $(CFLAGS) $(CPPFLAGS)
+	$(CCOMPILER) -MD -c $< -o $@ $(CFLAGS) $(CPPFLAGS)
  
 $(addprefix ${BUILD_DIR}/,%.o): %.S
-	# @mkdir -p $(BUILD_DIR)/$(dir $@)
-	# $(CC)-gcc -MD -c $< -o $(BUILD_DIR)/$@ $(CFLAGS) $(CPPFLAGS)
 	@mkdir -p $(dir $@)
-	$(CC)-gcc -MD -c $< -o $@ $(CFLAGS) $(CPPFLAGS)
+	$(CCOMPILER) -MD -c $< -o $@ $(CFLAGS) $(CPPFLAGS)
 
 all: beehive.kernel
 
 beehive.kernel: $(OBJS) $(ARCHDIR)/linker.ld
 	@echo ${BUILD_INFO}
-	$(CC)-ld -T $(ARCHDIR)/linker.ld -o $@ $(LDFLAGS) $(LINK_LIST)
-	$(CC)-objcopy -O binary $@ $@.bin
-	mv $@.bin ../sysroot/boot
+	$(CLINKER) -T $(ARCHDIR)/linker.ld -o $@ $(LDFLAGS) $(LINK_LIST)
+	$(COBJCOPY) -O binary $@ $@.bin
+	mv $@.bin ../initrd/boot
 	@echo "Finished build successfully"
  
 clean:
@@ -69,6 +71,6 @@ clean:
 
 u-boot-script:
 	../u-boot/tools/mkimage -f ./arch/aarch64/scripts/u-boot.its beehive.itb 
-	mv ./beehive.itb ../sysroot/boot.scr
+	mv ./beehive.itb ../initrd/boot.scr
 
 -include $(OBJS:.o=.d)

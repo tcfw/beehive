@@ -1,7 +1,7 @@
 #ifndef _KERNEL_ELF_H
 #define _KERNEL_ELF_H
 
-#include "stdint.h"
+#include <kernel/stdint.h>
 
 #define ELF_EI_OFFSET_MAG0 0	   //	File identification
 #define ELF_EI_OFFSET_MAG1 1	   //	File identification
@@ -51,6 +51,7 @@
 #define ELF_OSABI_OPENBSD 12 //	Open BSD
 #define ELF_OSABI_OPENVMS 13 //	Open VMS
 #define ELF_OSABI_NSK 14	 //	Hewlett-Packard Non-Stop Kernel
+#define ELF_OSABI_BEEHIVE 19 //	Beehive (us!)
 
 /*
 ELF fields:

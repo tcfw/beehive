@@ -3,9 +3,9 @@
 #include <kernel/strings.h>
 #include <kernel/arch.h>
 #include <kernel/clock.h>
-#include <stdint.h>
-#include "unistd.h"
-#include "stdint.h"
+#include <kernel/stdint.h>
+#include <kernel/unistd.h>
+#include <kernel/stdint.h>
 
 #define PL011_DR_OFFSET 0x000
 #define PL011_FR_OFFSET 0x018

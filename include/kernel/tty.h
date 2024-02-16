@@ -1,8 +1,8 @@
 #ifndef _KERNEL_TTY_H
 #define _KERNEL_TTY_H
 
-#include "stddef.h"
-#include "stdint.h"
+#include <kernel/stdint.h>
+#include <kernel/unistd.h>
 
 // Initiate terminal output
 void terminal_initialize(void);

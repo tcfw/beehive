@@ -1,7 +1,7 @@
 #ifndef _KERNEL_QUEUE_H
 #define _KERNEL_QUEUE_H
 
-#include "stdint.h"
+#include <kernel/stdint.h>
 #include <kernel/list.h>
 #include <kernel/sync.h>
 #include <kernel/thread.h>
@@ -80,10 +80,10 @@ void queues_init();
 
 skiplist_t *queues_get_skl();
 
-int syscall_mq_open(thread_t *thread, const struct mq_open_params *params);
+int syscall_mq_open(thread_t *thread, ...);
 
-int syscall_mq_close(thread_t *thread, const uint32_t id);
+int syscall_mq_close(thread_t *thread, ...);
 
-int syscall_mq_ctrl(thread_t *thread, const uint32_t id, enum MQ_CTRL_OP op, uint64_t data);
+int syscall_mq_ctrl(thread_t *thread, ...);
 
 #endif

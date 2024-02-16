@@ -1,7 +1,7 @@
 #ifndef _KERNEL_THREAD_H
 #define _KERNEL_THREAD_H
 
-#include "stdint.h"
+#include <kernel/stdint.h>
 #include <kernel/clock.h>
 #include <kernel/context.h>
 #include <kernel/limits.h>
@@ -40,9 +40,6 @@ struct thread_wait_cond_sleep
 	timespec_t timer;
 	timespec_t *user_rem;
 };
-
-typedef int pid_t;
-typedef int tid_t;
 
 typedef struct thread_timing_t
 {
@@ -115,7 +112,7 @@ void kthread_context(context_t *ctx, void *data);
 void arch_thread_prep_switch(thread_t *thread);
 
 // create a kernel thread
-thread_t *create_kthread(void *(entry)(void), const char *name, void *data);
+thread_t *create_kthread(void (entry)(void*), const char *name, void *data);
 
 // Mark a thread as awake
 void wake_thread(thread_t *thread);

@@ -1,5 +1,5 @@
 #include "gic.h"
-#include "stdint.h"
+#include <kernel/stdint.h>
 #include "pe.h"
 
 struct GICv3_dist_if *gic_dist;

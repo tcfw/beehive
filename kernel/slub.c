@@ -1,4 +1,4 @@
-#include "devicetree.h"
+#include <kernel/devicetree.h>
 #include <kernel/arch.h>
 #include <kernel/list.h>
 #include <kernel/mm.h>

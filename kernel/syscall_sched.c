@@ -3,10 +3,9 @@
 #include <kernel/sched.h>
 #include <kernel/syscall.h>
 #include <kernel/uaccess.h>
-#include "errno.h"
+#include <errno.h>
 
-int syscall_sched_getaffinity(thread_t *thread, pid_t pid, uint64_t *affinity)
-{
+DEFINE_SYSCALL2(syscall_sched_getaffinity, SYSCALL_SCHED_GETAFFINITY, pid_t, pid, uint64_t *,affinity)
 	int access = access_ok(ACCESS_TYPE_WRITE, affinity, sizeof(uint64_t));
 	if (access < 0)
 		return access;
@@ -20,10 +19,6 @@ int syscall_sched_getaffinity(thread_t *thread, pid_t pid, uint64_t *affinity)
 	return 0;
 }
 
-int syscall_sched_setaffinity(thread_t *thread, pid_t pid, const uint64_t *affinity)
-{
+DEFINE_SYSCALL2(syscall_sched_setaffinity, SYSCALL_SCHED_SETAFFINITY, pid_t, pid, const uint64_t *,affinity)
 	return -ERRNOSYS;
 }
-
-SYSCALL(SYSCALL_SCHED_GETAFFINITY, syscall_sched_getaffinity, 2);
-SYSCALL(SYSCALL_SCHED_SETAFFINITY, syscall_sched_setaffinity, 2);

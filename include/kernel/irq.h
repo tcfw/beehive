@@ -2,7 +2,7 @@
 #define _KERNEL_IRQ_H
 
 #include <kernel/thread.h>
-#include "stdint.h"
+#include <kernel/stdint.h>
 
 #define IRQ_FIQ (0x2)
 

@@ -1,8 +1,8 @@
 #include <kernel/clock.h>
 #include <kernel/tty.h>
 
-void enableSystemInterruptMask(struct clocksource_t *cs, uint64_t mask);
-void disableSystemInterruptMask(struct clocksource_t *cs, uint64_t mask);
+void enableSystemInterruptMask(struct clocksource_t *cs);
+void disableSystemInterruptMask(struct clocksource_t *cs);
 
 uint64_t getSystemCounterValue(struct clocksource_t *cs)
 {
@@ -64,7 +64,7 @@ void setSystemCounterCompareValue(struct clocksource_t *cs, uint64_t value)
 	__asm__ volatile("MSR CNTP_CVAL_EL0, %0" ::"r"(value));
 }
 
-void enableSystemInterruptMask(struct clocksource_t *cs, uint64_t mask)
+void enableSystemInterruptMask(struct clocksource_t *CAST_USER_ADDR_T)
 {
 	uint64_t cnt_ctl = 0;
 	__asm__ volatile("MRS %0, CNTP_CTL_EL0"
@@ -75,7 +75,7 @@ void enableSystemInterruptMask(struct clocksource_t *cs, uint64_t mask)
 	__asm__ volatile("MSR CNTP_CTL_EL0, %0" ::"r"(cnt_ctl));
 }
 
-void disableSystemInterruptMask(struct clocksource_t *cs, uint64_t mask)
+void disableSystemInterruptMask(struct clocksource_t *CAST_USER_ADDR_T)
 {
 	uint64_t cnt_ctl = 0;
 	__asm__ volatile("MRS %0, CNTP_CTL_EL0"

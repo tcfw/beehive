@@ -4,7 +4,7 @@
 #include <kernel/list.h>
 #include <kernel/sync.h>
 #include <kernel/paging.h>
-#include "stdint.h"
+#include <kernel/stdint.h>
 
 /*
 

@@ -1,4 +1,4 @@
-#include "stdint.h"
+#include <kernel/stdint.h>
 #include <errno.h>
 #include <kernel/irq.h>
 #include <kernel/syscall.h>

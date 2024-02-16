@@ -1,7 +1,7 @@
 #ifndef _ARCH_CONTEXT_H
 #define _ARCH_CONTEXT_H
 
-#include "stdint.h"
+#include <kernel/stdint.h>
 
 typedef struct context_t
 {

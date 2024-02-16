@@ -1,6 +1,6 @@
 #include <kernel/sync.h>
 #include <kernel/irq.h>
-#include <stdbool.h>
+#include <kernel/stdbool.h>
 
 // Initialize the lock to be available
 void spinlock_init(spinlock_t *lock)

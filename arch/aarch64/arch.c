@@ -1,7 +1,7 @@
 #include "clocks.h"
-#include "devicetree.h"
-#include "stdint.h"
-#include <devicetree.h>
+#include <kernel/devicetree.h>
+#include <kernel/stdint.h>
+#include <kernel/devicetree.h>
 #include <kernel/arch.h>
 #include <kernel/clock.h>
 #include <kernel/irq.h>

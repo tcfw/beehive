@@ -4,8 +4,7 @@
 #include <kernel/tty.h>
 #include <kernel/uaccess.h>
 
-int writeconsole(thread_t *t, void *c, size_t n)
-{
+DEFINE_SYSCALL2(writeconsole, SYSCALL_CONSOLE_WRITE, void*, c, size_t, n)
 	if (n > 40960)
 		return -2;
 
@@ -28,5 +27,3 @@ int writeconsole(thread_t *t, void *c, size_t n)
 	page_free(buf);
 	return 0;
 }
-
-SYSCALL(131, writeconsole, 2);

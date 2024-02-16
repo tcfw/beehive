@@ -1,5 +1,5 @@
-#include <stdint.h>
-#include "unistd.h"
+#include <kernel/stdint.h>
+#include <kernel/unistd.h>
 
 #define PL011_DR_OFFSET 0x000
 #define PL011_FR_OFFSET 0x018
@@ -129,6 +129,7 @@ static int pl011_setup(struct pl011 *dev, uint64_t base_address, uint64_t base_c
     dev->baudrate = 115200;
     dev->data_bits = 8;
     dev->stop_bits = 1;
+    
     return pl011_reset(dev);
 }
 

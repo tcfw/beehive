@@ -1,7 +1,7 @@
 #ifndef _KERNEL_ARCH_H
 #define _KERNEL_ARCH_H
 
-#include "stdint.h"
+#include <kernel/stdint.h>
 #include <kernel/context.h>
 
 // Initiate arch specific requirements

@@ -24,7 +24,7 @@ void kthread_context(context_t *ctx, void *data)
 
 void save_to_context(context_t *ctx, uintptr_t trapFrame)
 {
-	uint64_t *reg = trapFrame;
+	uint64_t *reg = (uint64_t *)trapFrame;
 
 	ctx->spsr = *reg++;
 	ctx->sp = *reg++;
@@ -47,134 +47,134 @@ void save_to_context(context_t *ctx, uintptr_t trapFrame)
 	// ctx->spsr = spsr;
 
 	// fp registers
-	__asm__ volatile("fmov %0, d0"
-					 : "=rm"(ctx->fpregs[0]));
-	__asm__ volatile("fmov %0, v0.d[1]"
-					 : "=rm"(ctx->fpregs[1]));
-	__asm__ volatile("fmov %0, d1"
-					 : "=rm"(ctx->fpregs[2]));
-	__asm__ volatile("fmov %0, v1.d[1]"
-					 : "=rm"(ctx->fpregs[3]));
-	__asm__ volatile("fmov %0, d2"
-					 : "=rm"(ctx->fpregs[4]));
-	__asm__ volatile("fmov %0, v2.d[1]"
-					 : "=rm"(ctx->fpregs[5]));
-	__asm__ volatile("fmov %0, d3"
-					 : "=rm"(ctx->fpregs[6]));
-	__asm__ volatile("fmov %0, v3.d[1]"
-					 : "=rm"(ctx->fpregs[7]));
-	__asm__ volatile("fmov %0, d4"
-					 : "=rm"(ctx->fpregs[8]));
-	__asm__ volatile("fmov %0, v4.d[1]"
-					 : "=rm"(ctx->fpregs[9]));
-	__asm__ volatile("fmov %0, d5"
-					 : "=rm"(ctx->fpregs[10]));
-	__asm__ volatile("fmov %0, v5.d[1]"
-					 : "=rm"(ctx->fpregs[11]));
-	__asm__ volatile("fmov %0, d6"
-					 : "=rm"(ctx->fpregs[12]));
-	__asm__ volatile("fmov %0, v6.d[1]"
-					 : "=rm"(ctx->fpregs[13]));
-	__asm__ volatile("fmov %0, d7"
-					 : "=rm"(ctx->fpregs[14]));
-	__asm__ volatile("fmov %0, v7.d[1]"
-					 : "=rm"(ctx->fpregs[15]));
-	__asm__ volatile("fmov %0, d8"
-					 : "=rm"(ctx->fpregs[16]));
-	__asm__ volatile("fmov %0, v8.d[1]"
-					 : "=rm"(ctx->fpregs[17]));
-	__asm__ volatile("fmov %0, d9"
-					 : "=rm"(ctx->fpregs[18]));
-	__asm__ volatile("fmov %0, v9.d[1]"
-					 : "=rm"(ctx->fpregs[19]));
-	__asm__ volatile("fmov %0, d10"
-					 : "=rm"(ctx->fpregs[20]));
-	__asm__ volatile("fmov %0, v10.d[1]"
-					 : "=rm"(ctx->fpregs[21]));
-	__asm__ volatile("fmov %0, d11"
-					 : "=rm"(ctx->fpregs[22]));
-	__asm__ volatile("fmov %0, v11.d[1]"
-					 : "=rm"(ctx->fpregs[23]));
-	__asm__ volatile("fmov %0, d12"
-					 : "=rm"(ctx->fpregs[24]));
-	__asm__ volatile("fmov %0, v12.d[1]"
-					 : "=rm"(ctx->fpregs[25]));
-	__asm__ volatile("fmov %0, d13"
-					 : "=rm"(ctx->fpregs[26]));
-	__asm__ volatile("fmov %0, v13.d[1]"
-					 : "=rm"(ctx->fpregs[27]));
-	__asm__ volatile("fmov %0, d14"
-					 : "=rm"(ctx->fpregs[28]));
-	__asm__ volatile("fmov %0, v14.d[1]"
-					 : "=rm"(ctx->fpregs[29]));
-	__asm__ volatile("fmov %0, d15"
-					 : "=rm"(ctx->fpregs[30]));
-	__asm__ volatile("fmov %0, v15.d[1]"
-					 : "=rm"(ctx->fpregs[31]));
-	__asm__ volatile("fmov %0, d16"
-					 : "=rm"(ctx->fpregs[32]));
-	__asm__ volatile("fmov %0, v16.d[1]"
-					 : "=rm"(ctx->fpregs[33]));
-	__asm__ volatile("fmov %0, d17"
-					 : "=rm"(ctx->fpregs[34]));
-	__asm__ volatile("fmov %0, v17.d[1]"
-					 : "=rm"(ctx->fpregs[35]));
-	__asm__ volatile("fmov %0, d18"
-					 : "=rm"(ctx->fpregs[36]));
-	__asm__ volatile("fmov %0, v18.d[1]"
-					 : "=rm"(ctx->fpregs[37]));
-	__asm__ volatile("fmov %0, d19"
-					 : "=rm"(ctx->fpregs[38]));
-	__asm__ volatile("fmov %0, v19.d[1]"
-					 : "=rm"(ctx->fpregs[39]));
-	__asm__ volatile("fmov %0, d20"
-					 : "=rm"(ctx->fpregs[40]));
-	__asm__ volatile("fmov %0, v20.d[1]"
-					 : "=rm"(ctx->fpregs[41]));
-	__asm__ volatile("fmov %0, d21"
-					 : "=rm"(ctx->fpregs[42]));
-	__asm__ volatile("fmov %0, v21.d[1]"
-					 : "=rm"(ctx->fpregs[43]));
-	__asm__ volatile("fmov %0, d22"
-					 : "=rm"(ctx->fpregs[44]));
-	__asm__ volatile("fmov %0, v22.d[1]"
-					 : "=rm"(ctx->fpregs[45]));
-	__asm__ volatile("fmov %0, d23"
-					 : "=rm"(ctx->fpregs[46]));
-	__asm__ volatile("fmov %0, v23.d[1]"
-					 : "=rm"(ctx->fpregs[47]));
-	__asm__ volatile("fmov %0, d24"
-					 : "=rm"(ctx->fpregs[48]));
-	__asm__ volatile("fmov %0, v24.d[1]"
-					 : "=rm"(ctx->fpregs[49]));
-	__asm__ volatile("fmov %0, d25"
-					 : "=rm"(ctx->fpregs[50]));
-	__asm__ volatile("fmov %0, v25.d[1]"
-					 : "=rm"(ctx->fpregs[51]));
-	__asm__ volatile("fmov %0, d26"
-					 : "=rm"(ctx->fpregs[52]));
-	__asm__ volatile("fmov %0, v26.d[1]"
-					 : "=rm"(ctx->fpregs[53]));
-	__asm__ volatile("fmov %0, d27"
-					 : "=rm"(ctx->fpregs[54]));
-	__asm__ volatile("fmov %0, v27.d[1]"
-					 : "=rm"(ctx->fpregs[55]));
-	__asm__ volatile("fmov %0, d28"
-					 : "=rm"(ctx->fpregs[56]));
-	__asm__ volatile("fmov %0, v28.d[1]"
-					 : "=rm"(ctx->fpregs[57]));
-	__asm__ volatile("fmov %0, d29"
-					 : "=rm"(ctx->fpregs[58]));
-	__asm__ volatile("fmov %0, v29.d[1]"
-					 : "=rm"(ctx->fpregs[59]));
-	__asm__ volatile("fmov %0, d30"
-					 : "=rm"(ctx->fpregs[60]));
-	__asm__ volatile("fmov %0, v30.d[1]"
-					 : "=rm"(ctx->fpregs[61]));
-	__asm__ volatile("fmov %0, d31"
-					 : "=rm"(ctx->fpregs[62]));
-	__asm__ volatile("fmov %0, v31.d[1]"
-					 : "=rm"(ctx->fpregs[63]));
+	// __asm__ volatile("fmov %0, d0"
+	// 				 : "=rm"(ctx->fpregs[0]));
+	// __asm__ volatile("fmov %0, v0.d[1]"
+	// 				 : "=rm"(ctx->fpregs[1]));
+	// __asm__ volatile("fmov %0, d1"
+	// 				 : "=rm"(ctx->fpregs[2]));
+	// __asm__ volatile("fmov %0, v1.d[1]"
+	// 				 : "=rm"(ctx->fpregs[3]));
+	// __asm__ volatile("fmov %0, d2"
+	// 				 : "=rm"(ctx->fpregs[4]));
+	// __asm__ volatile("fmov %0, v2.d[1]"
+	// 				 : "=rm"(ctx->fpregs[5]));
+	// __asm__ volatile("fmov %0, d3"
+	// 				 : "=rm"(ctx->fpregs[6]));
+	// __asm__ volatile("fmov %0, v3.d[1]"
+	// 				 : "=rm"(ctx->fpregs[7]));
+	// __asm__ volatile("fmov %0, d4"
+	// 				 : "=rm"(ctx->fpregs[8]));
+	// __asm__ volatile("fmov %0, v4.d[1]"
+	// 				 : "=rm"(ctx->fpregs[9]));
+	// __asm__ volatile("fmov %0, d5"
+	// 				 : "=rm"(ctx->fpregs[10]));
+	// __asm__ volatile("fmov %0, v5.d[1]"
+	// 				 : "=rm"(ctx->fpregs[11]));
+	// __asm__ volatile("fmov %0, d6"
+	// 				 : "=rm"(ctx->fpregs[12]));
+	// __asm__ volatile("fmov %0, v6.d[1]"
+	// 				 : "=rm"(ctx->fpregs[13]));
+	// __asm__ volatile("fmov %0, d7"
+	// 				 : "=rm"(ctx->fpregs[14]));
+	// __asm__ volatile("fmov %0, v7.d[1]"
+	// 				 : "=rm"(ctx->fpregs[15]));
+	// __asm__ volatile("fmov %0, d8"
+	// 				 : "=rm"(ctx->fpregs[16]));
+	// __asm__ volatile("fmov %0, v8.d[1]"
+	// 				 : "=rm"(ctx->fpregs[17]));
+	// __asm__ volatile("fmov %0, d9"
+	// 				 : "=rm"(ctx->fpregs[18]));
+	// __asm__ volatile("fmov %0, v9.d[1]"
+	// 				 : "=rm"(ctx->fpregs[19]));
+	// __asm__ volatile("fmov %0, d10"
+	// 				 : "=rm"(ctx->fpregs[20]));
+	// __asm__ volatile("fmov %0, v10.d[1]"
+	// 				 : "=rm"(ctx->fpregs[21]));
+	// __asm__ volatile("fmov %0, d11"
+	// 				 : "=rm"(ctx->fpregs[22]));
+	// __asm__ volatile("fmov %0, v11.d[1]"
+	// 				 : "=rm"(ctx->fpregs[23]));
+	// __asm__ volatile("fmov %0, d12"
+	// 				 : "=rm"(ctx->fpregs[24]));
+	// __asm__ volatile("fmov %0, v12.d[1]"
+	// 				 : "=rm"(ctx->fpregs[25]));
+	// __asm__ volatile("fmov %0, d13"
+	// 				 : "=rm"(ctx->fpregs[26]));
+	// __asm__ volatile("fmov %0, v13.d[1]"
+	// 				 : "=rm"(ctx->fpregs[27]));
+	// __asm__ volatile("fmov %0, d14"
+	// 				 : "=rm"(ctx->fpregs[28]));
+	// __asm__ volatile("fmov %0, v14.d[1]"
+	// 				 : "=rm"(ctx->fpregs[29]));
+	// __asm__ volatile("fmov %0, d15"
+	// 				 : "=rm"(ctx->fpregs[30]));
+	// __asm__ volatile("fmov %0, v15.d[1]"
+	// 				 : "=rm"(ctx->fpregs[31]));
+	// __asm__ volatile("fmov %0, d16"
+	// 				 : "=rm"(ctx->fpregs[32]));
+	// __asm__ volatile("fmov %0, v16.d[1]"
+	// 				 : "=rm"(ctx->fpregs[33]));
+	// __asm__ volatile("fmov %0, d17"
+	// 				 : "=rm"(ctx->fpregs[34]));
+	// __asm__ volatile("fmov %0, v17.d[1]"
+	// 				 : "=rm"(ctx->fpregs[35]));
+	// __asm__ volatile("fmov %0, d18"
+	// 				 : "=rm"(ctx->fpregs[36]));
+	// __asm__ volatile("fmov %0, v18.d[1]"
+	// 				 : "=rm"(ctx->fpregs[37]));
+	// __asm__ volatile("fmov %0, d19"
+	// 				 : "=rm"(ctx->fpregs[38]));
+	// __asm__ volatile("fmov %0, v19.d[1]"
+	// 				 : "=rm"(ctx->fpregs[39]));
+	// __asm__ volatile("fmov %0, d20"
+	// 				 : "=rm"(ctx->fpregs[40]));
+	// __asm__ volatile("fmov %0, v20.d[1]"
+	// 				 : "=rm"(ctx->fpregs[41]));
+	// __asm__ volatile("fmov %0, d21"
+	// 				 : "=rm"(ctx->fpregs[42]));
+	// __asm__ volatile("fmov %0, v21.d[1]"
+	// 				 : "=rm"(ctx->fpregs[43]));
+	// __asm__ volatile("fmov %0, d22"
+	// 				 : "=rm"(ctx->fpregs[44]));
+	// __asm__ volatile("fmov %0, v22.d[1]"
+	// 				 : "=rm"(ctx->fpregs[45]));
+	// __asm__ volatile("fmov %0, d23"
+	// 				 : "=rm"(ctx->fpregs[46]));
+	// __asm__ volatile("fmov %0, v23.d[1]"
+	// 				 : "=rm"(ctx->fpregs[47]));
+	// __asm__ volatile("fmov %0, d24"
+	// 				 : "=rm"(ctx->fpregs[48]));
+	// __asm__ volatile("fmov %0, v24.d[1]"
+	// 				 : "=rm"(ctx->fpregs[49]));
+	// __asm__ volatile("fmov %0, d25"
+	// 				 : "=rm"(ctx->fpregs[50]));
+	// __asm__ volatile("fmov %0, v25.d[1]"
+	// 				 : "=rm"(ctx->fpregs[51]));
+	// __asm__ volatile("fmov %0, d26"
+	// 				 : "=rm"(ctx->fpregs[52]));
+	// __asm__ volatile("fmov %0, v26.d[1]"
+	// 				 : "=rm"(ctx->fpregs[53]));
+	// __asm__ volatile("fmov %0, d27"
+	// 				 : "=rm"(ctx->fpregs[54]));
+	// __asm__ volatile("fmov %0, v27.d[1]"
+	// 				 : "=rm"(ctx->fpregs[55]));
+	// __asm__ volatile("fmov %0, d28"
+	// 				 : "=rm"(ctx->fpregs[56]));
+	// __asm__ volatile("fmov %0, v28.d[1]"
+	// 				 : "=rm"(ctx->fpregs[57]));
+	// __asm__ volatile("fmov %0, d29"
+	// 				 : "=rm"(ctx->fpregs[58]));
+	// __asm__ volatile("fmov %0, v29.d[1]"
+	// 				 : "=rm"(ctx->fpregs[59]));
+	// __asm__ volatile("fmov %0, d30"
+	// 				 : "=rm"(ctx->fpregs[60]));
+	// __asm__ volatile("fmov %0, v30.d[1]"
+	// 				 : "=rm"(ctx->fpregs[61]));
+	// __asm__ volatile("fmov %0, d31"
+	// 				 : "=rm"(ctx->fpregs[62]));
+	// __asm__ volatile("fmov %0, v31.d[1]"
+	// 				 : "=rm"(ctx->fpregs[63]));
 }
 
 void set_to_context(context_t *ctx, uintptr_t trapFrame)

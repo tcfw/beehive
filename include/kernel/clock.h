@@ -1,7 +1,7 @@
 #ifndef _KERNEL_CLOCK_H
 #define _KERNEL_CLOCK_H
 
-#include "stdint.h"
+#include <kernel/stdint.h>
 #include <kernel/list.h>
 
 enum ClockSourceType
@@ -34,8 +34,8 @@ struct clocksource_t
 	void (*countTo)(struct clocksource_t *, uint64_t);
 	void (*countNTicks)(struct clocksource_t *, uint64_t);
 
-	void (*enableIRQ)(struct clocksource_t *, uint32_t);
-	void (*disableIRQ)(struct clocksource_t *, uint32_t);
+	void (*enableIRQ)(struct clocksource_t *);
+	void (*disableIRQ)(struct clocksource_t *);
 };
 
 struct clocksource_t *clock_first(enum ClockSourceType type);

@@ -3,8 +3,7 @@
 #include <kernel/uaccess.h>
 #include <kernel/thread.h>
 
-int syscall_dev_count(thread_t *thread)
-{
+DEFINE_SYSCALL0(syscall_dev_count, SYSCALL_DEV_COUNT)
 	int count = 0;
 
 	device_node_t *node;
@@ -15,5 +14,3 @@ int syscall_dev_count(thread_t *thread)
 
 	return count;
 }
-
-SYSCALL(SYSCALL_DEV_COUNT, syscall_dev_count, 0)

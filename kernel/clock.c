@@ -1,7 +1,7 @@
 #include <kernel/clock.h>
 #include <kernel/list.h>
 #include <kernel/panic.h>
-#include "stdint.h"
+#include <kernel/stdint.h>
 
 static LIST_HEAD(clockSources);
 
@@ -32,7 +32,7 @@ void global_clock_init()
 		return;
 	}
 
-	cs->disableIRQ(cs, 0);
+	cs->disableIRQ(cs);
 	cs->enable(cs);
 }
 

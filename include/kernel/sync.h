@@ -1,7 +1,7 @@
 #ifndef _KERNEL_SYNC_H
 #define _KERNEL_SYNC_H
 
-#include <stdbool.h>
+#include <kernel/stdbool.h>
 
 typedef unsigned int spinlock_t;
 

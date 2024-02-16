@@ -1,9 +1,10 @@
 #ifndef _KERNEL_SYSCALL_H
 #define _KERNEL_SYSCALL_H
 
-#include "stdint.h"
+#include <kernel/stdint.h>
 #include <kernel/thread.h>
 #include <kernel/modules.h>
+#include <kernel/stdarg.h>
 
 typedef int (*syscall_handler_cb)(thread_t *thread, ...);
 
@@ -29,6 +30,66 @@ void syscall_init();
 	}                                               \
 	MOD_INIT(syscall_reg_##handler);
 #endif
+
+#define DEFINE_SYSCALL0(name, n) \
+	int name(thread_t *thread, ...); \
+	SYSCALL(n, name, 0); \
+	int name(thread_t *thread, ...) { \
+
+#define DEFINE_SYSCALL1(name, n, arg1_type, arg1_name) \
+	int name(thread_t *thread, ...); \
+	SYSCALL(n, name, 1); \
+	int name(thread_t *thread, ...) { \
+		va_list ap; \
+		va_start(ap, thread); \
+		arg1_type arg1_name=va_arg(ap, arg1_type); \
+		va_end(ap);
+
+#define DEFINE_SYSCALL2(name, n, arg1_type, arg1_name, arg2_type, arg2_name) \
+	int name(thread_t *thread, ...); \
+	SYSCALL(n, name, 2); \
+	int name(thread_t *thread, ...) { \
+		va_list ap; \
+		va_start(ap, thread); \
+		arg1_type arg1_name=va_arg(ap, arg1_type); \
+		arg2_type arg2_name=va_arg(ap, arg2_type); \
+		va_end(ap);
+
+#define DEFINE_SYSCALL3(name, n, arg1_type, arg1_name, arg2_type, arg2_name, arg3_type, arg3_name) \
+	int name(thread_t *thread, ...); \
+	SYSCALL(n, name, 3); \
+	int name(thread_t *thread, ...) { \
+		va_list ap; \
+		va_start(ap, thread); \
+		arg1_type arg1_name=va_arg(ap, arg1_type); \
+		arg2_type arg2_name=va_arg(ap, arg2_type); \
+		arg3_type arg3_name=va_arg(ap, arg3_type); \
+		va_end(ap);
+
+#define DEFINE_SYSCALL4(name, n, arg1_type, arg1_name, arg2_type, arg2_name, arg3_type, arg3_name, arg4_type, arg4_name) \
+	int name(thread_t *thread, ...); \
+	SYSCALL(n, name, 4); \
+	int name(thread_t *thread, ...) { \
+		va_list ap; \
+		va_start(ap, thread); \
+		arg1_type arg1_name=va_arg(ap, arg1_type); \
+		arg2_type arg2_name=va_arg(ap, arg2_type); \
+		arg3_type arg3_name=va_arg(ap, arg3_type); \
+		arg4_type arg4_name=va_arg(ap, arg4_type); \
+		va_end(ap);
+
+#define DEFINE_SYSCALL5(name, n, arg1_type, arg1_name, arg2_type, arg2_name, arg3_type, arg3_name, arg4_type, arg4_name, arg5_type, arg5_name) \
+	int name(thread_t *thread, ...); \
+	SYSCALL(n, name, 5); \
+	int name(thread_t *thread, ...) { \
+		va_list ap; \
+		va_start(ap, thread); \
+		arg1_type arg1_name=va_arg(ap, arg1_type); \
+		arg2_type arg2_name=va_arg(ap, arg2_type); \
+		arg3_type arg3_name=va_arg(ap, arg3_type); \
+		arg4_type arg4_name=va_arg(ap, arg4_type); \
+		arg5_type arg5_name=va_arg(ap, arg5_type); \
+		va_end(ap);
 
 void syscall0(uint64_t syscall_no);
 void syscall1(uint64_t syscall_no, uint64_t arg0);

@@ -4,7 +4,7 @@
 #include <kernel/paging.h>
 #include <kernel/list.h>
 #include <kernel/thread.h>
-#include "unistd.h"
+#include <kernel/unistd.h>
 
 #define MEMORY_TYPE_DEVICE (1 << 0)
 #define MEMORY_TYPE_KERNEL (1 << 1)

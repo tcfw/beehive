@@ -1,7 +1,7 @@
 #ifndef _DEVICETREE_H
 #define _DEVICETREE_H
 
-#include "stdint.h"
+#include <kernel/stdint.h>
 #include <kernel/endian.h>
 
 #define FDT_MAGIC BIG_ENDIAN_UINT32(0xd00dfeed)

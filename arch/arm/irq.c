@@ -1,5 +1,5 @@
 #include <kernel/irq.h>
-#include <stdint.h>
+#include <kernel/stdint.h>
 
 extern unsigned long stack;
 

@@ -10,7 +10,7 @@
 #include <kernel/vm.h>
 #include <kernel/thread.h>
 #include <kernel/cls.h>
-#include <stdint.h>
+#include <kernel/stdint.h>
 #include "regs.h"
 
 extern unsigned long stack;

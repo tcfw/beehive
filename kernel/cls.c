@@ -1,8 +1,8 @@
 #include <kernel/cls.h>
 #include <kernel/mm.h>
 #include <kernel/arch.h>
-#include "devicetree.h"
-#include "stdint.h"
+#include <kernel/devicetree.h>
+#include <kernel/stdint.h>
 
 static cls_t *cls;
 static uint8_t max_cls;

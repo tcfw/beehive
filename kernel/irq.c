@@ -6,7 +6,7 @@
 #include <kernel/strings.h>
 #include <kernel/tty.h>
 #include <kernel/wait.h>
-#include "stdint.h"
+#include <kernel/stdint.h>
 
 extern void halt_loop();
 static void halt_core(__attribute__((unused)) unsigned int _);
@@ -88,13 +88,13 @@ static void clock_tick(unsigned int xrq)
 {
 	struct clocksource_t *cs = clock_first(CS_GLOBAL);
 	cs->disable(cs);
-	cs->disableIRQ(cs, 0);
+	cs->disableIRQ(cs);
 
 	schedule();
 
 	uint64_t freq = cs->getFreq(cs);
 	cs->countNTicks(cs, freq / 250);
-	cs->enableIRQ(cs, 0);
+	cs->enableIRQ(cs);
 	cs->enable(cs);
 }
 
