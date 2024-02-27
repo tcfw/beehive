@@ -2,6 +2,7 @@
 #include <kernel/clock.h>
 #include <kernel/cls.h>
 #include <kernel/context.h>
+#include <kernel/irq.h>
 #include <kernel/list.h>
 #include <kernel/mm.h>
 #include <kernel/modules.h>
@@ -70,7 +71,6 @@ void schedule_start(void)
 		{
 			// Set next tick
 			uint64_t freq = cs->getFreq(cs);
-			uint64_t val = cs->val(cs);
 			cs->countNTicks(cs, freq / 250);
 			cs->enableIRQ(cs);
 			cs->enable(cs);
@@ -200,7 +200,7 @@ void schedule(void)
 		if (next)
 		{
 			spinlock_release(&cls->rq.lock);
-			if (next == prev)
+			if (next == prev) 
 				return;
 
 			prev->timing.last_wait = clkval;

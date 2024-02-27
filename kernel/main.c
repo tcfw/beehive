@@ -77,7 +77,6 @@ void kernel_main(void)
     terminal_write(HELLO_FOOTER, sizeof(HELLO_FOOTER));
 
     // dumpdevicetree();
-    terminal_logf("RAM\tstart: 0x%x\n\tsize: 0x%x\n", ram_start(), ram_size());
 
     page_alloc_init();
     slub_alloc_init();
@@ -138,5 +137,6 @@ void kernel_main2(void)
         {
         }
 
+    enable_irq();
     schedule_start();
 }

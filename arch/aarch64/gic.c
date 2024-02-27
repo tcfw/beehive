@@ -387,13 +387,13 @@ void gic_cpu_set_priority_mask(uint8_t mask)
 {
 	mask = mask & 0xf;
 	__asm__ volatile("MSR S3_0_C4_C6_0, %0" // ICC_PMR_EL1
-					 : "=r"(mask));
+					 :: "r"(mask));
 }
 
 // ACK INTID End of interrupt for group 1 interrupts
 void gic_cpu_eoi_gp1(uint32_t xpr)
 {
 	__asm__ volatile("MSR S3_0_C12_C12_1, %0" // ICC_EOIR1_EL1
-					 : "=r"(xpr));
+					 :: "r"(xpr));
 	__asm__ volatile("ISB");
 }

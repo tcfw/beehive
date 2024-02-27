@@ -19,7 +19,7 @@ void enableSystemCounter(struct clocksource_t *cs)
 	__asm__ volatile("MRS %0, CNTP_CTL_EL0"
 					 : "=r"(cnt_ctl));
 
-	cnt_ctl |= (1ULL << 0);
+	cnt_ctl |= 1;
 
 	__asm__ volatile("MSR CNTP_CTL_EL0, %0" ::"r"(cnt_ctl));
 }
