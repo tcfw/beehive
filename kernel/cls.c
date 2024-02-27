@@ -15,7 +15,7 @@ void init_cls()
 
 	cls = (cls_t *)page_alloc_s(n * sizeof(cls_t));
 
-	for (int i = 0; i < n; i++)
+	for (uint32_t i = 0; i < n; i++)
 	{
 		cls_t *ccls = (cls_t *)(cls + i);
 		ccls->id = (uint64_t)i;

@@ -1,7 +1,7 @@
 ARCH?=aarch64
 ARCHEXT?=-none-eabi
 
-CFLAGS?=-O3 -g -fPIC -Wstack-usage=131072
+CFLAGS?=-O2 -g -fPIC # -Wstack-usage=131072
 CPPFLAGS?=
 LDFLAGS?=
 LIBS?=

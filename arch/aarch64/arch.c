@@ -132,6 +132,10 @@ void arch_init(void)
 
 uintptr_t ram_max(void)
 {
+	return ram_start() + ram_size();
+}
+
+uintptr_t ram_start(void) {
 	void *mem_map = devicetree_find_node("/memory");
 	if (mem_map == 0)
 		panic("could not find memory node in device tree");
@@ -139,34 +143,23 @@ uintptr_t ram_max(void)
 	if (strcmp(devicetree_get_property(mem_map, "device_type"), "memory") != 0)
 		panic("memory node has unexpected device_type propert");
 
-	uint32_t *regs = devicetree_get_property(mem_map, "reg");
-	uint32_t *addrCells = devicetree_get_root_property("#address-cells");
-	uint32_t *sizeCells = devicetree_get_root_property("#size-cells");
+	uint32_t *regs = (uint32_t *)devicetree_get_property(mem_map, "reg");
+	uint32_t *addrCells = (uint32_t *)devicetree_get_root_property("#address-cells");
 
 	uint64_t start = 0;
-	uint64_t size = 0;
 
 	if (BIG_ENDIAN_UINT32(*addrCells) == 2)
 	{
 		start = BIG_ENDIAN_UINT64(*(uint64_t *)regs);
-		regs += 2;
 	}
 	else if (BIG_ENDIAN_UINT32(*addrCells) == 1)
 	{
 		start = (uint32_t)BIG_ENDIAN_UINT32(*(uint32_t *)regs);
-		regs++;
 	}
 	else
 		panic("unsupported #address-cells");
 
-	if (BIG_ENDIAN_UINT32(*sizeCells) == 2)
-		size = BIG_ENDIAN_UINT64(*(uint64_t *)regs);
-	else if (BIG_ENDIAN_UINT32(*sizeCells) == 1)
-		size = BIG_ENDIAN_UINT32(*regs);
-	else
-		panic("unsupported #size-cells");
-
-	return start + size;
+	return start;
 }
 
 uintptr_t ram_size(void)
@@ -178,9 +171,9 @@ uintptr_t ram_size(void)
 	if (strcmp(devicetree_get_property(mem_map, "device_type"), "memory") != 0)
 		panic("memory node has unexpected device_type propert");
 
-	uint32_t *regs = devicetree_get_property(mem_map, "reg");
-	uint32_t *addrCells = devicetree_get_root_property("#address-cells");
-	uint32_t *sizeCells = devicetree_get_root_property("#size-cells");
+	uint32_t *regs = (uint32_t *)devicetree_get_property(mem_map, "reg");
+	uint32_t *addrCells = (uint32_t *)devicetree_get_root_property("#address-cells");
+	uint32_t *sizeCells = (uint32_t *)devicetree_get_root_property("#size-cells");
 
 	uint64_t size = 0;
 

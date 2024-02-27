@@ -21,6 +21,24 @@ char *itoh(unsigned long i, char *buf)
 	return buf;
 }
 
+// long int to Hex
+char *litoh(unsigned long long i, char *buf)
+{
+	const char *itoh_map = "0123456789ABCDEF";
+	int n;
+	int b;
+	int z;
+
+	for (z = 0, n = 16; n > -1; --n)
+	{
+		b = i >> (n * 4);
+		buf[z] = itoh_map[b & 0xf];
+		++z;
+	}
+	buf[z] = 0;
+	return buf;
+}
+
 char *itoa(long i, char *buf, int base)
 {
 	char *s = buf + 256;
@@ -120,6 +138,7 @@ int ksprintfz(char *buf, const char *fmt, __builtin_va_list argp)
 {
 	const char *p;
 	int i;
+	long long li;
 	unsigned int ui;
 	double f;
 	char *s;
@@ -172,6 +191,14 @@ int ksprintfz(char *buf, const char *fmt, __builtin_va_list argp)
 		case 'x':
 			i = __builtin_va_arg(argp, int);
 			s = itoh(i, fmtbuf);
+			for (y = 0; s[y]; ++y)
+			{
+				buf[x++] = s[y];
+			}
+			break;
+		case 'X':
+			li = __builtin_va_arg(argp, uint64_t);
+			s = litoh(li, fmtbuf);
 			for (y = 0; s[y]; ++y)
 			{
 				buf[x++] = s[y];

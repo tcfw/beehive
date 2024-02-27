@@ -40,6 +40,10 @@ void save_to_context(context_t *ctx, uintptr_t trapFrame);
 // frame at the given location and overrides the existing context
 void set_to_context(context_t *ctx, uintptr_t trapFrame);
 
+
+//Get the starting address of RAM
+uintptr_t ram_start(void);
+
 // Get the max address available in RAM
 uintptr_t ram_max(void);
 

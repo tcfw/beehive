@@ -11,12 +11,13 @@ SECTIONS
 
     kernelvoffset = 0x70000000000;
     . += kernelvoffset;
-    kernelvstart = . - SIZEOF(.boot.text);
+    kernelvstart = kernelstart + kernelvoffset;
     kernelvbase = .;
 
     .text ALIGN(4k) : AT( ADDR (.text) - kernelvoffset )
     { 
         *(.text*) 
+        *(VECTORS*) 
 
         __start_init = ALIGN(8);
         KEEP(*(mod.init*))

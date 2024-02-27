@@ -59,7 +59,7 @@ static void thread_test(void *data)
         timespec_from_cs(cs, &now);
         terminal_logf("kthread ellapsed: %x %x", now.seconds, now.nanoseconds);
 
-        timespec_t ss = {seconds : 10};
+        timespec_t ss = {.seconds = 10};
         timespec_t rem;
         sleep_kthread(&ss, &rem);
     }
@@ -75,6 +75,9 @@ void kernel_main(void)
     terminal_write(HELLO_HEADER, sizeof(HELLO_HEADER));
     terminal_write(BUILD_INFO, sizeof(BUILD_INFO));
     terminal_write(HELLO_FOOTER, sizeof(HELLO_FOOTER));
+
+    // dumpdevicetree();
+    terminal_logf("RAM\tstart: 0x%x\n\tsize: 0x%x\n", ram_start(), ram_size());
 
     page_alloc_init();
     slub_alloc_init();
@@ -121,8 +124,8 @@ void kernel_main2(void)
 
     if (cpu_id() == 0)
     {
-        int cpuN = devicetree_count_dev_type("cpu");
-        while (cpuN != __atomic_load_n(&booted, __ATOMIC_ACQ_REL))
+        unsigned int cpuN = devicetree_count_dev_type("cpu");
+        while (cpuN != __atomic_load_n(&booted, __ATOMIC_CONSUME))
         {
         }
 

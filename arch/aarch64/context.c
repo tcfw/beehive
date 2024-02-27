@@ -260,7 +260,7 @@ void set_to_context(context_t *ctx, uintptr_t trapFrame)
 		*reg++ = ctx->regs[i];
 }
 
-void switch_to_context(context_t *ctx)
+void __attribute__((noinline)) switch_to_context(context_t *ctx)
 {
 	// setup pc, sp & pstate
 	__asm__ volatile("msr ELR_EL1, %0" ::"r"(ctx->pc));

@@ -185,8 +185,8 @@ free_queue:
 }
 
 DEFINE_SYSCALL3(syscall_mq_ctrl, SYSCALL_MQ_CTRL, const uint32_t, id, enum MQ_CTRL_OP, op, uint64_t, data)
-	queue_ref_t *ref;
-	queue_t *q;
+	queue_ref_t *ref=NULL;
+	queue_t *q=NULL;
 
 	list_head_for_each(ref, &thread->queues) if (ref->queue->id == id)
 	{

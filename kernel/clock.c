@@ -7,7 +7,7 @@ static LIST_HEAD(clockSources);
 
 void RegisterClockSource(struct clocksource_t *cs)
 {
-	list_add(cs, &clockSources);
+	list_add((struct list_head *)cs, &clockSources);
 }
 
 struct clocksource_t *clock_first(enum ClockSourceType type)

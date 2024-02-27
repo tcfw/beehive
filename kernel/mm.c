@@ -18,7 +18,7 @@ static spinlock_t page_lock;
 
 slub_t *slub_head;
 
-#define MAX_SLUB_CLASSES (10)
+#define MAX_SLUB_CLASSES (11)
 
 const slub_class_catalogue_t slub_classes[MAX_SLUB_CLASSES] = {
 	{8},
@@ -73,7 +73,7 @@ void page_alloc_init()
 
 	buddy_init(pages);
 
-	terminal_logf("Start of pages arena: 0x%x", pages->arena);
+	terminal_logf("Start of pages arena: 0x%x", (uintptr_t)pages->arena);
 
 	// fill up buddies across the pages
 
@@ -98,7 +98,7 @@ void page_alloc_init()
 		prev = current;
 	}
 
-	terminal_logf("End of pages arena: 0x%x", (prev->arena + prev->size));
+	terminal_logf("End of pages arena: 0x%x", (uintptr_t)(prev->arena + prev->size));
 }
 
 unsigned int size_to_order(size_t size)

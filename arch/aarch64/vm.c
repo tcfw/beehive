@@ -2,6 +2,7 @@
 #include <kernel/cls.h>
 #include <kernel/mm.h>
 #include <kernel/paging.h>
+#include <kernel/panic.h>
 #include <kernel/regions.h>
 #include <kernel/strings.h>
 #include <kernel/tty.h>
@@ -64,10 +65,10 @@ static uintptr_t __attribute__((noinline)) vm_va_to_pa_current(uintptr_t addr)
 {
 	__asm__ volatile("AT S1E1R, %0" ::"r"(addr));
 
-	uint64_t par;
+	volatile uint64_t par;
 	__asm__ volatile("MRS %0, PAR_EL1" : "=r"(par));
 
-	if (par & 0x1UL == 1)
+	if ((par & 0x1UL) == 1)
 		return 0;
 
 	uint64_t inpage = addr & 0xFFF;
@@ -399,7 +400,7 @@ int vm_map_region(vm_table *table, uintptr_t pstart, uintptr_t vstart, size_t si
 	// check vstart and vend is page aligned
 	if ((vstart & 0xFFF) != 0 || (vend & 0xFFF) != 0xFFF)
 	{
-		terminal_log("WARN: vm region map was not page aligned");
+		panicf("WARN: vm region map was not page aligned 0x%X:0x%X", vstart, vend);
 		return -1;
 	}
 
@@ -413,7 +414,7 @@ int vm_map_region(vm_table *table, uintptr_t pstart, uintptr_t vstart, size_t si
 	vm_table_block *table_l2 = 0;
 	vm_table_block *table_l3 = 0;
 
-	uint64_t *vpage = 0;
+	volatile uint64_t *vpage = 0;
 
 	if (*desc == 0)
 	{
@@ -573,7 +574,8 @@ int vm_map_region(vm_table *table, uintptr_t pstart, uintptr_t vstart, size_t si
 void vm_set_table(vm_table *table, pid_t pid)
 {
 	uintptr_t table_pa = vm_va_to_pa_current((uintptr_t)table);
-	uint64_t ttbr0 = ((pid << TTBR_ASID_SHIFT & TTBR_ASID_MASK)) | (((uintptr_t)table_pa & TTBR_BADDR_MASK) + 1);
+	uint64_t asid = pid << TTBR_ASID_SHIFT & TTBR_ASID_MASK;
+	uint64_t ttbr0 = asid | (table_pa & TTBR_BADDR_MASK) | 1;
 	__asm__ volatile("MSR TTBR0_EL1, %0" ::"r"(ttbr0));
 
 	// Enable E/S PAN
@@ -626,6 +628,8 @@ void vm_enable()
 
 	__asm__ volatile("MSR sctlr_el1, %0" ::"r"(sctlr));
 	__asm__ volatile("ISB");
+
+
 }
 
 static vm_table_block *vm_copy_link_table_block(uint64_t *parent, vm_table_block *tocopy)
@@ -681,7 +685,7 @@ int access_ok(enum AccessType type, void *addr, size_t n)
 			return -ERRFAULT;
 		}
 
-		if (*vpage & VM_ENTRY_USER == 0)
+		if ((*vpage & VM_ENTRY_USER) == 0)
 		{
 			return -ERRACCESS;
 		}
@@ -708,12 +712,14 @@ void vm_init()
 		terminal_log("failed to map device region");
 
 	// map kernel code & remaining physical memory regions
-	if (vm_map_region(kernel_vm_map, (uintptr_t)&kernelstart, (uintptr_t)&kernelvstart, ram_max() - ((uintptr_t)&kernelstart) - 1, MEMORY_TYPE_KERNEL) < 0)
+	if (vm_map_region(kernel_vm_map, (uintptr_t)ram_start(), (uintptr_t)ram_start()+VIRT_OFFSET, (size_t)ram_size()-1, MEMORY_TYPE_KERNEL) < 0)
 		terminal_log("failed to map kernel code region");
 
 	// move DBT to above RAM
 	if (vm_map_region(kernel_vm_map, PHY_DEVICE_DESCRIPTOR_REGION, DEVICE_DESCRIPTOR_REGION, 0x100000 - 1, MEMORY_TYPE_KERNEL) < 0)
 		terminal_log("failed to map dbt region");
+
+	terminal_logf("Loaded kernel is mapping device region to 0x%x", vm_va_to_pa(kernel_vm_map, 7765300871168));
 
 	terminal_log("Loaded kernel VM map");
 }

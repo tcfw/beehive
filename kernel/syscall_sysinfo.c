@@ -11,9 +11,9 @@ DEFINE_SYSCALL1(syscall_kname, SYSCALL_KNAME, struct sysinfo*, buf)
 
 	struct sysinfo info =
 		{
-			name : HELLO_HEADER,
-			version : SYSINFO_VERSION,
-			arch : SYSINFO_ARCH,
+			.name = HELLO_HEADER,
+			.version = SYSINFO_VERSION,
+			.arch = SYSINFO_ARCH,
 		};
 
 	copy_to_user(&info, buf, sizeof(struct sysinfo));
