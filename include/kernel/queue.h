@@ -26,6 +26,12 @@ struct mq_open_params
 	char name[MAX_MQ_NAME_SIZE];
 };
 
+struct mq_send_params {
+	uint32_t flags;
+	uint32_t id;
+	char name[MAX_MQ_NAME_SIZE];
+};
+
 typedef struct queue_msg_t queue_msg_t;
 
 typedef struct queue_msg_t
@@ -76,6 +82,22 @@ typedef struct queue_list_entry_t
 	struct list_head queues;
 } queue_list_entry_t;
 
+typedef struct queue_buffer_t {
+	spinlock_t lock;
+	uint32_t refs;
+
+	timespec_t recv;
+
+	size_t len;
+	const char buf[];
+} queue_buffer_t;
+
+typedef struct queue_buffer_list_entry_t {
+	struct list_head list;
+
+	queue_buffer_t *buffer;
+} queue_buffer_list_entry_t;
+
 void queues_init();
 
 skiplist_t *queues_get_skl();
@@ -85,5 +107,11 @@ int syscall_mq_open(thread_t *thread, ...);
 int syscall_mq_close(thread_t *thread, ...);
 
 int syscall_mq_ctrl(thread_t *thread, ...);
+
+int syscall_mq_send(thread_t *thread, ...);
+
+int syscall_mq_recv(thread_t *thread, ...);
+
+queue_list_entry_t* queues_find_by_entry(queue_list_entry_t* sq);
 
 #endif

@@ -52,6 +52,9 @@ int ksyscall_entry(uint64_t type, uint64_t arg0, uint64_t arg1, uint64_t arg2, u
 	if ((cthread->flags & THREAD_KTHREAD) == 0)
 		cthread->timing.last_user = clkval;
 
+	if (cthread->state==SLEEPING)
+		schedule();
+
 	return ret;
 }
 

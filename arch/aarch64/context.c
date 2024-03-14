@@ -7,9 +7,9 @@ void init_context(context_t *ctx)
 {
 	// set sane values for SPSR
 	ctx->spsr = (SPSR_Z | SPSR_PAN | // SPSR_IL |
-				 SPSR_M_EL0);
+				 SPSR_M_EL0 | SPSR_UAO);
 	ctx->sp = 0;
-	ctx->pc = 0;
+	ctx->pc = 0x1000;
 
 	memset(ctx->regs, 0, sizeof(ctx->regs));
 }
@@ -247,10 +247,6 @@ void set_to_context(context_t *ctx, uintptr_t trapFrame)
 	uint64_t *reg = (uint64_t *)trapFrame;
 
 	// setup pc, sp & pstate
-	// __asm__ volatile("msr ELR_EL1, %0" ::"r"(ctx->pc));
-	// __asm__ volatile("msr SP_EL0, %0" ::"r"(ctx->sp));
-	// __asm__ volatile("msr SPSR_EL1, %0" ::"r"(ctx->spsr));
-
 	*reg++ = ctx->spsr;
 	*reg++ = ctx->sp;
 	*reg++ = ctx->pc;

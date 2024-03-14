@@ -80,9 +80,7 @@ static inline unsigned long long list_len(struct list_head *head)
 
 	struct list_head *pos;
 	list_for_each(pos, head)
-	{
 		count++;
-	}
 
 	return count;
 }

@@ -1,17 +1,20 @@
 #ifndef _KERNEL_THREAD_H
 #define _KERNEL_THREAD_H
 
-#include <kernel/stdint.h>
 #include <kernel/clock.h>
 #include <kernel/context.h>
 #include <kernel/limits.h>
 #include <kernel/list.h>
 #include <kernel/sched.h>
 #include <kernel/signal.h>
+#include <kernel/stdint.h>
 #include <kernel/sync.h>
 #include <kernel/vm.h>
 
 #define THREAD_KTHREAD (1)
+
+#define THREAD_QUEUE_IO_WRITE (1)
+#define THREAD_QUEUE_IO_READ (2)
 
 enum Thread_State
 {
@@ -39,6 +42,14 @@ struct thread_wait_cond_sleep
 	thread_wait_cond cond;
 	timespec_t timer;
 	timespec_t *user_rem;
+};
+
+struct thread_wait_cond_queue_io
+{
+	thread_wait_cond cond;
+	uint64_t flags;
+	struct list_head queues;
+	void *buf;
 };
 
 typedef struct thread_timing_t
@@ -112,7 +123,7 @@ void kthread_context(context_t *ctx, void *data);
 void arch_thread_prep_switch(thread_t *thread);
 
 // create a kernel thread
-thread_t *create_kthread(void (entry)(void*), const char *name, void *data);
+thread_t *create_kthread(void(entry)(void *), const char *name, void *data);
 
 // Mark a thread as awake
 void wake_thread(thread_t *thread);
@@ -122,11 +133,16 @@ void sleep_kthread(const timespec_t *ts, timespec_t *rem);
 // Put thread to sleep for ts time
 void sleep_thread(thread_t *thread, const timespec_t *ts, timespec_t *user_rem);
 
+// Put a thread to sleep to wait for cond
+void thread_wait_for_cond(thread_t *thread, const thread_wait_cond *cond);
+
 // Populate data for return from wait cond
 void thread_return_wc(thread_t *thread, void *data1);
 
 int can_wake_thread(thread_t *thread);
 
 thread_t *get_thread_by_pid(pid_t pid);
+
+void free_thread(thread_t *thread);
 
 #endif

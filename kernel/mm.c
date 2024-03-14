@@ -18,13 +18,14 @@ static spinlock_t page_lock;
 
 slub_t *slub_head;
 
-#define MAX_SLUB_CLASSES (11)
+#define MAX_SLUB_CLASSES (12)
 
 const slub_class_catalogue_t slub_classes[MAX_SLUB_CLASSES] = {
 	{8},
 	{16},
 	{24},
 	{32},
+	{40},
 	{56},
 	{72},
 	{88},

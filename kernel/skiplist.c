@@ -123,10 +123,10 @@ void *skl_search(skiplist_t *skl, void *rnode, skiplist_compare search_comparato
 		}
 	}
 
-	if (x != NULL)
-		return x->forward[0];
+	if (x->forward[0] != NULL)
+		return x->forward[0]->rnode;
 
-	return x;
+	return NULL;
 }
 
 void *skl_first(skiplist_t *skl)

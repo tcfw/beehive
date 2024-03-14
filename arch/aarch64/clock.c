@@ -13,17 +13,6 @@ uint64_t getSystemCounterValue(struct clocksource_t *cs)
 	return value & 0xffffffff;
 }
 
-void enableSystemCounter(struct clocksource_t *cs)
-{
-	uint64_t cnt_ctl = 0;
-	__asm__ volatile("MRS %0, CNTP_CTL_EL0"
-					 : "=r"(cnt_ctl));
-
-	cnt_ctl |= 1;
-
-	__asm__ volatile("MSR CNTP_CTL_EL0, %0" ::"r"(cnt_ctl));
-}
-
 void disableSystemCounter(struct clocksource_t *cs)
 {
 	uint64_t cnt_ctl = 0;
@@ -35,7 +24,22 @@ uint64_t getSysCounterValue(struct clocksource_t *cs)
 	uint64_t value = 0;
 	__asm__ volatile("MRS %0, CNTPCT_EL0"
 					 : "=r"(value));
-	return value;
+	return value-cs->initValue;
+}
+
+void enableSystemCounter(struct clocksource_t *cs)
+{
+	if (cs->initValue ==0) {
+		cs->initValue = getSysCounterValue(cs);
+	}
+
+	uint64_t cnt_ctl = 0;
+	__asm__ volatile("MRS %0, CNTP_CTL_EL0"
+					 : "=r"(cnt_ctl));
+
+	cnt_ctl |= 1;
+
+	__asm__ volatile("MSR CNTP_CTL_EL0, %0" ::"r"(cnt_ctl));
 }
 
 uint64_t getSystemCounterFreq(struct clocksource_t *cs)
@@ -97,6 +101,7 @@ static struct clocksource_t systemClock = {
 	.countTo = setSystemCounterCompareValue,
 	.enableIRQ = enableSystemInterruptMask,
 	.disableIRQ = disableSystemInterruptMask,
+	.initValue = 0,
 };
 
 static void enableLocalCounter(struct clocksource_t *cs);

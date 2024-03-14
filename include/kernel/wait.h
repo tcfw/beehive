@@ -31,4 +31,6 @@ static inline void INIT_WAITQUEUE(waitqueue_head_t *wq)
 
 void try_wake_waitqueue(waitqueue_head_t *wq);
 
+int wq_can_wake_thread(waitqueue_entry_t *wq_entry, void *_);
+
 #endif

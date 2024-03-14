@@ -49,6 +49,4 @@ DEFINE_SYSCALL2(syscall_nanosleep, SYSCALL_NANOSLEEP, void *, ts, void *, remain
 	list_add_tail(wqe, &cls->sleepq.head);
 
 	spinlock_release(&cls->sleepq.lock);
-
-	schedule();
 }

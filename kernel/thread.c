@@ -1,11 +1,14 @@
 #include <errno.h>
 #include <kernel/clock.h>
+#include <kernel/cls.h>
 #include <kernel/context.h>
 #include <kernel/mm.h>
+#include <kernel/queue.h>
+#include <kernel/sched.h>
 #include <kernel/strings.h>
+#include <kernel/syscall.h>
 #include <kernel/thread.h>
 #include <kernel/uaccess.h>
-#include <kernel/syscall.h>
 #include <kernel/vm.h>
 
 #define KTHREAD_STACK_SIZE (1024 * 1024)
@@ -40,7 +43,7 @@ void init_thread(thread_t *thread)
 	spinlock_release(&threads_lock);
 }
 
-thread_t *create_kthread(void (entry)(void*), const char *name, void *data)
+thread_t *create_kthread(void(entry)(void *), const char *name, void *data)
 {
 	thread_t *thread = (thread_t *)page_alloc_s(sizeof(thread_t));
 	void *stack = (void *)page_alloc_s((size_t)KTHREAD_STACK_SIZE);
@@ -99,8 +102,12 @@ static void thread_wake_from_sleep(thread_t *thread)
 		if (sleep_cond->user_rem != 0)
 			copy_to_user(&rem, sleep_cond->user_rem, sizeof(timespec_t));
 
-		thread_return_wc(thread, (void*)-ERRINTR);
+		thread_return_wc(thread, (void *)-ERRINTR);
 	}
+}
+
+static void thread_wake_from_queue_io(thread_t *thread)
+{
 }
 
 void wake_thread(thread_t *thread)
@@ -113,6 +120,7 @@ void wake_thread(thread_t *thread)
 			thread_wake_from_sleep(thread);
 			break;
 		case QUEUE_IO:
+			thread_wake_from_queue_io(thread);
 			break;
 		}
 
@@ -135,6 +143,29 @@ static int can_wake_thread_from_sleep(thread_t *thread)
 	return 0;
 }
 
+static int can_wake_thread_from_queue_io(thread_t *thread)
+{
+	queue_ref_t *queue = NULL;
+	struct thread_wait_cond_queue_io *wc = (struct thread_wait_cond_queue_io *)thread->wc;
+
+	list_head_for_each(queue, &wc->queues)
+	{
+		uint64_t c = list_len(&queue->queue->buffer);
+		if ((wc->flags | THREAD_QUEUE_IO_WRITE) != 0)
+		{
+			if (c < queue->queue->max_msg_count)
+				return 1;
+		}
+		else
+		{
+			if (c > 0)
+				return 1;
+		}
+	}
+
+	return 0;
+}
+
 int can_wake_thread(thread_t *thread)
 {
 	if (thread->wc)
@@ -145,6 +176,7 @@ int can_wake_thread(thread_t *thread)
 			return can_wake_thread_from_sleep(thread);
 			break;
 		case QUEUE_IO:
+			return can_wake_thread_from_queue_io(thread);
 			break;
 		}
 
@@ -176,6 +208,12 @@ void sleep_kthread(const timespec_t *ts, timespec_t *rem)
 	syscall2(SYSCALL_NANOSLEEP, (uint64_t)ts, (uint64_t)rem);
 }
 
+void thread_wait_for_cond(thread_t *thread, const thread_wait_cond *cond)
+{
+	thread->wc = cond;
+	thread->state = SLEEPING;
+}
+
 thread_t *get_thread_by_pid(pid_t pid)
 {
 	thread_list_entry_t *current;
@@ -188,4 +226,12 @@ thread_t *get_thread_by_pid(pid_t pid)
 	}
 
 	return 0;
+}
+
+void free_thread(thread_t *thread)
+{
+	thread->state = ZOMBIE;
+
+	cls_t *cls = get_cls();
+	thread->sched_class->dequeue_thread(&cls->rq, thread);
 }

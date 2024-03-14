@@ -88,7 +88,11 @@ void kernel_main(void)
     mod_init();
 
     if (RUN_SELF_TESTS == 1)
+    {
+        sched_local_init();
         run_self_tests();
+        return;
+    }
 
     setup_init_threads();
 

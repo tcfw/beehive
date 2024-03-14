@@ -671,6 +671,8 @@ int vm_link_tables(vm_table *table1, vm_table *table2)
 int access_ok(enum AccessType type, void *addr, size_t n)
 {
 	vm_table *cpt = vm_get_current_table();
+	cls_t *cls=get_cls();
+
 	uint64_t *vpage;
 
 	if (addr == 0)
@@ -685,7 +687,7 @@ int access_ok(enum AccessType type, void *addr, size_t n)
 			return -ERRFAULT;
 		}
 
-		if ((*vpage & VM_ENTRY_USER) == 0)
+		if ((*vpage & VM_ENTRY_USER) == 0 && (cls->rq.current_thread->flags & THREAD_KTHREAD) == 0)
 		{
 			return -ERRACCESS;
 		}

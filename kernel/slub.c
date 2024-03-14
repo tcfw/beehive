@@ -21,7 +21,7 @@ static void slub_init_cache_entry(slub_t *slub, slub_cache_entry_t *cache_entry)
 	cache_entry->slub = slub;
 
 	int reserved_area = sizeof(slub_cache_entry_t);
-	cache_entry->first = (void *)(reserved_area + (char *)cache_entry);
+	cache_entry->first = (void *)(reserved_area + (void *)cache_entry);
 
 	unsigned int obj_count = (((1 << slub->cache_alloc_order) * PAGE_SIZE) - reserved_area) / slub->object_size;
 	cache_entry->used = 0;
@@ -29,7 +29,7 @@ static void slub_init_cache_entry(slub_t *slub, slub_cache_entry_t *cache_entry)
 	slub_entry_t *prev = 0;
 	for (unsigned int i = 0; i < obj_count; i++)
 	{
-		slub_entry_t *entry = (slub_entry_t *)(((char *)cache_entry->first + (i * slub->object_size)));
+		slub_entry_t *entry = (slub_entry_t *)((void *)cache_entry->first + (i * slub->object_size));
 
 		if (slub->object_size >= sizeof(slub_entry_t))
 			entry->poison = POISON_VALUE;
@@ -147,7 +147,7 @@ void slub_free(void *obj)
 {
 	int lstate_c, lstate_n;
 
-	slub_cache_entry_t *cache = (void *)obj - ((uintptr_t)obj % PAGE_SIZE);
+	slub_cache_entry_t *cache = (slub_cache_entry_t *)((void *)obj - ((uintptr_t)obj % PAGE_SIZE));
 	slub_t *slub = cache->slub;
 	slub_entry_t *entry = (slub_entry_t *)obj;
 

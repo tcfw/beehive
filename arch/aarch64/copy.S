@@ -7,24 +7,46 @@
 _copy_from_user:
 	.globl _copy_from_user
 
+
 	loop1:
 	cmp x2, #0
 	b.eq ret2
 
+	cmp x2, #8
+	b.le copyByte
+
+	mov x4, #7
+	and x4, x4, x2
+	cmp x4, #0
+	b.eq copy8Byte
+
 	//TODO(tcfw) use alignment and length checks to do 8-byte xfers
 
+	copyByte:
 	ldtrb w3, [x0] // unprivileged
 
-	b ok1
+	b ok1Byte
 	b ret3 //mark_failed_copy will bump to here
 	
-	ok1:
+	ok1Byte:
 	strb w3, [x1]  // privileged
 	add x0, x0, #1
 	add x1, x1, #1
 	sub x2, x2, #1
 
 	b loop1
+
+	copy8Byte:
+	ldtr x3, [x0]
+
+	b ok8Byte
+	b ret3
+
+	ok8Byte:
+	str x3, [x1]
+	add x0, x0, #8
+	add x1, x1, #8
+	sub x2, x2, #8
 
 	ret2:
 	ret

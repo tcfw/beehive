@@ -18,6 +18,8 @@ TEST("slub alloc")
 	// cleanup
 	page_free(slub->per_cpu_partial[0]);
 	page_free(slub);
+
+	TEST_PASS;
 }
 
 TEST("slub free")
@@ -33,6 +35,7 @@ TEST("slub free")
 
 	page_free(slub->per_cpu_partial[0]);
 	page_free(slub);
+	TEST_PASS;
 }
 
 NAMED_TEST("slub multi cache", test_slub_multi_cache)
@@ -53,6 +56,7 @@ NAMED_TEST("slub multi cache", test_slub_multi_cache)
 	page_free(slub->partial.next);
 	page_free(slub->partial.next->next);
 	page_free(slub);
+	TEST_PASS;
 }
 
 TEST("slub huge alloc")
@@ -77,4 +81,5 @@ TEST("slub huge alloc")
 	slub_free(addr2);
 
 	page_free(slub);
+	TEST_PASS;
 }

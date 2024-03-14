@@ -1,9 +1,10 @@
 #include "errno.h"
-#include <kernel/stdint.h>
+#include <kernel/clock.h>
 #include <kernel/list.h>
 #include <kernel/mm.h>
 #include <kernel/queue.h>
 #include <kernel/skiplist.h>
+#include <kernel/stdint.h>
 #include <kernel/strings.h>
 #include <kernel/syscall.h>
 #include <kernel/thread.h>
@@ -33,6 +34,10 @@ static int named_queues_comparator(void *rnode, void *list_rnode)
 	return 1;
 }
 
+queue_list_entry_t* queues_find_by_entry(queue_list_entry_t *sq) {
+	return (queue_list_entry_t *)skl_search(&queues, &sq, named_queues_comparator);
+}
+
 static uint32_t next_queue_id()
 {
 	for (int tries = 0; tries < 5; tries++)
@@ -55,6 +60,26 @@ void queues_init()
 	queue_id_counter = 1;
 }
 
+static void free_mq_buffers(queue_t *queue)
+{
+	struct list_head *pos;
+	struct list_head *tmp;
+	list_for_each_safe(pos, tmp, &queue->buffer)
+	{
+		queue_buffer_list_entry_t *buf=(queue_buffer_list_entry_t *)pos;
+		spinlock_acquire(&buf->buffer->lock);
+		buf->buffer->refs--;
+		spinlock_release(&buf->buffer->lock);
+
+		if (buf->buffer->refs==0) {
+			kfree(buf->buffer);
+		}
+
+		list_del(buf);
+		kfree(buf);
+	}
+}
+
 DEFINE_SYSCALL1(syscall_mq_open, SYSCALL_MQ_OPEN, const struct mq_open_params *,params)
 	int ok = access_ok(ACCESS_TYPE_READ, params, sizeof(struct mq_open_params));
 	if (ok < 0)
@@ -68,6 +93,7 @@ DEFINE_SYSCALL1(syscall_mq_open, SYSCALL_MQ_OPEN, const struct mq_open_params *,
 		memcpy(&sq.name, &params->name, MAX_MQ_NAME_SIZE);
 		nq = (queue_list_entry_t *)skl_search(&queues, &sq, named_queues_comparator);
 		if (nq != 0 && nq->owner != thread->pid)
+			//Only the owner should be able to create queues off an existing named queue
 			return -ERREXISTS;
 	}
 
@@ -118,31 +144,21 @@ DEFINE_SYSCALL1(syscall_mq_open, SYSCALL_MQ_OPEN, const struct mq_open_params *,
 	return queue->id;
 }
 
-static void free_mq_buffers(queue_t *queue)
-{
-	struct list_head *pos;
-	struct list_head *tmp;
-	list_for_each_safe(pos, tmp, &queue->buffer)
-	{
-		list_del(pos);
-		kfree(pos);
-	}
-}
-
 DEFINE_SYSCALL1(syscall_mq_close, SYSCALL_MQ_CLOSE, const uint32_t, id)
 	queue_ref_t *ref;
-	queue_t *q;
+	queue_t *tmp=NULL;
+	queue_t *queue=NULL;
 
-	list_head_for_each(ref, &thread->queues) if (ref->queue->id == id)
+	list_head_for_each(ref, &thread->queues) if  (ref->queue->id == id)
 	{
-		q = ref->queue;
+		queue = ref->queue;
 		break;
 	}
 
-	if (q == 0)
+	if (queue == NULL)
 		return -ERRFAULT;
 
-	queue_list_entry_t *nq = q->entry;
+	queue_list_entry_t *nq = queue->entry;
 	if (nq->owner != thread->pid)
 	{
 		// since we're listening to a named queue, just
@@ -155,7 +171,7 @@ DEFINE_SYSCALL1(syscall_mq_close, SYSCALL_MQ_CLOSE, const uint32_t, id)
 		spinlock_acquire(&nq->lock);
 		// if named queue, check other queues aren't still using it
 		int count = 0;
-		list_head_for_each(q, &nq->queues)
+		list_head_for_each(tmp, &nq->queues)
 		{
 			count++;
 			if (count > 1)
@@ -164,7 +180,7 @@ DEFINE_SYSCALL1(syscall_mq_close, SYSCALL_MQ_CLOSE, const uint32_t, id)
 
 		spinlock_release(&nq->lock);
 		if (count != 1)
-			return -ERRINUSE;
+			goto free_queue;
 	}
 
 free_nq:
@@ -177,24 +193,24 @@ free_queue:
 	list_del((struct list_head *)ref);
 	kfree(ref);
 
-	list_del((struct list_head *)q);
-	free_mq_buffers(q);
-	kfree(q);
+	list_del((struct list_head *)queue);
+	free_mq_buffers(queue);
+	kfree(queue);
 
 	return 0;
 }
 
 DEFINE_SYSCALL3(syscall_mq_ctrl, SYSCALL_MQ_CTRL, const uint32_t, id, enum MQ_CTRL_OP, op, uint64_t, data)
 	queue_ref_t *ref=NULL;
-	queue_t *q=NULL;
+	queue_t *queue=NULL;
 
 	list_head_for_each(ref, &thread->queues) if (ref->queue->id == id)
 	{
-		q = ref->queue;
+		queue = ref->queue;
 		break;
 	}
 
-	if (q == 0)
+	if (queue == 0)
 		return -ERRFAULT;
 
 	if (op >= MQ_CTRL_OP_MAX)
@@ -205,27 +221,203 @@ DEFINE_SYSCALL3(syscall_mq_ctrl, SYSCALL_MQ_CTRL, const uint32_t, id, enum MQ_CT
 		if (data > MAX_MQ_MSG_COUNT)
 			return -ERRSIZE;
 
-		spinlock_acquire(&q->lock);
-		q->max_msg_count = data;
-		spinlock_release(&q->lock);
+		spinlock_acquire(&queue->lock);
+		queue->max_msg_count = data;
+		spinlock_release(&queue->lock);
 	}
 	else if (op == MQ_CTRL_OP_MAX_MSG_SIZE)
 	{
 		if (data > MAX_MQ_MSG_SIZE)
 			return -ERRSIZE;
 
-		spinlock_acquire(&q->lock);
-		q->max_msg_size = data;
-		spinlock_release(&q->lock);
+		spinlock_acquire(&queue->lock);
+		queue->max_msg_size = data;
+		spinlock_release(&queue->lock);
 	}
 	else if (op == MQ_CTRL_OP_SET_PERMISSIONS)
 	{
-		spinlock_acquire(&q->lock);
-		q->permissions = (uint16_t)data;
-		spinlock_release(&q->lock);
+		spinlock_acquire(&queue->lock);
+		queue->permissions = (uint16_t)data;
+		spinlock_release(&queue->lock);
 	}
 
-	try_wake_waitqueue(&q->waiters);
+	try_wake_waitqueue(&queue->waiters);
 
 	return 0;
+}
+
+DEFINE_SYSCALL3(syscall_mq_send, SYSCALL_MQ_SEND, const struct mq_send_params*, params, const void *, data, const size_t, dlen) 
+	int ok = access_ok(ACCESS_TYPE_READ, data, dlen);
+	if (ok < 0)
+		return ok;
+
+	ok = access_ok(ACCESS_TYPE_READ, params, sizeof(struct mq_send_params));
+	if (ok < 0)
+		return ok;
+
+	//TODO(tcfw) permissions
+
+	queue_list_entry_t *entry;
+	queue_t *queue=NULL;
+
+	queue_list_entry_t *sq=(queue_list_entry_t *)kmalloc(sizeof(queue_list_entry_t));
+	copy_from_user(&params->name, &sq->name, MAX_MQ_NAME_SIZE);
+	if (sq->name[0]==0) {
+		copy_from_user(&params->id, &sq->id, sizeof(sq->id));
+	}
+
+	entry=queues_find_by_entry(sq);
+	kfree(sq);
+
+	if (entry == NULL)
+		return -ERRFAULT;
+
+	spinlock_acquire(&entry->lock);
+
+	uint32_t refCount=0;
+
+	list_head_for_each(queue, &entry->queues) {
+		if (dlen > queue->max_msg_size) {
+			spinlock_release(&entry->lock);
+			return -ERRSIZE;
+		}
+
+		refCount++;
+	}
+
+	struct clocksource_t *cs=clock_first(CS_GLOBAL);
+
+	queue_buffer_t *buf;
+	if (dlen < PAGE_SIZE) {
+		buf=(queue_buffer_t *)kmalloc(sizeof(queue_buffer_t)+dlen);
+	} else {
+		buf=(queue_buffer_t *)page_alloc_s(sizeof(queue_buffer_t)+dlen);
+	}
+
+	buf->len=dlen;
+	buf->refs=refCount;
+	timespec_from_cs(cs, &buf->recv);
+	spinlock_init(&buf->lock);
+	copy_from_user(data, buf->buf, dlen);
+	spinlock_acquire(&queue->lock);
+
+	struct thread_wait_cond_queue_io *wc=NULL;
+
+	list_head_for_each(queue, &entry->queues) {
+		if (list_len(&queue->buffer) >= queue->max_msg_count) {
+			if (wc==NULL) {
+				wc=(struct thread_wait_cond_queue_io*)kmalloc(sizeof(struct thread_wait_cond_queue_io));
+				INIT_LIST_HEAD(&wc->queues);
+				wc->buf=buf;
+				wc->cond.type=QUEUE_IO;
+				wc->flags=THREAD_QUEUE_IO_WRITE;
+			}
+
+			queue_ref_t *qr=(queue_ref_t*)kmalloc(sizeof(queue_ref_t));
+			qr->queue=queue;
+
+			list_add(qr, &wc->queues);
+			
+			waitqueue_entry_t *wqe = (waitqueue_entry_t *)kmalloc(sizeof(waitqueue_entry_t));
+			wqe->thread = thread;
+			wqe->func = wq_can_wake_thread;
+			wqe->data=(void*)buf;
+
+			spinlock_acquire(&queue->waiters.lock);
+			list_add_tail(wqe, &queue->waiters.head);
+			spinlock_release(&queue->waiters.lock);
+		} else {
+			queue_buffer_list_entry_t *bufle=(queue_buffer_list_entry_t*)kmalloc(sizeof(queue_buffer_list_entry_t));
+			bufle->buffer=buf;
+
+			list_add_tail(bufle, &queue->buffer);
+		}
+
+		spinlock_release(&queue->lock);
+	}
+
+	if (wc != NULL)
+		thread->wc = wc;
+
+	list_head_for_each(queue, &entry->queues) {
+		try_wake_waitqueue(&queue->waiters);
+	}
+
+	spinlock_release(&entry->lock);
+
+	if (wc!=NULL) 
+		thread_wait_for_cond(thread, wc);
+
+	return 0;
+}
+
+DEFINE_SYSCALL3(syscall_mq_recv, SYSCALL_MQ_RECV, const uint32_t, id, void *, data, const size_t, dlen)
+	int ok = access_ok(ACCESS_TYPE_WRITE, data, dlen);
+	if (ok < 0)
+		return ok;
+
+	//TODO(tcfw) permissions
+
+	queue_ref_t *ref=NULL;
+	queue_t *queue=NULL;
+
+	list_head_for_each(ref, &thread->queues) if (ref->queue->id == id)
+	{
+		queue = ref->queue;
+		break;
+	}
+
+	if (queue == 0)
+		return -ERRFAULT;
+
+	if (queue->max_msg_size > dlen)
+		return -ERRSIZE;
+
+	spinlock_acquire(&queue->lock);
+
+	if (list_is_empty(&queue->buffer)) {
+		spinlock_release(&queue->lock);
+
+		//TODO(tcfw) determine block or async
+
+		waitqueue_entry_t *wqe = (waitqueue_entry_t *)kmalloc(sizeof(waitqueue_entry_t));
+		wqe->thread = thread;
+		wqe->func = wq_can_wake_thread;
+		list_add_tail(wqe, &queue->waiters);
+
+		struct thread_wait_cond_queue_io *wc=(struct thread_wait_cond_queue_io*)kmalloc(sizeof(struct thread_wait_cond_queue_io));
+		INIT_LIST_HEAD(&wc->queues);
+		wc->cond.type=QUEUE_IO;
+		wc->flags=THREAD_QUEUE_IO_READ;
+
+		queue_ref_t *qr=(queue_ref_t*)kmalloc(sizeof(queue_ref_t));
+		qr->queue=queue;
+		list_add(qr, &wc->queues);
+
+		thread_wait_for_cond(thread, wc);
+
+		return 0;
+	}
+
+	queue_buffer_list_entry_t *buf=(queue_buffer_list_entry_t *)queue->buffer.next;
+	size_t len = buf->buffer->len;
+	
+	list_del(buf);
+	spinlock_release(&queue->lock);
+
+	copy_to_user((void*)&buf->buffer->buf, data, len);
+
+	spinlock_acquire(&buf->buffer->lock);
+	buf->buffer->refs--;
+	spinlock_release(&buf->buffer->lock);
+
+	if (buf->buffer->refs==0) {
+		if (len < PAGE_SIZE) {
+			kfree(buf->buffer);
+		} else {
+			page_free(buf->buffer);
+		}
+	}
+
+	return len;
 }

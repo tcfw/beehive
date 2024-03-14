@@ -16,7 +16,7 @@
 #define ESR_EXCEPTION_WATCHPOINT_SAME_EL (0b110101)
 
 #define SPSR_Z (1ULL << 30)
-#define SPSR_SSB (1ULL << 23)
+#define SPSR_UAO (1ULL << 23)
 #define SPSR_PAN (1ULL << 22)
 #define SPSR_SS (1ULL << 21)
 #define SPSR_IL (1ULL << 20)
