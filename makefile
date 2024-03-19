@@ -1,7 +1,7 @@
 ARCH?=aarch64
 ARCHEXT?=-none-eabi
 
-CFLAGS?=-O2 -g -fPIC # -Wstack-usage=131072
+CFLAGS?=-O2 -g -fPIC -fpatchable-function-entry=2,2 # -Wstack-usage=131072
 CPPFLAGS?=
 LDFLAGS?=
 LIBS?=

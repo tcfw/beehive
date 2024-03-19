@@ -100,7 +100,7 @@ void kernel_main(void)
     kernel_main2();
 }
 
-void kernel_main2(void)
+void kernel_main2(void) __attribute__((kernel))
 {
     static uint32_t booted;
     static uint32_t vm_ready;

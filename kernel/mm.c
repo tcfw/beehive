@@ -114,13 +114,13 @@ unsigned int size_to_order(size_t size)
 	return order;
 }
 
-struct page *page_alloc_s(size_t size)
+struct page *__attribute__((malloc)) page_alloc_s(size_t size)
 {
 	unsigned int order = size_to_order(size);
 	return (struct page *)page_alloc(order);
 }
 
-struct page *page_alloc(unsigned int order)
+struct page *__attribute__((malloc)) page_alloc(unsigned int order)
 {
 	int state = spinlock_acquire_irq(&page_lock);
 
@@ -182,7 +182,7 @@ void slub_alloc_init(void)
 	}
 }
 
-void *kmalloc(size_t size)
+void *__attribute__((malloc)) kmalloc(size_t size)
 {
 	slub_t *slub_class = slub_head;
 
