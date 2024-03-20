@@ -78,6 +78,7 @@ void kernel_main(void)
 
     // dumpdevicetree();
 
+    global_clock_init();
     page_alloc_init();
     slub_alloc_init();
     vm_init();
@@ -104,8 +105,6 @@ void kernel_main2(void) __attribute__((kernel))
 {
     static uint32_t booted;
     static uint32_t vm_ready;
-
-    global_clock_init();
 
     if (cpu_id() != 0)
     {
