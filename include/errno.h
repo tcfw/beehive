@@ -10,5 +10,7 @@
 #define ERREXISTS (7)
 #define ERREXHAUSTED (8)
 #define ERRINUSE (9)
+#define ERRAGAIN (10)
+#define ERRINVALID (11)
 
 #endif

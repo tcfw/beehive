@@ -3,40 +3,39 @@
 #include <kernel/stdint.h>
 #include <kernel/stdbool.h>
 
+static const char *itoh_map = "0123456789ABCDEF";
+
 // Int to Hex
 char *itoh(unsigned long i, char *buf)
 {
-	const char *itoh_map = "0123456789ABCDEF";
-	int n;
-	int b;
-	int z;
 
-	for (z = 0, n = 8; n > -1; --n)
+	int n=8;
+	int b=0;
+
+	for (n = 8; n > -1; --n)
 	{
 		b = i >> (n * 4);
-		buf[z] = itoh_map[b & 0xf];
-		++z;
+		*buf++ = itoh_map[b & 0xf];
 	}
-	buf[z] = 0;
-	return buf;
+
+	*buf = 0;
+	return buf-8;
 }
 
 // long int to Hex
 char *litoh(unsigned long long i, char *buf)
 {
-	const char *itoh_map = "0123456789ABCDEF";
-	int n;
-	int b;
-	int z;
+	int n=16;
+	int b=0;
 
-	for (z = 0, n = 16; n > -1; --n)
+	for (n = 16; n > -1; --n)
 	{
 		b = i >> (n * 4);
-		buf[z] = itoh_map[b & 0xf];
-		++z;
+		*buf++ = itoh_map[b & 0xf];
 	}
-	buf[z] = 0;
-	return buf;
+
+	*buf = 0;
+	return buf-16;
 }
 
 char *itoa(long i, char *buf, int base)
@@ -174,6 +173,8 @@ int ksprintfz(char *buf, const char *fmt, __builtin_va_list argp)
 			contExpr = false;
 			p--;
 		}
+
+		memset(&fmtbuf, 0, sizeof(fmtbuf));
 
 		switch (*++p)
 		{

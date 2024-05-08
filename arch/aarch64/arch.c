@@ -18,6 +18,7 @@ extern void _start();
 extern void halt_loop();
 
 extern uintptr_t stack;
+extern uintptr_t kernelstart;
 
 #define CORE_BOOT_SP_SIZE (128 * 1024)
 
@@ -78,14 +79,14 @@ void wfi()
 	__asm__ volatile("wfi");
 }
 
-static uint64_t psci_cpu_on(uint64_t affinity, uint64_t entrypoint)
+static uint64_t psci_cpu_on(uint64_t affinity, uintptr_t entrypoint)
 {
 	uint64_t ret = 0;
 
-	__asm__ volatile("mov x1, %0" ::"r"(affinity));
-	__asm__ volatile("mov x2, %0" ::"r"(entrypoint));
+	__asm__ volatile("mov x3, xzr");
+	__asm__ volatile("mov x2, %0" :: "r"(entrypoint));
+	__asm__ volatile("mov x1, %0" :: "r"(affinity));
 	__asm__ volatile("ldr x0, =0xc4000003");
-	__asm__ volatile("mov x3, 0");
 	__asm__ volatile("hvc 0");
 	__asm__ volatile("mov %0, x0"
 					 : "=r"(ret));
@@ -103,7 +104,7 @@ void wake_cores(void)
 	for (int i = 1; i < cpuN; i++)
 	{
 		cpu_spin_table[i] = (uintptr_t)page_alloc_s(CORE_BOOT_SP_SIZE) + CORE_BOOT_SP_SIZE;
-		int ret = psci_cpu_on(i, (uint64_t)_start);
+		int ret = psci_cpu_on(i, (uintptr_t)0x40400000);
 		if (ret < 0)
 			terminal_logf("failed to boot CPU: %x", ret);
 	}

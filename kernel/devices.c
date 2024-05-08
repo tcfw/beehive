@@ -9,3 +9,7 @@ struct list_head *get_devices_head()
 {
 	return &devices;
 }
+
+void discover_devices() {
+	
+}

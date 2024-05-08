@@ -284,3 +284,7 @@ uint32_t devicetree_count_dev_type(char *type)
 void *devicetree_first_with_device_type(char *type)
 {
 }
+
+void *devicetree_get_root_node() {
+	return devicetree_find_node("/");
+}

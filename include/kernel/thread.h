@@ -16,13 +16,72 @@
 #define THREAD_QUEUE_IO_WRITE (1)
 #define THREAD_QUEUE_IO_READ (2)
 
-enum Thread_State
+enum Process_State
 {
 	RUNNING,
-	SLEEPING,
-	UNINT_SLEEPING,
 	STOPPED,
 	ZOMBIE,
+};
+
+typedef struct vm_mapping {
+	struct list_head list;
+	
+	uintptr_t phy_addr;
+	uintptr_t vm_addr;
+	size_t length;
+	int flags;
+
+	uint64_t *pg;
+} vm_mapping;
+
+typedef struct vm_t {
+	vm_table *vm_table;
+
+	struct list_head vm_maps;
+
+	unsigned long start_code, end_code, start_data, end_data;
+	unsigned long start_brk, brk, start_stack;
+	unsigned long arg_start, arg_end, env_start, env_end;
+} vm_t;
+
+typedef struct process_t process_t;
+
+typedef struct process_t
+{
+	process_t *parent;
+
+	pid_t pid;
+
+	char cmd[CMD_MAX];
+	char argv[ARG_MAX];
+
+	enum Process_State state;
+
+	unsigned int uid;
+	unsigned int euid;
+	unsigned int gid;
+	unsigned int egid;
+
+	vm_t vm;
+
+	struct list_head shm;
+	struct list_head queues;
+
+	struct list_head threads;
+} process_t;
+
+typedef struct process_list_entry_t
+{
+	struct list_head list;
+	process_t *process;
+} process_list_entry_t;
+
+enum Thread_State
+{
+	THREAD_RUNNING,
+	THREAD_SLEEPING,
+	THREAD_UNINT_SLEEPING,
+	THREAD_STOPPED,
 };
 
 enum Wait_Cond_Type
@@ -69,23 +128,13 @@ typedef struct sched_entity_t sched_entity_t;
 
 typedef struct thread_t
 {
-	pid_t pid;
-	struct thread_t *parent;
+	process_t *process;
 	tid_t tid;
-
-	char cmd[CMD_MAX];
-	char argv[ARG_MAX];
-
-	unsigned int uid;
-	unsigned int euid;
-	unsigned int gid;
-	unsigned int egid;
 
 	context_t ctx;
 	uint64_t flags;
 	enum Thread_State state;
 	uint64_t affinity;
-	vm_table *vm_table;
 
 	thread_timing_t timing;
 	sched_class_t *sched_class;
@@ -94,9 +143,6 @@ typedef struct thread_t
 	thread_sigactions_t *sigactions;
 
 	thread_wait_cond *wc;
-	struct list_head shm;
-	struct list_head queues;
-	struct list_head vm_maps;
 } thread_t;
 
 typedef struct thread_list_entry_t
@@ -110,6 +156,8 @@ typedef struct thread_table
 	thread_list_entry_t list;
 	spinlock_t lock;
 } thread_table;
+
+void init_kthread_proc();
 
 // Init a thread
 void init_thread(thread_t *thread);

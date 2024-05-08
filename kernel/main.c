@@ -1,16 +1,16 @@
-#include <kernel/stdint.h>
-#include <kernel/devicetree.h>
 #include <kernel/arch.h>
 #include <kernel/buddy.h>
 #include <kernel/clock.h>
 #include <kernel/cls.h>
 #include <kernel/devices.h>
+#include <kernel/devicetree.h>
 #include <kernel/irq.h>
 #include <kernel/mm.h>
 #include <kernel/modules.h>
 #include <kernel/msgs.h>
 #include <kernel/queue.h>
 #include <kernel/regions.h>
+#include <kernel/stdint.h>
 #include <kernel/strings.h>
 #include <kernel/syscall.h>
 #include <kernel/thread.h>
@@ -37,11 +37,13 @@ static void setup_init_threads(void)
     // void *prog = page_alloc_s(0x1c);
     // memcpy(prog, &user_init, 0x1c);
 
-    // int r = vm_map_region(init->vm_table, (uintptr_t)prog, 0x1000ULL, 4095, MEMORY_TYPE_USER);
+    // int r = vm_map_region(init->vm.vm_table, (uintptr_t)prog, 0x1000ULL, 4095, MEMORY_TYPE_USER);
     // if (r < 0)
     //     terminal_logf("failed to map user region: 0x%x", r);
 
     // sched_append_pending(init);
+
+    init_kthread_proc();
 
     thread_t *kthread1 = create_kthread(&thread_test, "[hello world]", (void *)"test");
     sched_append_pending(kthread1);
@@ -57,7 +59,7 @@ static void thread_test(void *data)
     while (1)
     {
         timespec_from_cs(cs, &now);
-        terminal_logf("kthread ellapsed: %x %x", now.seconds, now.nanoseconds);
+        terminal_logf("kthread ellapsed: 0x%X 0x%X", now.seconds, now.nanoseconds);
 
         timespec_t ss = {.seconds = 10};
         timespec_t rem;
@@ -82,11 +84,13 @@ void kernel_main(void)
     page_alloc_init();
     slub_alloc_init();
     vm_init();
+
     init_cls();
     sched_init();
     syscall_init();
     queues_init();
     mod_init();
+    discover_devices();
 
     if (RUN_SELF_TESTS == 1)
     {
@@ -126,6 +130,8 @@ void kernel_main2(void) __attribute__((kernel))
 
     if (cpu_id() == 0)
     {
+        terminal_logf("Waiting for other cores to boot...");
+
         unsigned int cpuN = devicetree_count_dev_type("cpu");
         while (cpuN != __atomic_load_n(&booted, __ATOMIC_CONSUME))
         {
@@ -135,10 +141,7 @@ void kernel_main2(void) __attribute__((kernel))
 
         __atomic_store_n(&vm_ready, 1, __ATOMIC_RELAXED);
     }
-    else
-        while (__atomic_load_n(&vm_ready, __ATOMIC_RELAXED) == 0)
-        {
-        }
+    else while (__atomic_load_n(&vm_ready, __ATOMIC_RELAXED) == 0) {}
 
     enable_irq();
     schedule_start();

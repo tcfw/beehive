@@ -48,7 +48,7 @@ vm_table *vm_get_current_table()
 	thread_t *thread = get_cls()->rq.current_thread;
 	if (thread != 0)
 	{
-		vm_table *uvm = thread->vm_table;
+		vm_table *uvm = thread->process->vm.vm_table;
 		if (uvm != 0)
 			return uvm;
 	}
@@ -721,7 +721,7 @@ void vm_init()
 	if (vm_map_region(kernel_vm_map, PHY_DEVICE_DESCRIPTOR_REGION, DEVICE_DESCRIPTOR_REGION, 0x100000 - 1, MEMORY_TYPE_KERNEL) < 0)
 		terminal_log("failed to map dbt region");
 
-	terminal_logf("Loaded kernel is mapping device region to 0x%x", vm_va_to_pa(kernel_vm_map, 7765300871168));
+	terminal_logf("Loaded kernel is mapping device region to 0x%X", vm_va_to_pa(kernel_vm_map, 7765300871168));
 
 	terminal_log("Loaded kernel VM map");
 }

@@ -31,7 +31,7 @@ static int thread_deadline_comparator(void *n1, void *n2)
 	thread_t *tn1 = (thread_t *)n1;
 	thread_t *tn2 = (thread_t *)n2;
 
-	if (tn1->pid == tn2->pid)
+	if (tn1->process->pid == tn2->process->pid)
 		return 0;
 
 	uint64_t tn1e = tn1->sched_entity.deadline;
@@ -78,7 +78,7 @@ void schedule_start(void)
 			spinlock_release(&cls->rq.lock);
 			set_current_thread(next);
 			arch_thread_prep_switch(next);
-			vm_set_table(next->vm_table, next->pid);
+			vm_set_table(next->process->vm.vm_table, next->process->pid);
 			switch_to_context(&next->ctx);
 			return;
 		}
@@ -176,7 +176,7 @@ void schedule(void)
 	prev->timing.total_execution = prev->timing.total_system + prev->timing.total_user;
 	prev->sched_entity.deadline -= clkval - prev->sched_entity.last_deadline;
 
-	if (prev->state == RUNNING)
+	if (prev->state == THREAD_RUNNING)
 		prev->sched_class->requeue_thread(&cls->rq, prev);
 
 	sched_class_t *sc = sched_class_head;

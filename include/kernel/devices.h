@@ -25,7 +25,16 @@ typedef struct device_node_property_t
 	void *data;
 } device_node_property_t;
 
-int discover_devices(uintptr_t ddr);
+struct dev_info {
+	uint32_t id;
+	char name[64];
+	char type[64];
+	uint64_t phy_bar;
+	uint64_t phy_bar_size;
+	uint64_t interrupts[5];
+};
+
+void discover_devices();
 
 struct list_head *get_devices_head();
 

@@ -1,3 +1,5 @@
+include .env.local.mk
+
 ARCH?=aarch64
 ARCHEXT?=-none-eabi
 
@@ -7,8 +9,6 @@ LDFLAGS?=
 LIBS?=
 
 BUILD_DIR:=.build
-
-DESTDIR?=.build
 PREFIX?=/usr/local
 EXEC_PREFIX?=$(PREFIX)
 BOOTDIR?=$(EXEC_PREFIX)/boot
@@ -17,7 +17,6 @@ INCLUDEDIR?=$(PREFIX)/include
 ARCHDIR=arch/$(ARCH)
 CFLAGS:=$(CFLAGS) -ffreestanding -Wall -Wextra
 CPPFLAGS:=$(CPPFLAGS) -D__is_kernel -Iinclude -I$(ARCHDIR)/include
-LDFLAGS:=$(LDFLAGS)
 LIBS:=$(LIBS) -nostdlib
 
 include $(ARCHDIR)/make.config
@@ -25,7 +24,7 @@ include $(ARCHDIR)/make.config
 TEST_OBJS=$(patsubst %.c,%.o,$(wildcard kernel/tests/*.c))
 KERNEL_OBJS=$(KERNEL_ARCH_OBJS) $(TEST_OBJS) $(patsubst %.c,%.o,$(wildcard kernel/*.c))
 OBJS=$(addprefix ${BUILD_DIR}/,${KERNEL_OBJS})
-LINK_LIST=$(LDFLAGS) $(addprefix ${BUILD_DIR}/,${KERNEL_OBJS}) $(LIBS)
+LINK_LIST=$(addprefix ${BUILD_DIR}/,${KERNEL_OBJS}) $(LIBS)
  
 CFLAGS:=$(CFLAGS) $(KERNEL_ARCH_CFLAGS)
 CPPFLAGS:=$(CPPFLAGS) $(KERNEL_ARCH_CPPFLAGS)

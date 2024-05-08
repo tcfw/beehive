@@ -3,7 +3,7 @@
 
 void arch_thread_prep_switch(thread_t *thread)
 {
-	uint64_t pid = (uint64_t)thread->pid;
+	uint64_t pid = (uint64_t)thread->process->pid;
 	__asm__ volatile("MSR TPIDRRO_EL0, %0" ::"r"(pid));
 	return;
 }

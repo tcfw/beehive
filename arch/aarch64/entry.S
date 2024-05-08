@@ -4,20 +4,25 @@ _start:
 
     //TODO(tcfw) check if in EL1
 
-    ADRP x1, init_tcr
+    MOV x0, #0x3C0
+    MSR DAIF, X0
+    
+    ISB
+
+    ADRP x1, #init_tcr
     ADD  x1, x1, #:lo12:init_tcr
     LDR x1, [x1]
     MSR TCR_EL1, x1
 
-    ADRP x1, init_mair
+    ADRP x1, #init_mair
     ADD  x1, x1, #:lo12:init_mair
     LDR x1, [x1]
     MSR MAIR_EL1, x1
 
-    ADRP x2, init_vm_map
+    ADRP x2, #init_vm_map
     ADD  x2, x2, #:lo12:init_vm_map
 
-    ADRP x3, l0_vm_map_attrs
+    ADRP x3, #l0_vm_map_attrs
     ADD  x3, x3, #:lo12:l0_vm_map_attrs
     LDR x3, [x3]
 
@@ -87,7 +92,7 @@ l1_vm_map:
 boot:
     .globl boot
     // Set Stackpointer
-    ADRP x10, stack
+    ADRP x10, #stack
     ADD  x10, x10, #:lo12:stack
     MOV sp, x10
 

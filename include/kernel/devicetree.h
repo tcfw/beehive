@@ -54,6 +54,10 @@ void *devicetree_first_with_device_type(char *type);
 
 void *devicetree_find_node(char *path);
 
+void *devicetree_get_next_node(void *current);
+
+void *devicetree_get_root_node();
+
 char *devicetree_get_property(void *node, char *propkey);
 
 char *devicetree_get_root_property(char *propkey);

@@ -22,7 +22,7 @@ NAMED_TEST("mq_open_id", test_mq_open_id)
 		TEST_FAIL
 	}
 
-	if (list_empty(t->queues))
+	if (list_empty(t->process->queues))
 	{
 		free_thread(t);
 		TEST_FAIL_MSG("thread has no queue refs");
@@ -63,7 +63,7 @@ NAMED_TEST("mq_open_named", test_mq_open_named)
 		TEST_FAIL
 	}
 
-	if (list_empty(t->queues))
+	if (list_empty(t->process->queues))
 	{
 		free_thread(t);
 		TEST_FAIL_MSG("thread has no queue refs");
@@ -216,7 +216,7 @@ NAMED_TEST("mq_send_named_max_msg_count", test_mq_send_named_max_msg_count)
 		TEST_FAIL_MSG("queue buffer was empty");
 	}
 
-	if (t->state != SLEEPING)
+	if (t->state != THREAD_SLEEPING)
 	{
 		free_thread(t);
 		TEST_FAIL_MSG("thread should have gone to sleep");

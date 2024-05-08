@@ -16,12 +16,29 @@
 static LIST_HEAD(threads);
 static spinlock_t threads_lock;
 
+static LIST_HEAD(procs);
+static spinlock_t procs_lock;
+
+static process_t kthreads_proc;
+
+void init_kthread_proc() {
+	INIT_LIST_HEAD(&kthreads_proc.shm);
+	INIT_LIST_HEAD(&kthreads_proc.queues);
+	INIT_LIST_HEAD(&kthreads_proc.vm.vm_maps);
+
+	kthreads_proc.pid = 0;
+	kthreads_proc.uid = 0;
+	kthreads_proc.euid = 0;
+	kthreads_proc.gid = 0;
+	kthreads_proc.egid = 0;
+
+	strcpy(kthreads_proc.cmd, "kthread");
+
+	kthreads_proc.vm.vm_table = vm_get_kernel();
+}
+
 void init_thread(thread_t *thread)
 {
-	INIT_LIST_HEAD(&thread->shm);
-	INIT_LIST_HEAD(&thread->queues);
-	INIT_LIST_HEAD(&thread->vm_maps);
-
 	init_context(&thread->ctx);
 
 	thread->affinity = ~0;
@@ -30,8 +47,8 @@ void init_thread(thread_t *thread)
 	thread->timing.last_system = cs->val(cs);
 	thread->timing.last_user = thread->timing.last_system;
 
-	thread->vm_table = (vm_table *)page_alloc_s(sizeof(vm_table));
-	vm_init_table(thread->vm_table);
+	thread->process->vm.vm_table = (vm_table *)page_alloc_s(sizeof(vm_table));
+	vm_init_table(thread->process->vm.vm_table);
 
 	thread->sched_class = sched_get_class(SCHED_CLASS_LRF);
 
@@ -48,30 +65,17 @@ thread_t *create_kthread(void(entry)(void *), const char *name, void *data)
 	thread_t *thread = (thread_t *)page_alloc_s(sizeof(thread_t));
 	void *stack = (void *)page_alloc_s((size_t)KTHREAD_STACK_SIZE);
 
-	strcpy(thread->cmd, name);
-
 	thread->affinity = ~0;
 	thread->flags = THREAD_KTHREAD;
-
-	thread->pid = 0;
-	thread->uid = 0;
-	thread->euid = 0;
-	thread->gid = 0;
-	thread->egid = 0;
+	thread->process = &kthreads_proc;
 
 	thread->sched_class = sched_get_class(SCHED_CLASS_LRF);
-
-	INIT_LIST_HEAD(&thread->shm);
-	INIT_LIST_HEAD(&thread->queues);
-	INIT_LIST_HEAD(&thread->vm_maps);
 
 	init_context(&thread->ctx);
 	kthread_context(&thread->ctx, data);
 
 	thread->ctx.pc = (uint64_t)entry;
 	thread->ctx.sp = (uint64_t)stack;
-
-	thread->vm_table = vm_get_kernel();
 
 	struct clocksource_t *cs = clock_first(CS_GLOBAL);
 	thread->timing.last_system = cs->val(cs);
@@ -127,7 +131,7 @@ void wake_thread(thread_t *thread)
 		kfree(thread->wc);
 	}
 
-	thread->state = RUNNING;
+	thread->state = THREAD_RUNNING;
 }
 
 static int can_wake_thread_from_sleep(thread_t *thread)
@@ -200,7 +204,7 @@ void sleep_thread(thread_t *thread, const timespec_t *ts, timespec_t *user_rem)
 	sleep_cond->user_rem = user_rem;
 
 	thread->wc = sleep_cond;
-	thread->state = SLEEPING;
+	thread->state = THREAD_SLEEPING;
 }
 
 void sleep_kthread(const timespec_t *ts, timespec_t *rem)
@@ -211,7 +215,7 @@ void sleep_kthread(const timespec_t *ts, timespec_t *rem)
 void thread_wait_for_cond(thread_t *thread, const thread_wait_cond *cond)
 {
 	thread->wc = cond;
-	thread->state = SLEEPING;
+	thread->state = THREAD_SLEEPING;
 }
 
 thread_t *get_thread_by_pid(pid_t pid)
@@ -219,7 +223,7 @@ thread_t *get_thread_by_pid(pid_t pid)
 	thread_list_entry_t *current;
 	list_head_for_each(current, &threads)
 	{
-		if (current->thread->pid == pid && current->thread->tid == (tid_t)pid)
+		if (current->thread->process->pid == pid && current->thread->tid == (tid_t)pid)
 		{
 			return current->thread;
 		}

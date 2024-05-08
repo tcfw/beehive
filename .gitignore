@@ -3,3 +3,5 @@
 *.kernel.bin
 *.o
 .build
+.env.mk
+.env.*.mk

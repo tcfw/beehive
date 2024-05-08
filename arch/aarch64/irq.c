@@ -50,7 +50,7 @@ extern unsigned long stack;
 	if (next != thread && didsave)                   \
 	{                                                \
 		thread = next;                               \
-		vm_set_table(thread->vm_table, thread->pid); \
+		vm_set_table(thread->process->vm.vm_table, thread->process->pid); \
 		set_to_context(&thread->ctx, trapFrame);     \
 	}
 
@@ -237,9 +237,9 @@ void k_fiq_exphandler(unsigned int xrq)
 	switch (ESR_EXCEPTION_CLASS(xrq))
 	{
 	case ESR_EXCEPTION_INSTRUCTION_ABORT_LOWER_EL:
-		terminal_logf("instruction abort from EL0 addr 0x%x", far);
+		terminal_logf("instruction abort from EL0 addr 0x%X", far);
 		if (cls->rq.current_thread != 0)
-			terminal_logf("on PID 0x%x", cls->rq.current_thread->pid);
+			terminal_logf("on PID 0x%x", cls->rq.current_thread->process->pid);
 		// send SIGILL
 		break;
 	case ESR_EXCEPTION_INSTRUCTION_ABORT_SAME_EL:
@@ -254,7 +254,7 @@ void k_fiq_exphandler(unsigned int xrq)
 	case ESR_EXCEPTION_DATA_ABORT_LOWER_EL:
 		terminal_logf("data abort from EL0 addr 0x%x", far);
 		if (cls->rq.current_thread != 0)
-			terminal_logf("on PID 0x%x", cls->rq.current_thread->pid);
+			terminal_logf("on PID 0x%x", cls->rq.current_thread->process->pid);
 		// send SIGSEGV
 
 		break;
@@ -269,11 +269,11 @@ void k_fiq_exphandler(unsigned int xrq)
 		else
 		{
 			pa = vm_va_to_pa(vm_get_current_table(), far);
-			panicf("Unhandlable Data Abort: \n\tELR: 0x%x \n\tESR: 0x%x \n\tVirtual Address: 0x%x\n\tPhysical Address: 0x%x\n\tPAR: 0x%x", elr, xrq, far, pa, par);
+			panicf("Unhandlable Data Abort: \n\tELR: 0x%X \n\tESR: 0x%x \n\tVirtual Address: 0x%X\n\tPhysical Address: 0x%X\n\tPAR: 0x%X", elr, xrq, far, pa, par);
 		}
 		break;
 	default:
-		panicf("unhandled FIQ(0x%x) FAR: 0x%x", xrq, far);
+		panicf("unhandled FIQ(0x%x) FAR: 0x%X", xrq, far);
 	}
 }
 

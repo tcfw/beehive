@@ -92,7 +92,7 @@ DEFINE_SYSCALL1(syscall_mq_open, SYSCALL_MQ_OPEN, const struct mq_open_params *,
 		queue_list_entry_t sq;
 		memcpy(&sq.name, &params->name, MAX_MQ_NAME_SIZE);
 		nq = (queue_list_entry_t *)skl_search(&queues, &sq, named_queues_comparator);
-		if (nq != 0 && nq->owner != thread->pid)
+		if (nq != 0 && nq->owner != thread->process->pid)
 			//Only the owner should be able to create queues off an existing named queue
 			return -ERREXISTS;
 	}
@@ -120,14 +120,14 @@ DEFINE_SYSCALL1(syscall_mq_open, SYSCALL_MQ_OPEN, const struct mq_open_params *,
 
 	queue_ref_t *ref = (queue_ref_t *)kmalloc(sizeof(queue_ref_t));
 	ref->queue = queue;
-	list_add(ref, &thread->queues);
+	list_add(ref, &thread->process->queues);
 
 	if (nq == 0)
 	{
 		nq = (queue_list_entry_t *)kmalloc(sizeof(queue_list_entry_t));
 		INIT_LIST_HEAD(&nq->queues);
 
-		nq->owner = thread->pid;
+		nq->owner = thread->process->pid;
 		nq->id = queue->id;
 		if (params->name[0] != 0)
 			memcpy(&nq->name, &params->name, MAX_MQ_NAME_SIZE);
@@ -149,7 +149,7 @@ DEFINE_SYSCALL1(syscall_mq_close, SYSCALL_MQ_CLOSE, const uint32_t, id)
 	queue_t *tmp=NULL;
 	queue_t *queue=NULL;
 
-	list_head_for_each(ref, &thread->queues) if  (ref->queue->id == id)
+	list_head_for_each(ref, &thread->process->queues) if  (ref->queue->id == id)
 	{
 		queue = ref->queue;
 		break;
@@ -159,7 +159,7 @@ DEFINE_SYSCALL1(syscall_mq_close, SYSCALL_MQ_CLOSE, const uint32_t, id)
 		return -ERRFAULT;
 
 	queue_list_entry_t *nq = queue->entry;
-	if (nq->owner != thread->pid)
+	if (nq->owner != thread->process->pid)
 	{
 		// since we're listening to a named queue, just
 		// remove the queue from lists and free the buffers
@@ -204,7 +204,7 @@ DEFINE_SYSCALL3(syscall_mq_ctrl, SYSCALL_MQ_CTRL, const uint32_t, id, enum MQ_CT
 	queue_ref_t *ref=NULL;
 	queue_t *queue=NULL;
 
-	list_head_for_each(ref, &thread->queues) if (ref->queue->id == id)
+	list_head_for_each(ref, &thread->process->queues) if (ref->queue->id == id)
 	{
 		queue = ref->queue;
 		break;
@@ -361,7 +361,7 @@ DEFINE_SYSCALL3(syscall_mq_recv, SYSCALL_MQ_RECV, const uint32_t, id, void *, da
 	queue_ref_t *ref=NULL;
 	queue_t *queue=NULL;
 
-	list_head_for_each(ref, &thread->queues) if (ref->queue->id == id)
+	list_head_for_each(ref, &thread->process->queues) if (ref->queue->id == id)
 	{
 		queue = ref->queue;
 		break;

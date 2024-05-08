@@ -6,6 +6,7 @@
 #include <kernel/stdint.h>
 #include <kernel/unistd.h>
 #include <kernel/stdint.h>
+#include <asm/unaligned.h>
 
 #define PL011_DR_OFFSET 0x000
 #define PL011_FR_OFFSET 0x018
@@ -42,16 +43,13 @@ static spinlock_t log_lock = 0;
 // Write to a specific register given the offset
 static void pl011_regwrite(const struct pl011 *dev, uint32_t offset, uint32_t data)
 {
-    volatile uint32_t *addr = (void *)dev->base_address + offset;
-    *addr = data;
+    put_unaligned_le32(data, (void*)dev->base_address+offset);
 }
 
 // Read from a specific register given the offset
 static uint32_t pl011_regread(const struct pl011 *dev, uint32_t offset)
 {
-    volatile uint64_t *addr = (void *)dev->base_address + offset;
-
-    return *addr;
+    return get_unaligned_le32((void*)dev->base_address+offset);
 }
 
 // Wait for the busy state to clear
@@ -194,6 +192,8 @@ void terminal_writestring(char *str)
 
 void terminal_log(char *str)
 {
+    const char *eol="\r\n";
+
     spinlock_acquire(&log_lock);
 
     static char buf[24];
@@ -207,7 +207,7 @@ void terminal_log(char *str)
     ksprintf(&buf[0], "[%.4f] ", val);
     terminal_writestring(buf);
     terminal_writestring(str);
-    terminal_putchar('\n');
+    terminal_writestring(eol);
 
     spinlock_release(&log_lock);
 }
@@ -227,7 +227,7 @@ void terminal_logf(char *fmt, ...)
     __builtin_va_list argp;
     __builtin_va_start(argp, fmt);
 
-    ksprintfz((char *)&buf[0], fmt, argp);
+    ksprintfz(&buf[0], fmt, argp);
 
     __builtin_va_end(argp);
 

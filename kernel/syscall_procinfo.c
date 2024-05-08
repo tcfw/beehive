@@ -17,7 +17,7 @@ DEFINE_SYSCALL1(syscall_get_cpu, SYSCALL_GET_CPU, uint32_t*, cpu)
 }
 
 DEFINE_SYSCALL0(syscall_get_pid, SYSCALL_GET_PID)
-	return thread->pid;
+	return thread->process->pid;
 }
 
 DEFINE_SYSCALL0(syscall_get_tid, SYSCALL_GET_TID)
@@ -25,5 +25,8 @@ DEFINE_SYSCALL0(syscall_get_tid, SYSCALL_GET_TID)
 }
 
 DEFINE_SYSCALL0(syscall_get_ppid, SYSCALL_GET_PPID)
-	return thread->parent->pid;
+	if (thread->process->parent != 0)
+		return thread->process->parent->pid;
+	
+	return 0;
 }

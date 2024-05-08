@@ -74,7 +74,7 @@ void page_alloc_init()
 
 	buddy_init(pages);
 
-	terminal_logf("Start of pages arena: 0x%x", (uintptr_t)pages->arena);
+	terminal_logf("Start of pages arena: 0x%X", (uintptr_t)pages->arena);
 
 	// fill up buddies across the pages
 
@@ -93,13 +93,13 @@ void page_alloc_init()
 		if ((uintptr_t)(current->arena + current->size) > ram_max_addr)
 			current->size = ram_max_addr - (uint64_t)current->arena;
 
-		// terminal_logf("Buddy: *0x%x size: 0x%x arena: 0x%x", current, current->size, current->arena);
+		// terminal_logf("Buddy: *0x%X size: 0x%X arena: 0x%X", current, current->size, current->arena);
 
 		prev->next = current;
 		prev = current;
 	}
 
-	terminal_logf("End of pages arena: 0x%x", (uintptr_t)(prev->arena + prev->size));
+	terminal_logf("End of pages arena: 0x%X", (uintptr_t)(prev->arena + prev->size));
 }
 
 unsigned int size_to_order(size_t size)
