@@ -4,6 +4,7 @@
 #include <kernel/thread.h>
 
 DEFINE_SYSCALL0(syscall_dev_count, SYSCALL_DEV_COUNT)
+{
 	int count = 0;
 
 	device_node_t *node;

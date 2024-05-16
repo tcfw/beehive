@@ -34,42 +34,49 @@ void syscall_init();
 #define DEFINE_SYSCALL0(name, n) \
 	int name(thread_t *thread, ...); \
 	SYSCALL(n, name, 0); \
-	int name(thread_t *thread, ...) { \
+	int name(thread_t *thread, ...) \
 
 #define DEFINE_SYSCALL1(name, n, arg1_type, arg1_name) \
-	int name(thread_t *thread, ...); \
-	SYSCALL(n, name, 1); \
+	int _do_##name(thread_t *thread, arg1_type arg1_name); \
 	int name(thread_t *thread, ...) { \
 		va_list ap; \
 		va_start(ap, thread); \
 		arg1_type arg1_name=va_arg(ap, arg1_type); \
-		va_end(ap);
+		va_end(ap); \
+		return _do_##name(thread, arg1_name);\
+	}; \ 
+	SYSCALL(n, name, 1); \
+	int _do_##name(thread_t *thread, arg1_type arg1_name)
 
 #define DEFINE_SYSCALL2(name, n, arg1_type, arg1_name, arg2_type, arg2_name) \
-	int name(thread_t *thread, ...); \
-	SYSCALL(n, name, 2); \
+	int _do_##name(thread_t *thread, arg1_type arg1_name, arg2_type arg2_name); \
 	int name(thread_t *thread, ...) { \
 		va_list ap; \
 		va_start(ap, thread); \
 		arg1_type arg1_name=va_arg(ap, arg1_type); \
 		arg2_type arg2_name=va_arg(ap, arg2_type); \
-		va_end(ap);
+		va_end(ap); \
+		return _do_##name(thread, arg1_name, arg2_name); \
+	}\
+	SYSCALL(n, name, 2); \
+	int _do_##name(thread_t *thread, arg1_type arg1_name, arg2_type arg2_name)
 
 #define DEFINE_SYSCALL3(name, n, arg1_type, arg1_name, arg2_type, arg2_name, arg3_type, arg3_name) \
-	int name(thread_t *thread, ...); \
-	SYSCALL(n, name, 3); \
+	int _do_##name(thread_t *thread, arg1_type arg1_name, arg2_type arg2_name, arg3_type arg3_name); \
 	int name(thread_t *thread, ...) { \
 		va_list ap; \
 		va_start(ap, thread); \
 		arg1_type arg1_name=va_arg(ap, arg1_type); \
 		arg2_type arg2_name=va_arg(ap, arg2_type); \
 		arg3_type arg3_name=va_arg(ap, arg3_type); \
-		va_end(ap);
+		va_end(ap); \
+		return _do_##name(thread, arg1_name, arg2_name, arg3_name); \
+	}\
+	SYSCALL(n, name, 3); \
+	int _do_##name(thread_t *thread, arg1_type arg1_name, arg2_type arg2_name, arg3_type arg3_name)
 
 #define DEFINE_SYSCALL4(name, n, arg1_type, arg1_name, arg2_type, arg2_name, arg3_type, arg3_name, arg4_type, arg4_name) \
-	int name(thread_t *thread, ...); \
-	int _do_name(thread_t *thread, ...); \
-	SYSCALL(n, name, 4); \
+	int _do_##name(thread_t *thread, arg1_type arg1_name, arg2_type arg2_name, arg3_type arg3_name, arg4_type arg4_name); \
 	int name(thread_t *thread, ...) { \
 		va_list ap; \
 		va_start(ap, thread); \
@@ -77,11 +84,13 @@ void syscall_init();
 		arg2_type arg2_name=va_arg(ap, arg2_type); \
 		arg3_type arg3_name=va_arg(ap, arg3_type); \
 		arg4_type arg4_name=va_arg(ap, arg4_type); \
-		va_end(ap);
+		va_end(ap); \
+		return _do_##name(thread, arg1_name, arg2_name, arg3_name, arg4_name); \
+	} \
+	SYSCALL(n, name, 4); \
 
 #define DEFINE_SYSCALL5(name, n, arg1_type, arg1_name, arg2_type, arg2_name, arg3_type, arg3_name, arg4_type, arg4_name, arg5_type, arg5_name) \
-	int name(thread_t *thread, ...); \
-	SYSCALL(n, name, 5); \
+	int _do_##name(thread_t *thread, arg1_type arg1_name, arg2_type arg2_name, arg3_type arg3_name, arg4_type arg4_name, arg5_type arg5_name); \
 	int name(thread_t *thread, ...) { \
 		va_list ap; \
 		va_start(ap, thread); \
@@ -90,7 +99,12 @@ void syscall_init();
 		arg3_type arg3_name=va_arg(ap, arg3_type); \
 		arg4_type arg4_name=va_arg(ap, arg4_type); \
 		arg5_type arg5_name=va_arg(ap, arg5_type); \
-		va_end(ap);
+		va_end(ap); \
+		return _do_##name(thread, arg1_name, arg2_name, arg3_name, arg4_name, arg5_name); \
+	 } \
+	SYSCALL(n, name, 5); \
+	int _do_##name(thread_t *thread, arg1_type arg1_name, arg2_type arg2_name, arg3_type arg3_name, arg4_type arg4_name, arg5_type arg5_name)
+
 
 void syscall0(uint64_t syscall_no);
 void syscall1(uint64_t syscall_no, uint64_t arg0);

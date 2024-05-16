@@ -4,7 +4,8 @@
 #include <kernel/tty.h>
 #include <kernel/uaccess.h>
 
-DEFINE_SYSCALL2(writeconsole, SYSCALL_CONSOLE_WRITE, void*, c, size_t, n)
+DEFINE_SYSCALL2(writeconsole, SYSCALL_CONSOLE_WRITE, void *, c, size_t, n)
+{
 	if (n > 40960)
 		return -2;
 

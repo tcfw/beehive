@@ -68,6 +68,9 @@ clean:
 	rm -f $(OBJS:.o=.d) *.d */*.d */*/*.d
 	rm -rf $(BUILD_DIR)
 
+test:
+	CFLAGS=-DRUN_SELF_TESTS=1 make
+
 u-boot-script:
 	../u-boot/tools/mkimage -f ./arch/aarch64/scripts/u-boot.its beehive.itb 
 	mv ./beehive.itb ../initrd/boot.scr

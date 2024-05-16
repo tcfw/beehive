@@ -4,7 +4,8 @@
 #include <kernel/thread.h>
 #include <kernel/uaccess.h>
 
-DEFINE_SYSCALL1(syscall_kname, SYSCALL_KNAME, struct sysinfo*, buf)
+DEFINE_SYSCALL1(syscall_kname, SYSCALL_KNAME, struct sysinfo *, buf)
+{
 	int access = access_ok(ACCESS_TYPE_WRITE, buf, sizeof(struct sysinfo));
 	if (access < 0)
 		return access;
