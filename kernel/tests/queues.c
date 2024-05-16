@@ -18,29 +18,29 @@ NAMED_TEST("mq_open_id", test_mq_open_id)
 	if (ret <= 0)
 	{
 		terminal_logf("unexpected mq_open result, got %d, was expecting 0", ret);
-		free_thread(t);
+		mark_zombie_thread(t);
 		TEST_FAIL
 	}
 
 	if (list_empty(t->process->queues))
 	{
-		free_thread(t);
+		mark_zombie_thread(t);
 		TEST_FAIL_MSG("thread has no queue refs");
 	}
 
 	if (queues_get_skl()->size != 1)
 	{
-		free_thread(t);
+		mark_zombie_thread(t);
 		TEST_FAIL_MSG("queues skl should have 1 queue");
 	}
 
 	if (syscall_mq_close(t, ret) < 0)
 	{
-		free_thread(t);
+		mark_zombie_thread(t);
 		TEST_FAIL_MSG("failed to clean queue");
 	}
 
-	free_thread(t);
+	mark_zombie_thread(t);
 
 	TEST_PASS
 }
@@ -59,13 +59,13 @@ NAMED_TEST("mq_open_named", test_mq_open_named)
 	if (ret <= 0)
 	{
 		terminal_logf("unexpected mq_open result, got %d, was expecting 0", ret);
-		free_thread(t);
+		mark_zombie_thread(t);
 		TEST_FAIL
 	}
 
 	if (list_empty(t->process->queues))
 	{
-		free_thread(t);
+		mark_zombie_thread(t);
 		TEST_FAIL_MSG("thread has no queue refs");
 	}
 
@@ -74,23 +74,23 @@ NAMED_TEST("mq_open_named", test_mq_open_named)
 	queue_list_entry_t *nq = queues_find_by_entry(&sq);
 	if (nq == NULL)
 	{
-		free_thread(t);
+		mark_zombie_thread(t);
 		TEST_FAIL_MSG("no named queue created");
 	}
 
 	if (queues_get_skl()->size != 1)
 	{
-		free_thread(t);
+		mark_zombie_thread(t);
 		TEST_FAIL_MSG("queues skl should have 1 queue");
 	}
 
 	if (syscall_mq_close(t, ret) < 0)
 	{
-		free_thread(t);
+		mark_zombie_thread(t);
 		TEST_FAIL_MSG("failed to clean queue");
 	}
 
-	free_thread(t);
+	mark_zombie_thread(t);
 
 	TEST_PASS
 }
@@ -109,7 +109,7 @@ NAMED_TEST("mq_send_named", test_mq_send_named)
 	if (qid <= 0)
 	{
 		terminal_logf("unexpected mq_open result, got %d, was expecting 0", qid);
-		free_thread(t);
+		mark_zombie_thread(t);
 		TEST_FAIL
 	}
 
@@ -123,7 +123,7 @@ NAMED_TEST("mq_send_named", test_mq_send_named)
 	if (ret < 0)
 	{
 		terminal_logf("unexpected mq_send result, got %d, was expecting 0", ret);
-		free_thread(t);
+		mark_zombie_thread(t);
 		TEST_FAIL
 	}
 
@@ -132,23 +132,23 @@ NAMED_TEST("mq_send_named", test_mq_send_named)
 	queue_list_entry_t *nq = queues_find_by_entry(&sq);
 	if (nq == NULL)
 	{
-		free_thread(t);
+		mark_zombie_thread(t);
 		TEST_FAIL_MSG("couldn't find related queue");
 	}
 
 	if (list_empty(((queue_t *)nq->queues.next)->buffer))
 	{
-		free_thread(t);
+		mark_zombie_thread(t);
 		TEST_FAIL_MSG("queue buffer was empty");
 	}
 
 	if (syscall_mq_close(t, qid) < 0)
 	{
-		free_thread(t);
+		mark_zombie_thread(t);
 		TEST_FAIL_MSG("failed to clean queue");
 	}
 
-	free_thread(t);
+	mark_zombie_thread(t);
 	TEST_PASS
 }
 
@@ -166,7 +166,7 @@ NAMED_TEST("mq_send_named_max_msg_count", test_mq_send_named_max_msg_count)
 	if (qid <= 0)
 	{
 		terminal_logf("unexpected mq_open result, got %d, was expecting 0", qid);
-		free_thread(t);
+		mark_zombie_thread(t);
 		TEST_FAIL
 	}
 
@@ -174,7 +174,7 @@ NAMED_TEST("mq_send_named_max_msg_count", test_mq_send_named_max_msg_count)
 	if (ret < 0)
 	{
 		terminal_logf("unexpected mq_ctrl result, got %d, was expecting 0", ret);
-		free_thread(t);
+		mark_zombie_thread(t);
 		TEST_FAIL
 	}
 
@@ -189,7 +189,7 @@ NAMED_TEST("mq_send_named_max_msg_count", test_mq_send_named_max_msg_count)
 	if (ret < 0)
 	{
 		terminal_logf("unexpected mq_send result, got %d, was expecting 0", ret);
-		free_thread(t);
+		mark_zombie_thread(t);
 		TEST_FAIL
 	}
 
@@ -198,7 +198,7 @@ NAMED_TEST("mq_send_named_max_msg_count", test_mq_send_named_max_msg_count)
 	if (ret < 0)
 	{
 		terminal_logf("unexpected mq_send result, got %d, was expecting 0", ret);
-		free_thread(t);
+		mark_zombie_thread(t);
 		TEST_FAIL
 	}
 
@@ -206,29 +206,29 @@ NAMED_TEST("mq_send_named_max_msg_count", test_mq_send_named_max_msg_count)
 	queue_list_entry_t *nq = queues_find_by_entry(&sq);
 	if (nq == NULL)
 	{
-		free_thread(t);
+		mark_zombie_thread(t);
 		TEST_FAIL_MSG("couldn't find related queue");
 	}
 
 	if (list_empty(((queue_t *)nq->queues.next)->buffer))
 	{
-		free_thread(t);
+		mark_zombie_thread(t);
 		TEST_FAIL_MSG("queue buffer was empty");
 	}
 
 	if (t->state != THREAD_SLEEPING)
 	{
-		free_thread(t);
+		mark_zombie_thread(t);
 		TEST_FAIL_MSG("thread should have gone to sleep");
 	}
 
 	if (syscall_mq_close(t, qid) < 0)
 	{
-		free_thread(t);
+		mark_zombie_thread(t);
 		TEST_FAIL_MSG("failed to clean queue");
 	}
 
-	free_thread(t);
+	mark_zombie_thread(t);
 	TEST_PASS
 }
 
@@ -246,7 +246,7 @@ NAMED_TEST("mq_recv_named", test_mq_recv_named)
 	if (qid <= 0)
 	{
 		terminal_logf("unexpected mq_open result, got %d, was expecting 0", qid);
-		free_thread(t);
+		mark_zombie_thread(t);
 		TEST_FAIL
 	}
 
@@ -261,7 +261,7 @@ NAMED_TEST("mq_recv_named", test_mq_recv_named)
 	if (ret < 0)
 	{
 		terminal_logf("unexpected mq_send result, got %d, was expecting 0", ret);
-		free_thread(t);
+		mark_zombie_thread(t);
 		TEST_FAIL
 	}
 
@@ -271,14 +271,14 @@ NAMED_TEST("mq_recv_named", test_mq_recv_named)
 	if (ret < 0)
 	{
 		terminal_logf("unexpected mq_recv results, got %d, was expected greater than 0", ret);
-		free_thread(t);
+		mark_zombie_thread(t);
 		TEST_FAIL
 	}
 
 	if (strcmp(data, (char *)recv_buf) != 0)
 	{
 		terminal_logf("unexpected buf comparion, got %s, was expected %s", (char *)recv_buf, data);
-		free_thread(t);
+		mark_zombie_thread(t);
 		TEST_FAIL
 	}
 
@@ -288,23 +288,23 @@ NAMED_TEST("mq_recv_named", test_mq_recv_named)
 	queue_list_entry_t *nq = queues_find_by_entry(&sq);
 	if (nq == NULL)
 	{
-		free_thread(t);
+		mark_zombie_thread(t);
 		TEST_FAIL_MSG("couldn't find related queue");
 	}
 
 	if (!list_empty(((queue_t *)nq->queues.next)->buffer))
 	{
-		free_thread(t);
+		mark_zombie_thread(t);
 		TEST_FAIL_MSG("queue buffer was not empty");
 	}
 
 	if (syscall_mq_close(t, qid) < 0)
 	{
-		free_thread(t);
+		mark_zombie_thread(t);
 		TEST_FAIL_MSG("failed to clean queue");
 	}
 
-	free_thread(t);
+	mark_zombie_thread(t);
 	TEST_PASS
 }
 
@@ -324,7 +324,7 @@ NAMED_TEST("mq_cross_thread_send_recv", test_mq_cross_thread_send_recv)
 	if (qid <= 0)
 	{
 		terminal_logf("unexpected mq_open result, got %d, was expecting 0", qid);
-		free_thread(t);
+		mark_zombie_thread(t);
 		TEST_FAIL
 	}
 
@@ -340,12 +340,12 @@ NAMED_TEST("mq_cross_thread_send_recv", test_mq_cross_thread_send_recv)
 	if (ret < 0)
 	{
 		terminal_logf("unexpected mq_send result, got %d, was expecting 0", ret);
-		free_thread(t2);
-		free_thread(t);
+		mark_zombie_thread(t2);
+		mark_zombie_thread(t);
 		TEST_FAIL
 	}
 
-	free_thread(t2);
+	mark_zombie_thread(t2);
 
 	// switch back to the first thread
 	set_current_thread(t);
@@ -355,14 +355,14 @@ NAMED_TEST("mq_cross_thread_send_recv", test_mq_cross_thread_send_recv)
 	if (ret < 0)
 	{
 		terminal_logf("unexpected mq_recv results, got %d, was expected greater than 0", ret);
-		free_thread(t);
+		mark_zombie_thread(t);
 		TEST_FAIL
 	}
 
 	if (strcmp(data, (char *)recv_buf) != 0)
 	{
 		terminal_logf("unexpected buf comparion, got %s, was expected %s", (char *)recv_buf, data);
-		free_thread(t);
+		mark_zombie_thread(t);
 		TEST_FAIL
 	}
 
@@ -372,22 +372,22 @@ NAMED_TEST("mq_cross_thread_send_recv", test_mq_cross_thread_send_recv)
 	queue_list_entry_t *nq = queues_find_by_entry(&sq);
 	if (nq == NULL)
 	{
-		free_thread(t);
+		mark_zombie_thread(t);
 		TEST_FAIL_MSG("couldn't find related queue");
 	}
 
 	if (!list_empty(((queue_t *)nq->queues.next)->buffer))
 	{
-		free_thread(t);
+		mark_zombie_thread(t);
 		TEST_FAIL_MSG("queue buffer was not empty");
 	}
 
 	if (syscall_mq_close(t, qid) < 0)
 	{
-		free_thread(t);
+		mark_zombie_thread(t);
 		TEST_FAIL_MSG("failed to clean queue");
 	}
 
-	free_thread(t);
+	mark_zombie_thread(t);
 	TEST_PASS
 }

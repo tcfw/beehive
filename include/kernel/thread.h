@@ -3,8 +3,10 @@
 
 #include <kernel/clock.h>
 #include <kernel/context.h>
+#include <kernel/futex.h>
 #include <kernel/limits.h>
 #include <kernel/list.h>
+#include <kernel/paging.h>
 #include <kernel/sched.h>
 #include <kernel/signal.h>
 #include <kernel/stdint.h>
@@ -22,17 +24,6 @@ enum Process_State
 	STOPPED,
 	ZOMBIE,
 };
-
-typedef struct vm_mapping {
-	struct list_head list;
-	
-	uintptr_t phy_addr;
-	uintptr_t vm_addr;
-	size_t length;
-	int flags;
-
-	uint64_t *pg;
-} vm_mapping;
 
 typedef struct vm_t {
 	vm_table *vm_table;
@@ -111,6 +102,14 @@ struct thread_wait_cond_queue_io
 	void *buf;
 };
 
+typedef struct futex_queue_t futex_queue_t;
+struct thread_wait_cond_futex {
+	thread_wait_cond cond;
+
+	futex_queue_t *queue;
+	int ret;
+};
+
 typedef struct thread_timing_t
 {
 	uint64_t total_execution;
@@ -130,6 +129,7 @@ typedef struct thread_t
 {
 	process_t *process;
 	tid_t tid;
+	char name[TNAME_MAX];
 
 	context_t ctx;
 	uint64_t flags;
@@ -191,6 +191,6 @@ int can_wake_thread(thread_t *thread);
 
 thread_t *get_thread_by_pid(pid_t pid);
 
-void free_thread(thread_t *thread);
+void mark_zombie_thread(thread_t *thread);
 
 #endif

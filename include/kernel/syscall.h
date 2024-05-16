@@ -68,6 +68,7 @@ void syscall_init();
 
 #define DEFINE_SYSCALL4(name, n, arg1_type, arg1_name, arg2_type, arg2_name, arg3_type, arg3_name, arg4_type, arg4_name) \
 	int name(thread_t *thread, ...); \
+	int _do_name(thread_t *thread, ...); \
 	SYSCALL(n, name, 4); \
 	int name(thread_t *thread, ...) { \
 		va_list ap; \

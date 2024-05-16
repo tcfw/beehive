@@ -2,6 +2,10 @@
 #define _KERNEL_SYNC_H
 
 #include <kernel/stdbool.h>
+#include <barriers.h>
+
+#define memory_barrier arch_mb
+#define instruction_barrier arch_ib
 
 typedef unsigned int spinlock_t;
 

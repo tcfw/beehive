@@ -97,15 +97,15 @@ thread_t *sched_get_pending(uint64_t affinity)
 		return 0;
 	}
 
-	struct thread_list_entry_t *current;
+	struct thread_list_entry_t *this;
 	struct thread_list_entry_t *tmp;
-	list_head_for_each_safe(current, tmp, &pending)
+	list_head_for_each_safe(this, tmp, &pending)
 	{
-		if ((current->thread->affinity & affinity) != 0)
+		if ((this->thread->affinity & affinity) != 0)
 		{
-			thread_t *thread = current->thread;
-			list_del((struct list_head *)current);
-			page_free(current);
+			thread_t *thread = this->thread;
+			list_del((struct list_head *)this);
+			page_free(this);
 			spinlock_release(&pending_lock);
 			return thread;
 		}

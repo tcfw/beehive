@@ -38,12 +38,12 @@ void global_clock_init()
 
 void timespec_from_cs(struct clocksource_t *cs, timespec_t *ts)
 {
-	uint64_t current = cs->val(cs);
+	uint64_t cc = cs->val(cs);
 	uint64_t freq = cs->getFreq(cs);
 
-	uint64_t seconds = current / freq;
+	uint64_t seconds = cc / freq;
 	uint64_t clock_nanos = (uint64_t)((1.0 / (double)freq) * 1000000000.0);
-	uint64_t nano = (current - (seconds * freq)) * clock_nanos;
+	uint64_t nano = (cc - (seconds * freq)) * clock_nanos;
 	ts->seconds = seconds;
 	ts->nanoseconds = nano;
 }

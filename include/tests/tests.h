@@ -90,6 +90,12 @@ typedef struct test_func_ptr_t
 		TEST_FAIL          \
 	}
 
+#define TEST_FAIL_MSGF(msg, __VA_ARGS__) \
+	{                      \
+		terminal_logf(msg, __VA_ARGS__); \
+		TEST_FAIL          \
+	}
+
 #define TEST_FAIL \
 	return -1;
 

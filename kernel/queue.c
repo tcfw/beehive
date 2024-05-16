@@ -285,7 +285,6 @@ DEFINE_SYSCALL3(syscall_mq_send, SYSCALL_MQ_SEND, const struct mq_send_params*, 
 		refCount++;
 	}
 
-	struct clocksource_t *cs=clock_first(CS_GLOBAL);
 
 	queue_buffer_t *buf;
 	if (dlen < PAGE_SIZE) {
@@ -296,9 +295,13 @@ DEFINE_SYSCALL3(syscall_mq_send, SYSCALL_MQ_SEND, const struct mq_send_params*, 
 
 	buf->len=dlen;
 	buf->refs=refCount;
+	buf->sender=thread->process->pid;
+
+	struct clocksource_t *cs=clock_first(CS_GLOBAL);
 	timespec_from_cs(cs, &buf->recv);
 	spinlock_init(&buf->lock);
 	copy_from_user(data, buf->buf, dlen);
+	
 	spinlock_acquire(&queue->lock);
 
 	struct thread_wait_cond_queue_io *wc=NULL;

@@ -87,6 +87,7 @@ typedef struct queue_buffer_t {
 	uint32_t refs;
 
 	timespec_t recv;
+	pid_t sender;
 
 	size_t len;
 	const char buf[];

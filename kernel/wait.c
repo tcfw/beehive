@@ -14,16 +14,16 @@ void try_wake_waitqueue(waitqueue_head_t *wq)
 	{
 		cls_t *cls = get_cls();
 
-		waitqueue_entry_t *current;
+		waitqueue_entry_t *this;
 		waitqueue_entry_t *tmp;
-		list_head_for_each_safe(current, tmp, &wq->head)
+		list_head_for_each_safe(this, tmp, &wq->head)
 		{
-			if (current->func(current, current->data) > 0)
+			if (this->func(this, this->data) > 0)
 			{
-				wake_thread(current->thread);
-				current->thread->sched_class->enqueue_thread(&cls->rq, current->thread);
-				list_del(current);
-				kfree(current);
+				wake_thread(this->thread);
+				this->thread->sched_class->enqueue_thread(&cls->rq, this->thread);
+				list_del(this);
+				kfree(this);
 			}
 		}
 	}

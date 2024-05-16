@@ -45,7 +45,7 @@ static vm_table_block *vm_table_entry_to_block(uint64_t *entry)
 
 vm_table *vm_get_current_table()
 {
-	thread_t *thread = get_cls()->rq.current_thread;
+	thread_t *thread = current;
 	if (thread != 0)
 	{
 		vm_table *uvm = thread->process->vm.vm_table;
@@ -728,4 +728,43 @@ void vm_init()
 
 void vm_init_post_enable()
 {
+}
+
+void populate_kernel_vm_maps(vm_t *kernel_vm) {
+	vm_mapping *dev_region = (vm_mapping*)kmalloc(sizeof(vm_mapping));
+	vm_mapping *mem_region = (vm_mapping*)kmalloc(sizeof(vm_mapping));
+	vm_mapping *desc_region = (vm_mapping*)kmalloc(sizeof(vm_mapping));
+
+	dev_region->phy_addr = PHY_DEVICE_REGION;
+	dev_region->vm_addr = DEVICE_REGION;
+	dev_region->length = 4096;
+
+	mem_region->phy_addr = (uintptr_t)ram_start();
+	mem_region->vm_addr = (uintptr_t)ram_start()+VIRT_OFFSET;
+	mem_region->length = (size_t)ram_size()-1;
+	mem_region->flags = VM_MAP_FLAG_SHARED;
+
+	desc_region->phy_addr = PHY_DEVICE_DESCRIPTOR_REGION;
+	desc_region->vm_addr = DEVICE_DESCRIPTOR_REGION;
+	desc_region->length = 0x100000 - 1;
+
+	list_add(dev_region, &kernel_vm->vm_maps);
+	list_add(mem_region, &kernel_vm->vm_maps);
+	list_add(desc_region, &kernel_vm->vm_maps);
+}
+
+int current_vm_region_shared(uintptr_t uaddr, size_t len) {
+	vm_mapping *this;
+	struct list_head *vm_maps = (struct list_head *)&current->process->vm.vm_maps;
+	
+	list_head_for_each(this, vm_maps) {
+		if (!(this->vm_addr <= uaddr && this->vm_addr+this->length >= uaddr+len))
+			continue;
+
+		if(this->flags & VM_MAP_FLAG_SHARED) {
+			return 1;
+		}
+	}
+
+	return 0;
 }

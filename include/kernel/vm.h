@@ -1,8 +1,9 @@
 #ifndef _KERNEL_VM_H
 #define _KERNEL_VM_H
 
-#include <kernel/paging.h>
+#include <kernel/cls.h>
 #include <kernel/list.h>
+#include <kernel/paging.h>
 #include <kernel/thread.h>
 #include <kernel/unistd.h>
 
@@ -74,5 +75,24 @@ enum AccessType
 
 // Checks if the user space is allowed by the current task
 int access_ok(enum AccessType type, void *addr, size_t n);
+
+#define VM_MAP_FLAG_SHARED (1)
+
+typedef struct vm_mapping {
+	struct list_head list;
+	
+	uintptr_t phy_addr;
+	uintptr_t vm_addr;
+	size_t length;
+	int flags;
+
+	uint64_t *pg;
+} vm_mapping;
+
+int current_vm_region_shared(uintptr_t uaddr, size_t len);
+
+typedef struct vm_t vm_t;
+
+void populate_kernel_vm_maps(vm_t *kernel_vm);
 
 #endif

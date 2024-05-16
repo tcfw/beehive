@@ -35,6 +35,9 @@ void init_kthread_proc() {
 	strcpy(kthreads_proc.cmd, "kthread");
 
 	kthreads_proc.vm.vm_table = vm_get_kernel();
+	INIT_LIST_HEAD(&kthreads_proc.vm.vm_maps);
+
+	populate_kernel_vm_maps(&kthreads_proc.vm);
 }
 
 void init_thread(thread_t *thread)
@@ -68,6 +71,7 @@ thread_t *create_kthread(void(entry)(void *), const char *name, void *data)
 	thread->affinity = ~0;
 	thread->flags = THREAD_KTHREAD;
 	thread->process = &kthreads_proc;
+	strcpy(&thread->name, name);
 
 	thread->sched_class = sched_get_class(SCHED_CLASS_LRF);
 
@@ -114,6 +118,11 @@ static void thread_wake_from_queue_io(thread_t *thread)
 {
 }
 
+static void thread_wake_from_wait(thread_t *thread)
+{
+
+}
+
 void wake_thread(thread_t *thread)
 {
 	if (thread->wc)
@@ -126,9 +135,13 @@ void wake_thread(thread_t *thread)
 		case QUEUE_IO:
 			thread_wake_from_queue_io(thread);
 			break;
+		case WAIT:
+			thread_wake_from_wait(thread);
+			break;
 		}
 
 		kfree(thread->wc);
+		thread->wc = NULL;
 	}
 
 	thread->state = THREAD_RUNNING;
@@ -220,19 +233,19 @@ void thread_wait_for_cond(thread_t *thread, const thread_wait_cond *cond)
 
 thread_t *get_thread_by_pid(pid_t pid)
 {
-	thread_list_entry_t *current;
-	list_head_for_each(current, &threads)
+	thread_list_entry_t *this;
+	list_head_for_each(this, &threads)
 	{
-		if (current->thread->process->pid == pid && current->thread->tid == (tid_t)pid)
+		if (this->thread->process->pid == pid && this->thread->tid == (tid_t)pid)
 		{
-			return current->thread;
+			return this->thread;
 		}
 	}
 
 	return 0;
 }
 
-void free_thread(thread_t *thread)
+void mark_zombie_thread(thread_t *thread)
 {
 	thread->state = ZOMBIE;
 

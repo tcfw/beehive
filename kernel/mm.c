@@ -84,19 +84,19 @@ void page_alloc_init()
 	{
 		// TODO(tcfw): support memory holes & NUMA layouts
 
-		struct buddy_t *current = (struct buddy_t *)(prev + 1);
-		current->size = BUDDY_ARENA_SIZE;
-		current->arena = prev->arena + prev->size;
-		buddy_init(current);
+		struct buddy_t *cb = (struct buddy_t *)(prev + 1);
+		cb->size = BUDDY_ARENA_SIZE;
+		cb->arena = prev->arena + prev->size;
+		buddy_init(cb);
 
 		// partial buddy
-		if ((uintptr_t)(current->arena + current->size) > ram_max_addr)
-			current->size = ram_max_addr - (uint64_t)current->arena;
+		if ((uintptr_t)(cb->arena + cb->size) > ram_max_addr)
+			cb->size = ram_max_addr - (uint64_t)cb->arena;
 
-		// terminal_logf("Buddy: *0x%X size: 0x%X arena: 0x%X", current, current->size, current->arena);
+		// terminal_logf("Buddy: *0x%X size: 0x%X arena: 0x%X", cb, cb->size, cb->arena);
 
-		prev->next = current;
-		prev = current;
+		prev->next = cb;
+		prev = cb;
 	}
 
 	terminal_logf("End of pages arena: 0x%X", (uintptr_t)(prev->arena + prev->size));
@@ -135,15 +135,15 @@ void page_reloc(uintptr_t offset)
 {
 	pages = (struct buddy_t *)((void *)pages + offset);
 
-	struct buddy_t *current = pages;
+	struct buddy_t *cb = pages;
 
-	while (current != 0)
+	while (cb != 0)
 	{
-		current->arena = (unsigned char *)((void *)current->arena + offset);
-		if (current->next != 0)
-			current->next = (struct buddy_t *)((void *)current->next + offset);
+		cb->arena = (unsigned char *)((void *)cb->arena + offset);
+		if (cb->next != 0)
+			cb->next = (struct buddy_t *)((void *)cb->next + offset);
 
-		current = current->next;
+		cb = cb->next;
 	}
 }
 

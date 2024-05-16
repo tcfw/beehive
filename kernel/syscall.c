@@ -15,7 +15,7 @@ struct syscall_handler_t syscall_handlers[SYSCALL_MAX];
 int ksyscall_entry(uint64_t type, uint64_t arg0, uint64_t arg1, uint64_t arg2, uint64_t arg3)
 {
 	struct clocksource_t *clk = clock_first(CS_GLOBAL);
-	thread_t *cthread = get_cls()->rq.current_thread;
+	thread_t *cthread = current;
 
 	uint64_t clkval = clk->val(clk);
 	if ((cthread->flags & THREAD_KTHREAD) == 0)

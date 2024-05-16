@@ -4,6 +4,7 @@
 #include <kernel/cls.h>
 #include <kernel/devices.h>
 #include <kernel/devicetree.h>
+#include <kernel/futex.h>
 #include <kernel/irq.h>
 #include <kernel/mm.h>
 #include <kernel/modules.h>
@@ -42,8 +43,6 @@ static void setup_init_threads(void)
     //     terminal_logf("failed to map user region: 0x%x", r);
 
     // sched_append_pending(init);
-
-    init_kthread_proc();
 
     thread_t *kthread1 = create_kthread(&thread_test, "[hello world]", (void *)"test");
     sched_append_pending(kthread1);
@@ -89,8 +88,10 @@ void kernel_main(void)
     sched_init();
     syscall_init();
     queues_init();
+    futex_init();
     mod_init();
     discover_devices();
+    init_kthread_proc();
 
     if (RUN_SELF_TESTS == 1)
     {

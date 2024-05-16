@@ -34,7 +34,7 @@ extern unsigned long stack;
 	uint64_t spsr = 0;                                        \
 	__asm__ volatile("mrs %0, SPSR_EL1"                       \
 					 : "=r"(spsr));                           \
-	thread_t *thread = get_cls()->rq.current_thread;          \
+	thread_t *thread = current;                               \
 	int didsave = 0;                                          \
 	int iskthread = 0;                                        \
 	if (thread != 0)                                          \
@@ -46,7 +46,7 @@ extern unsigned long stack;
 	}
 
 #define KEXP_BOT3                                    \
-	thread_t *next = get_cls()->rq.current_thread;   \
+	thread_t *next = current;                        \
 	if (next != thread && didsave)                   \
 	{                                                \
 		thread = next;                               \
@@ -73,6 +73,8 @@ void k_exphandler_swi_entry(uintptr_t trapFrame)
 		return;
 	}
 
+	set_cls_irq_cause(INTERRUPT_CAUSE_SWI);
+
 	uint64_t x0, x1, x2, x3, x4;
 	x0 = thread->ctx.regs[0];
 	x1 = thread->ctx.regs[1];
@@ -81,13 +83,20 @@ void k_exphandler_swi_entry(uintptr_t trapFrame)
 	x4 = thread->ctx.regs[4];
 
 	volatile int ret = ksyscall_entry(x0, x1, x2, x3, x4);
-	thread->ctx.regs[0] = ret;
+	if (current == thread)
+		thread->ctx.regs[0] = ret;
+
+	clear_cls_irq_cause();
 
 	uint64_t *pending_irq = &get_cls()->pending_irq;
 	if (*pending_irq)
 	{
+		set_cls_irq_cause(INTERRUPT_CAUSE_PENDING_IRQ);
+
 		k_deferred_exphandler(ARM4_XRQ_IRQ, *pending_irq);
-		pending_irq = 0;
+		*pending_irq = 0;
+
+		clear_cls_irq_cause();
 	}
 
 	// clear ESR
@@ -126,13 +135,16 @@ void k_exphandler_irq(uintptr_t trapFrame)
 	__asm__ volatile("MRS %0, ESR_EL1"
 					 : "=r"(esr));
 
-	if (ESR_EXCEPTION_CLASS(esr) == ESR_EXCEPTION_SVC)
-	{
+	if (get_cls_irq_cause() == INTERRUPT_CAUSE_SWI) {
 		// defer IRQ until syscall is complete
 		get_cls()->pending_irq |= (1 << xrq);
-	}
-	else
+	} else {
+		set_cls_irq_cause(INTERRUPT_CAUSE_IRQ);
+
 		k_exphandler(ARM4_XRQ_IRQ, xrq, 0);
+
+		clear_cls_irq_cause();
+	}
 
 	KEXP_BOT3;
 }

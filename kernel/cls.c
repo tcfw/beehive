@@ -38,9 +38,5 @@ cls_t *get_core_cls(uint8_t n)
 
 void set_current_thread(thread_t *thread)
 {
-	cls_t *cls=get_cls();
-
-	cls->rq.current_thread = thread;
-	__asm__ volatile("MSR SPSR_EL1, %0" :: "r"(thread->ctx.spsr));
-	__asm__ volatile("MSR ELR_EL1, %0" :: "r"(thread->ctx.pc));
+	get_cls()->rq.current_thread = thread;
 }

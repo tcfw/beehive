@@ -5,7 +5,7 @@ ARCHEXT?=-none-eabi
 
 CFLAGS?=-O2 -g -fPIC -fpatchable-function-entry=2,2 # -Wstack-usage=131072
 CPPFLAGS?=
-LDFLAGS?=
+LDFLAGS?=-g
 LIBS?=
 
 BUILD_DIR:=.build
