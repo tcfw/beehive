@@ -107,7 +107,7 @@ DEFINE_SYSCALL1(syscall_mq_open, SYSCALL_MQ_OPEN, const struct mq_open_params *,
 	if (id == 0)
 		return -ERREXHAUSTED;
 
-	queue_t *queue = (queue_t *)kmalloc(sizeof(queue_t));
+	queue_t *queue = kmalloc(sizeof(queue_t));
 
 	queue->max_msg_size = MAX_MQ_MSG_SIZE;
 	if (params->max_msg_size != 0)
@@ -121,13 +121,13 @@ DEFINE_SYSCALL1(syscall_mq_open, SYSCALL_MQ_OPEN, const struct mq_open_params *,
 	INIT_WAITQUEUE(&queue->waiters);
 	INIT_LIST_HEAD(&queue->buffer);
 
-	queue_ref_t *ref = (queue_ref_t *)kmalloc(sizeof(queue_ref_t));
+	queue_ref_t *ref = kmalloc(sizeof(queue_ref_t));
 	ref->queue = queue;
-	list_add(ref, &thread->process->queues);
+	list_add(&ref->list, &thread->process->queues);
 
 	if (nq == 0)
 	{
-		nq = (queue_list_entry_t *)kmalloc(sizeof(queue_list_entry_t));
+		nq = kmalloc(sizeof(*nq));
 		INIT_LIST_HEAD(&nq->queues);
 
 		nq->owner = thread->process->pid;
@@ -141,10 +141,10 @@ DEFINE_SYSCALL1(syscall_mq_open, SYSCALL_MQ_OPEN, const struct mq_open_params *,
 	queue->entry = nq;
 
 	spinlock_acquire(&nq->lock);
-	list_add_tail(queue, &nq->queues);
+	list_add_tail(&queue->list, &nq->queues);
 	spinlock_release(&nq->lock);
 
-	return queue->id;
+	return (uint64_t)queue->id;
 }
 
 DEFINE_SYSCALL1(syscall_mq_close, SYSCALL_MQ_CLOSE, const uint32_t, id)
@@ -266,7 +266,7 @@ DEFINE_SYSCALL3(syscall_mq_send, SYSCALL_MQ_SEND, const struct mq_send_params *,
 	queue_list_entry_t *entry;
 	queue_t *queue = NULL;
 
-	queue_list_entry_t *sq = (queue_list_entry_t *)kmalloc(sizeof(queue_list_entry_t));
+	queue_list_entry_t *sq = kmalloc(sizeof(queue_list_entry_t));
 	copy_from_user(&params->name, &sq->name, MAX_MQ_NAME_SIZE);
 	if (sq->name[0] == 0)
 	{
@@ -297,7 +297,7 @@ DEFINE_SYSCALL3(syscall_mq_send, SYSCALL_MQ_SEND, const struct mq_send_params *,
 	queue_buffer_t *buf;
 	if (dlen < PAGE_SIZE)
 	{
-		buf = (queue_buffer_t *)kmalloc(sizeof(queue_buffer_t) + dlen);
+		buf = kmalloc(sizeof(*buf) + dlen);
 	}
 	else
 	{
@@ -323,33 +323,33 @@ DEFINE_SYSCALL3(syscall_mq_send, SYSCALL_MQ_SEND, const struct mq_send_params *,
 		{
 			if (wc == NULL)
 			{
-				wc = (struct thread_wait_cond_queue_io *)kmalloc(sizeof(struct thread_wait_cond_queue_io));
+				wc = kmalloc(sizeof(*wc));
 				INIT_LIST_HEAD(&wc->queues);
 				wc->buf = buf;
 				wc->cond.type = QUEUE_IO;
 				wc->flags = THREAD_QUEUE_IO_WRITE;
 			}
 
-			queue_ref_t *qr = (queue_ref_t *)kmalloc(sizeof(queue_ref_t));
+			queue_ref_t *qr = kmalloc(sizeof(queue_ref_t));
 			qr->queue = queue;
 
-			list_add(qr, &wc->queues);
+			list_add(&qr->list, &wc->queues);
 
-			waitqueue_entry_t *wqe = (waitqueue_entry_t *)kmalloc(sizeof(waitqueue_entry_t));
+			waitqueue_entry_t *wqe = kmalloc(sizeof(waitqueue_entry_t));
 			wqe->thread = thread;
 			wqe->func = wq_can_wake_thread;
 			wqe->data = (void *)buf;
 
 			spinlock_acquire(&queue->waiters.lock);
-			list_add_tail(wqe, &queue->waiters.head);
+			list_add_tail(&wqe->list, &queue->waiters.head);
 			spinlock_release(&queue->waiters.lock);
 		}
 		else
 		{
-			queue_buffer_list_entry_t *bufle = (queue_buffer_list_entry_t *)kmalloc(sizeof(queue_buffer_list_entry_t));
+			queue_buffer_list_entry_t *bufle = kmalloc(sizeof(queue_buffer_list_entry_t));
 			bufle->buffer = buf;
 
-			list_add_tail(bufle, &queue->buffer);
+			list_add_tail(&bufle->list, &queue->buffer);
 		}
 
 		spinlock_release(&queue->lock);
@@ -402,19 +402,19 @@ DEFINE_SYSCALL3(syscall_mq_recv, SYSCALL_MQ_RECV, const uint32_t, id, void *, da
 
 		// TODO(tcfw) determine block or async
 
-		waitqueue_entry_t *wqe = (waitqueue_entry_t *)kmalloc(sizeof(waitqueue_entry_t));
+		waitqueue_entry_t *wqe = kmalloc(sizeof(waitqueue_entry_t));
 		wqe->thread = thread;
 		wqe->func = wq_can_wake_thread;
-		list_add_tail(wqe, &queue->waiters);
+		list_add_tail(&wqe->list, &queue->waiters);
 
-		struct thread_wait_cond_queue_io *wc = (struct thread_wait_cond_queue_io *)kmalloc(sizeof(struct thread_wait_cond_queue_io));
+		struct thread_wait_cond_queue_io *wc = kmalloc(sizeof(struct thread_wait_cond_queue_io));
 		INIT_LIST_HEAD(&wc->queues);
 		wc->cond.type = QUEUE_IO;
 		wc->flags = THREAD_QUEUE_IO_READ;
 
-		queue_ref_t *qr = (queue_ref_t *)kmalloc(sizeof(queue_ref_t));
+		queue_ref_t *qr = kmalloc(sizeof(queue_ref_t));
 		qr->queue = queue;
-		list_add(qr, &wc->queues);
+		list_add(&qr->list, &wc->queues);
 
 		thread_wait_for_cond(thread, wc);
 
@@ -445,5 +445,5 @@ DEFINE_SYSCALL3(syscall_mq_recv, SYSCALL_MQ_RECV, const uint32_t, id, void *, da
 		}
 	}
 
-	return len;
+	return (uint64_t)len;
 }

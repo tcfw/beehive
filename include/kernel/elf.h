@@ -2,6 +2,7 @@
 #define _KERNEL_ELF_H
 
 #include <kernel/stdint.h>
+#include <kernel/thread.h>
 
 #define ELF_EI_OFFSET_MAG0 0	   //	File identification
 #define ELF_EI_OFFSET_MAG1 1	   //	File identification
@@ -225,8 +226,8 @@ struct elf_shdr_64
 #define ELF_32_R_INFO(s, t) (((s) << 8) + (unsigned char)(t))
 
 #define ELF_64_R_SYM(i) ((i) >> 32)
-#define ELF_64_R_TYPE(i) ((i)&0xffffffffL)
-#define ELF_64_R_INFO(s, t) (((s) << 32) + ((t)&0xffffffffL))
+#define ELF_64_R_TYPE(i) ((i) & 0xffffffffL)
+#define ELF_64_R_INFO(s, t) (((s) << 32) + ((t) & 0xffffffffL))
 
 struct elf_rel_32_t
 {
@@ -318,5 +319,20 @@ struct elf_dyn_64_t
 		uint64_t d_ptr;
 	} d_un;
 };
+
+static inline int is_elf_hdr(struct elf_hdr_64_t *hdr)
+{
+	if (hdr->e_ident[ELF_EI_OFFSET_MAG0] == ELF_MAG0 
+	&& hdr->e_ident[ELF_EI_OFFSET_MAG1] == ELF_MAG1
+	&& hdr->e_ident[ELF_EI_OFFSET_MAG2] == ELF_MAG2
+	&& hdr->e_ident[ELF_EI_OFFSET_MAG3] == ELF_MAG3)
+		return 1;
+
+	return 0;
+}
+
+int validate_elf(struct elf_hdr_64_t* hdr);
+
+int load_elf(vm_t *vm, struct elf_hdr_64_t* hdr);
 
 #endif

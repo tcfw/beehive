@@ -12,5 +12,6 @@
 #define ERRINUSE (9)
 #define ERRAGAIN (10)
 #define ERRINVALID (11)
+#define ERRNOMEM (12)
 
 #endif

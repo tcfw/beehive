@@ -1,0 +1,6 @@
+#ifndef _KERNEL_ARCH_ELF_ARCH_H
+#define _KERNEL_ARCH_ELF_ARCH_H
+
+#define ARCH_ELF_MACHINE (0xB7)
+
+#endif

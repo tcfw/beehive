@@ -9,6 +9,7 @@
 #include <kernel/syscall.h>
 #include <kernel/uaccess.h>
 #include <kernel/vm.h>
+#include <kernel/wait.h>
 
 futex_hb_t *futex_buckets;
 
@@ -81,11 +82,12 @@ int futex_do_wake(void *uaddr, uint32_t n_wake, uint32_t val)
 			continue;
 
 		list_del(queued_task);
-		list_add(queued_task, &to_wake);
+		list_add(&queued_task->list, &to_wake);
 
 		if (++ret >= n_wake)
 			break;
 	}
+
 	spinlock_release(&hb->lock);
 
 	list_head_for_each_safe(queued_task, next, &to_wake)
@@ -103,7 +105,7 @@ int futex_do_sleep(void *uaddr, uint32_t val, timespec_t *timeout)
 {
 	futex_hb_t *hb;
 	union futex_key key = {.both = {.ptr = 0ULL}};
-	uint32_t uval;
+	volatile uint32_t uval;
 	int ret;
 
 	ret = futex_get_key(uaddr, &key);
@@ -112,17 +114,17 @@ int futex_do_sleep(void *uaddr, uint32_t val, timespec_t *timeout)
 
 	hb = futex_hb(&key);
 
-	memory_barrier;
 	spinlock_acquire(&hb->lock);
 
+	memory_barrier;
 	ret = copy_from_user(uaddr, &uval, sizeof(uval));
-	if (ret)
+	if (ret < 0)
 	{
 		spinlock_release(&hb->lock);
 		return -ERRAGAIN;
 	}
 
-	if (uval == val)
+	if (uval != val)
 	{
 		spinlock_release(&hb->lock);
 		return 0;
@@ -130,26 +132,86 @@ int futex_do_sleep(void *uaddr, uint32_t val, timespec_t *timeout)
 
 	thread_t *thread = current;
 
-	futex_queue_t *queue = (futex_queue_t *)kmalloc(sizeof(futex_queue_t));
+	futex_queue_t *queue = kmalloc(sizeof(futex_queue_t));
+	if (queue == NULL)
+	{
+		spinlock_release(&hb->lock);
+		return -ERRNOMEM;
+	}
 	queue->key.both = key.both;
 	queue->wanted_value = val;
 	queue->thread = thread;
 
-	struct thread_wait_cond_futex *wc = (struct thread_wait_cond_futex *)kmalloc(sizeof(struct thread_wait_cond_futex));
+	struct thread_wait_cond_futex *wc = kmalloc(sizeof(struct thread_wait_cond_futex));
+	if (wc == NULL)
+	{
+		spinlock_release(&hb->lock);
+		goto freeQueue;
+	}
+
 	wc->cond.type = WAIT;
 	wc->queue = queue;
+
 	thread_wait_for_cond(thread, wc);
-	list_add_tail(queue, &hb->chain);
+	list_add_tail(&queue->list, &hb->chain);
 
 	spinlock_release(&hb->lock);
 
-	return ret;
+	if (timeout == NULL)
+		return ret;
+
+	timespec_t *t = kmalloc(sizeof(*t));
+	if (t == NULL)
+		goto freeWC;
+
+	wc->timeout = t;
+
+	ret = copy_from_user(timeout, t, sizeof(*t));
+	if (ret < 0)
+		goto freeToT;
+
+	waitqueue_entry_t *wqe = kmalloc(sizeof(waitqueue_entry_t));
+	if (wqe == NULL)
+		goto freeToT;
+
+	wqe->thread = thread;
+	wqe->func = wq_can_wake_thread;
+	wqe->timeout = t;
+
+	cls_t *cls = get_cls();
+	spinlock_acquire(&cls->sleepq.lock);
+	list_add_tail(&wqe->list, &cls->sleepq.head);
+	spinlock_release(&cls->sleepq.lock);
+
+	return 0;
+
+freeToT:
+	kfree(t);
+freeWC:
+	thread->wc = NULL;
+	kfree(wc);
+freeQueue:
+	spinlock_acquire(&hb->lock);
+	list_del(queue);
+	spinlock_release(&hb->lock);
+	kfree(queue);
+	set_thread_state(thread, THREAD_RUNNING);
+
+	return -ERRNOMEM;
 }
 
 DEFINE_SYSCALL5(syscall_futex, SYSCALL_FUTEX, void *, addr, int, op, uint32_t, val, uint32_t, val2, timespec_t *, timeout)
 {
-	if (!access_ok(ACCESS_TYPE_READ, addr, 1))
-		return -ERRACCESS;
+	int ret = access_ok(ACCESS_TYPE_READ, addr, sizeof(val));
+	if (ret < 0)
+		return ret;
+
+	if (timeout != NULL)
+	{
+		ret = access_ok(ACCESS_TYPE_READ, timeout, sizeof(*timeout));
+		if (ret < 0)
+			return ret;
+	}
 
 	switch (op)
 	{

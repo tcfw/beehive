@@ -264,6 +264,7 @@ k_exphandler_irq_entry:
 
     .globl k_exphandler_irq
     bl k_exphandler_irq
+    
     kexp_trapframe_pull
 
     ERET
@@ -271,7 +272,6 @@ k_exphandler_irq_entry:
 .global k_exphandler_fiq_entry
 k_exphandler_fiq_entry:
     kexp_trapframe_push
-
 
     .globl k_exphandler_fiq
     bl k_exphandler_fiq
@@ -290,3 +290,38 @@ syscall4:
     .globl syscall4
     SVC #0
     RET
+
+ switch_to_context:
+    .globl switch_to_context
+
+    //ELR
+    ldr x1, [x0, #0x2f8]
+    msr ELR_EL1, x1
+
+    //SP
+    ldr x1, [x0, #0x300]
+    msr SP_EL0, x1
+
+    //SPSR
+    ldr x1, [x0, #0x308]
+    msr SPSR_EL1, x1
+
+    //Registers x2-x30, x0 & x1
+    LDP x2, x3, [x0, #0x10]
+    LDP x4, x5, [x0, #0x20]
+    LDP x6, x7, [x0, #0x30]
+    LDP x8, x9, [x0, #0x40]
+    LDP x10, x11, [x0, #0x50]
+    LDP x12, x13, [x0, #0x60]
+    LDP x14, x15, [x0, #0x70]
+    LDP x16, x17, [x0, #0x80]
+    LDP x18, x19, [x0, #0x90]
+    LDP x20, x21, [x0, #0xA0]
+    LDP x22, x23, [x0, #0xB0]
+    LDP x24, x25, [x0, #0xC0]
+    LDP x26, x27, [x0, #0xD0]
+    LDP x28, x29, [x0, #0xE0]
+    LDR x30, [x0, #0xF0]
+    LDP x0, x1, [x0]
+
+    eret

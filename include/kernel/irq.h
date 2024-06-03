@@ -6,6 +6,9 @@
 
 #define IRQ_FIQ (0x2)
 
+#define SOFT_IRQ_HALT_CORE (0)
+#define SOFT_IRQ_THREAD_STOP (1)
+
 // Init the interrupt hardware for all cores
 void init_xrq(void);
 
@@ -35,6 +38,9 @@ void ack_all_xrq(void);
 // Handles the specific interrupt given it's type (e.g. IRQ, FIQ, etc.) and
 // number identifier
 void k_exphandler(unsigned int type, unsigned int xrq, int deferred);
+
+// Handles sync interrupts
+void k_sync_exphandler(unsigned int xrq);
 
 // Handles FIQ interrupts
 void k_fiq_exphandler(unsigned int xrq);

@@ -1,18 +1,21 @@
 #ifndef _KERNEL_VM_H
 #define _KERNEL_VM_H
 
-#include <kernel/cls.h>
 #include <kernel/list.h>
 #include <kernel/paging.h>
 #include <kernel/thread.h>
 #include <kernel/unistd.h>
+#include <kernel/buddy.h>
 
 #define MEMORY_TYPE_DEVICE (1 << 0)
 #define MEMORY_TYPE_KERNEL (1 << 1)
 #define MEMORY_TYPE_USER (1 << 2)
 #define MEMORY_PERM_RO (1 << 3)
-#define MEMORY_NON_EXEC (1 << 4)
-#define MEMORY_USER_NON_EXEC (1 << 5)
+#define MEMORY_PERM_W (1 << 4)
+#define MEMORY_NON_EXEC (1 << 5)
+#define MEMORY_USER_NON_EXEC (1 << 6)
+
+#define MEMORY_VM_FLAG_MAX (7)
 
 // Init virtual memory
 void vm_init();
@@ -35,6 +38,8 @@ uintptr_t vm_pa_to_va(vm_table *table, uintptr_t pptr);
 
 // Convert a virtual address to a physical address
 uintptr_t vm_va_to_pa(vm_table *table, uintptr_t vptr);
+
+uint64_t *vm_va_to_pte(vm_table *table, uintptr_t vptr);
 
 // Allocate a set of pages directly into a table for a given size
 void vm_alloc(vm_table *table, uintptr_t vsstart, size_t size);
@@ -76,17 +81,23 @@ enum AccessType
 // Checks if the user space is allowed by the current task
 int access_ok(enum AccessType type, void *addr, size_t n);
 
-#define VM_MAP_FLAG_SHARED (1)
+#define VM_MAX_IMMD_ALLOC ((PAGE_SIZE << BUDDY_MAX_ORDER) * 3)
 
-typedef struct vm_mapping {
+#define VM_MAP_FLAG_SHARED ((1 << (MEMORY_VM_FLAG_MAX + 0)))
+#define VM_MAP_FLAG_PHY_KERNEL (1 << (MEMORY_VM_FLAG_MAX + 1))
+#define VM_MAP_FLAG_DEVICE (1 << (MEMORY_VM_FLAG_MAX + 2))
+#define VM_MAP_FLAG_LAZY (1 << (MEMORY_VM_FLAG_MAX + 3))
+
+typedef struct vm_mapping
+{
 	struct list_head list;
-	
+
 	uintptr_t phy_addr;
 	uintptr_t vm_addr;
 	size_t length;
-	int flags;
+	uint64_t flags;
 
-	uint64_t *pg;
+	struct page *page;
 } vm_mapping;
 
 int current_vm_region_shared(uintptr_t uaddr, size_t len);

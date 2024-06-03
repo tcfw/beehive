@@ -1,10 +1,10 @@
 #ifndef _KERNEL_CLS_H
 #define _KERNEL_CLS_H
 
-#include <kernel/thread.h>
 #include <kernel/sched.h>
-#include <kernel/wait.h>
 #include <kernel/stdint.h>
+#include <kernel/thread.h>
+#include <kernel/wait.h>
 
 enum exception_operation
 {
@@ -13,7 +13,8 @@ enum exception_operation
 	EXCEPTION_USER_COPY_FROM = 2,
 };
 
-enum interrupt_cause {
+enum interrupt_cause
+{
 	INTERRUPT_CAUSE_UNKNOWN = 0,
 	INTERRUPT_CAUSE_SWI = 1,
 	INTERRUPT_CAUSE_PENDING_IRQ = 2,
@@ -53,19 +54,23 @@ void init_cls();
 // Set the current working thread
 void set_current_thread(thread_t *thread);
 
-static inline thread_t *get_current_thread() {
+static inline thread_t *get_current_thread()
+{
 	return get_cls()->rq.current_thread;
 }
 
-static inline enum interrupt_cause get_cls_irq_cause() {
+static inline enum interrupt_cause get_cls_irq_cause()
+{
 	return get_cls()->irq_cause;
 }
 
-static inline void set_cls_irq_cause(enum interrupt_cause cause) {
+static inline void set_cls_irq_cause(enum interrupt_cause cause)
+{
 	get_cls()->irq_cause = cause;
 }
 
-static inline void clear_cls_irq_cause() {
+static inline void clear_cls_irq_cause()
+{
 	get_cls()->irq_cause = INTERRUPT_CAUSE_UNKNOWN;
 }
 

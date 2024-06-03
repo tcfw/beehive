@@ -2,16 +2,17 @@
 #include <kernel/clock.h>
 #include <kernel/cls.h>
 #include <kernel/context.h>
+#include <kernel/list.h>
 #include <kernel/mm.h>
 #include <kernel/queue.h>
 #include <kernel/sched.h>
+#include <kernel/signal.h>
 #include <kernel/strings.h>
 #include <kernel/syscall.h>
 #include <kernel/thread.h>
+#include <kernel/tty.h>
 #include <kernel/uaccess.h>
 #include <kernel/vm.h>
-
-#define KTHREAD_STACK_SIZE (1024 * 1024)
 
 static LIST_HEAD(threads);
 static spinlock_t threads_lock;
@@ -21,21 +22,47 @@ static spinlock_t procs_lock;
 
 static process_t kthreads_proc;
 
-void init_kthread_proc() {
-	INIT_LIST_HEAD(&kthreads_proc.shm);
-	INIT_LIST_HEAD(&kthreads_proc.queues);
-	INIT_LIST_HEAD(&kthreads_proc.vm.vm_maps);
+void init_proc(process_t *proc, char *cmd)
+{
+	spinlock_init(&proc->lock);
 
+	INIT_LIST_HEAD(&proc->queues);
+	INIT_LIST_HEAD(&proc->threads);
+	INIT_LIST_HEAD(&proc->children);
+	INIT_LIST_HEAD(&proc->vm.vm_maps);
+
+	strncpy(proc->cmd, cmd, CMD_MAX);
+	proc->state = STOPPED;
+	proc->exitCode = -1;
+	proc->nexttid = 1;
+
+	proc->vm.vm_table = (vm_table *)page_alloc_s(sizeof(vm_table));
+	vm_init_table(proc->vm.vm_table);
+
+	process_list_entry_t *le = kmalloc(sizeof(process_list_entry_t));
+	le->process = proc;
+
+	spinlock_acquire(&procs_lock);
+	list_add_tail(&le->list, &procs);
+	spinlock_release(&procs_lock);
+}
+
+void init_kthread_proc()
+{
 	kthreads_proc.pid = 0;
 	kthreads_proc.uid = 0;
 	kthreads_proc.euid = 0;
 	kthreads_proc.gid = 0;
 	kthreads_proc.egid = 0;
 
-	strcpy(kthreads_proc.cmd, "kthread");
+	INIT_LIST_HEAD(&kthreads_proc.queues);
+	INIT_LIST_HEAD(&kthreads_proc.vm.vm_maps);
+	INIT_LIST_HEAD(&kthreads_proc.threads);
+
+	strncpy(&kthreads_proc.cmd, "kthread", CMD_MAX);
+	kthreads_proc.state = RUNNING;
 
 	kthreads_proc.vm.vm_table = vm_get_kernel();
-	INIT_LIST_HEAD(&kthreads_proc.vm.vm_maps);
 
 	populate_kernel_vm_maps(&kthreads_proc.vm);
 }
@@ -45,21 +72,21 @@ void init_thread(thread_t *thread)
 	init_context(&thread->ctx);
 
 	thread->affinity = ~0;
+	thread->sigactions.sig_stack.flags = SS_DISABLE;
+	thread->tid = thread->process->nexttid;
+	thread->process->nexttid++;
 
 	struct clocksource_t *cs = clock_first(CS_GLOBAL);
 	thread->timing.last_system = cs->val(cs);
 	thread->timing.last_user = thread->timing.last_system;
 
-	thread->process->vm.vm_table = (vm_table *)page_alloc_s(sizeof(vm_table));
-	vm_init_table(thread->process->vm.vm_table);
-
 	thread->sched_class = sched_get_class(SCHED_CLASS_LRF);
 
-	thread_list_entry_t *entry = (thread_list_entry_t *)kmalloc(sizeof(thread_list_entry_t));
+	thread_list_entry_t *entry = kmalloc(sizeof(thread_list_entry_t));
 	entry->thread = thread;
 
 	spinlock_acquire(&threads_lock);
-	list_add_tail(&threads, entry);
+	list_add_tail(&entry->list, &threads);
 	spinlock_release(&threads_lock);
 }
 
@@ -71,7 +98,11 @@ thread_t *create_kthread(void(entry)(void *), const char *name, void *data)
 	thread->affinity = ~0;
 	thread->flags = THREAD_KTHREAD;
 	thread->process = &kthreads_proc;
-	strcpy(&thread->name, name);
+
+	thread->tid = thread->process->nexttid;
+	thread->process->nexttid++;
+
+	strncpy(&thread->name, name, TNAME_MAX);
 
 	thread->sched_class = sched_get_class(SCHED_CLASS_LRF);
 
@@ -84,17 +115,28 @@ thread_t *create_kthread(void(entry)(void *), const char *name, void *data)
 	struct clocksource_t *cs = clock_first(CS_GLOBAL);
 	thread->timing.last_system = cs->val(cs);
 
-	thread_list_entry_t *tentry = (thread_list_entry_t *)kmalloc(sizeof(thread_list_entry_t));
+	thread_list_entry_t *tentry = kmalloc(sizeof(thread_list_entry_t));
 	tentry->thread = thread;
 
 	spinlock_acquire(&threads_lock);
-	list_add_tail(tentry, &threads);
+	list_add_tail(&tentry->list, &threads);
 	spinlock_release(&threads_lock);
+
+	thread_list_entry_t *tpentry = kmalloc(sizeof(thread_list_entry_t));
+	tpentry->thread = thread;
+
+	list_add_tail(&tpentry->list, &kthreads_proc.threads);
 
 	return thread;
 }
 
-static void thread_wake_from_sleep(thread_t *thread)
+struct list_head *get_threads()
+{
+	return &threads;
+}
+
+static void
+thread_wake_from_sleep(thread_t *thread)
 {
 	struct thread_wait_cond_sleep *sleep_cond = (struct thread_wait_cond_sleep *)thread->wc;
 	struct clocksource_t *cs = clock_first(CS_GLOBAL);
@@ -120,7 +162,6 @@ static void thread_wake_from_queue_io(thread_t *thread)
 
 static void thread_wake_from_wait(thread_t *thread)
 {
-
 }
 
 void wake_thread(thread_t *thread)
@@ -131,12 +172,14 @@ void wake_thread(thread_t *thread)
 		{
 		case SLEEP:
 			thread_wake_from_sleep(thread);
+			// terminal_logf("TID 0x%X:0x%X woke up from sleep", thread->process->pid, thread->tid);
 			break;
 		case QUEUE_IO:
 			thread_wake_from_queue_io(thread);
 			break;
 		case WAIT:
 			thread_wake_from_wait(thread);
+			terminal_logf("TID 0x%X:0x%X woke up from WAIT", thread->process->pid, thread->tid);
 			break;
 		}
 
@@ -144,19 +187,25 @@ void wake_thread(thread_t *thread)
 		thread->wc = NULL;
 	}
 
-	thread->state = THREAD_RUNNING;
+	set_thread_state(thread, THREAD_RUNNING);
+
+	cls_t *cls = get_cls();
+	thread->sched_class->enqueue_thread(&cls->rq, thread);
 }
 
 static int can_wake_thread_from_sleep(thread_t *thread)
 {
-	struct thread_wait_cond_sleep *sleepcond = (struct thread_wait_cond_sleep *)thread->wc;
-	struct clocksource_t *cs = clock_first(CS_GLOBAL);
 	timespec_t ts;
 	timespec_t d;
+
+	struct thread_wait_cond_sleep *sleepcond = (struct thread_wait_cond_sleep *)thread->wc;
+	struct clocksource_t *cs = clock_first(CS_GLOBAL);
+
 	timespec_from_cs(cs, &ts);
 	timespec_diff(&ts, &sleepcond->timer, &d);
-	if (d.seconds >= 0)
+	if (d.seconds >= 0 && d.nanoseconds >= 0)
 		return 1;
+
 	return 0;
 }
 
@@ -183,6 +232,10 @@ static int can_wake_thread_from_queue_io(thread_t *thread)
 	return 0;
 }
 
+static int can_wake_thread_from_wait(thread_t *thread)
+{
+}
+
 int can_wake_thread(thread_t *thread)
 {
 	if (thread->wc)
@@ -191,25 +244,28 @@ int can_wake_thread(thread_t *thread)
 		{
 		case SLEEP:
 			return can_wake_thread_from_sleep(thread);
-			break;
 		case QUEUE_IO:
 			return can_wake_thread_from_queue_io(thread);
-			break;
+		case WAIT:
+			return can_wake_thread_from_wait(thread);
 		}
-
-		kfree(thread->wc);
 	}
 
 	return 1;
 }
 
-void sleep_thread(thread_t *thread, const timespec_t *ts, timespec_t *user_rem)
+int sleep_thread(thread_t *thread, const timespec_t *ts, timespec_t *user_rem)
 {
 	struct clocksource_t *cs = clock_first(CS_GLOBAL);
 	timespec_t sts;
 	timespec_from_cs(cs, &sts);
 
-	struct thread_wait_cond_sleep *sleep_cond = (struct thread_wait_cond_sleep *)kmalloc(sizeof(struct thread_wait_cond_sleep));
+	struct thread_wait_cond_sleep *sleep_cond = kmalloc(sizeof(struct thread_wait_cond_sleep));
+	if (sleep_cond == NULL)
+		return -ERRNOMEM;
+
+	if (set_thread_state(thread, THREAD_SLEEPING) != THREAD_SLEEPING)
+		return -ERRINVALID;
 
 	sleep_cond->cond.type = SLEEP;
 	sleep_cond->timer.seconds = sts.seconds + ts->seconds;
@@ -217,7 +273,8 @@ void sleep_thread(thread_t *thread, const timespec_t *ts, timespec_t *user_rem)
 	sleep_cond->user_rem = user_rem;
 
 	thread->wc = sleep_cond;
-	thread->state = THREAD_SLEEPING;
+
+	return 0;
 }
 
 void sleep_kthread(const timespec_t *ts, timespec_t *rem)
@@ -228,7 +285,7 @@ void sleep_kthread(const timespec_t *ts, timespec_t *rem)
 void thread_wait_for_cond(thread_t *thread, const thread_wait_cond *cond)
 {
 	thread->wc = cond;
-	thread->state = THREAD_SLEEPING;
+	set_thread_state(thread, THREAD_SLEEPING);
 }
 
 thread_t *get_thread_by_pid(pid_t pid)
@@ -237,18 +294,67 @@ thread_t *get_thread_by_pid(pid_t pid)
 	list_head_for_each(this, &threads)
 	{
 		if (this->thread->process->pid == pid && this->thread->tid == (tid_t)pid)
-		{
 			return this->thread;
-		}
 	}
 
 	return 0;
 }
 
+enum Thread_State set_thread_state(thread_t *thread, enum Thread_State state)
+{
+	memory_barrier;
+	if (thread->state == THREAD_DEAD)
+		return thread->state;
+
+	thread->state = state;
+	return state;
+}
+
 void mark_zombie_thread(thread_t *thread)
 {
-	thread->state = ZOMBIE;
+	set_thread_state(thread, THREAD_DEAD);
 
-	cls_t *cls = get_cls();
-	thread->sched_class->dequeue_thread(&cls->rq, thread);
+	// cls_t *cls = get_cls();
+	// // thread->sched_class->dequeue_thread(&cls->rq, thread);
+
+	// spinlock_acquire(&cls->sleepq.lock);
+
+	// waitqueue_entry_t *this, *next;
+	// list_head_for_each_safe(this, next, &cls->sleepq.head)
+	// {
+	// 	if (this->thread == thread)
+	// 	{
+	// 		// TODO(tcfw) clean up whatever is in *data
+	// 		list_del(this);
+	// 		kfree(this);
+	// 	}
+	// }
+
+	// spinlock_release(&cls->sleepq.lock);
+}
+
+void free_process(process_t *proc)
+{
+	if (proc->vm.vm_table)
+		page_free(proc->vm.vm_table);
+
+	vm_mapping *vmm_cur, *vmm_next;
+	list_head_for_each_safe(vmm_cur, vmm_next, &proc->vm.vm_maps)
+	{
+		page_free(vmm_cur->page);
+		kfree(vmm_cur);
+	}
+
+	page_free(proc);
+}
+
+void free_thread(thread_t *thread)
+{
+	if (thread->wc)
+	{
+		// TODO(tcfw) actually clean up the wait cond
+		kfree(thread->wc);
+	}
+
+	page_free(thread);
 }

@@ -68,6 +68,11 @@ clean:
 	rm -f $(OBJS:.o=.d) *.d */*.d */*/*.d
 	rm -rf $(BUILD_DIR)
 
+.PHONY: relink
+relink:
+	@rm -f beehive.kernel
+	make 
+
 test:
 	CFLAGS=-DRUN_SELF_TESTS=1 make
 

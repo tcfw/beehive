@@ -23,7 +23,6 @@ static vm_table_block *vm_table_desc_to_block(uint64_t *desc);
 static vm_table_block *vm_table_entry_to_block(uint64_t *entry);
 static vm_table_block *vm_get_or_alloc_block(vm_table_block *parent, uint16_t entry);
 static vm_table_block *vm_copy_link_table_block(uint64_t *parent, vm_table_block *tocopy);
-static uint64_t *vm_va_to_pte(vm_table *table, uintptr_t vptr);
 static int vm_table_block_is_empty(vm_table_block *table);
 static uintptr_t vm_va_to_pa_current(uintptr_t addr);
 static uintptr_t vm_pa_to_va_current(uintptr_t addr);
@@ -46,7 +45,7 @@ static vm_table_block *vm_table_entry_to_block(uint64_t *entry)
 vm_table *vm_get_current_table()
 {
 	thread_t *thread = current;
-	if (thread != 0)
+	if (thread)
 	{
 		vm_table *uvm = thread->process->vm.vm_table;
 		if (uvm != 0)
@@ -115,7 +114,7 @@ void vm_set_kernel()
 	vm_set_table(kernel_vm_map, 0);
 }
 
-static uint64_t *vm_va_to_pte(vm_table *table, uintptr_t vptr)
+uint64_t *vm_va_to_pte(vm_table *table, uintptr_t vptr)
 {
 	uint16_t l0 = vptr >> 39;
 	uint16_t l1 = (vptr >> 30) & 0x1FF;
@@ -425,18 +424,11 @@ int vm_map_region(vm_table *table, uintptr_t pstart, uintptr_t vstart, size_t si
 		*desc = (VM_DESC_VALID | VM_DESC_IS_DESC | VM_DESC_NONSECURE | VM_DESC_AF | VM_ENTRY_ISH);
 		*desc |= vm_va_to_pa_current((uintptr_t)table_l1) & VM_DESC_NEXT_LEVEL_MASK;
 
-		// if (flags & MEMORY_TYPE_KERNEL)
-		// 	*desc |= VM_DESC_AP_KERNEL;
+		if (flags & MEMORY_TYPE_KERNEL)
+			*desc |= VM_DESC_AP_KERNEL;
 
-		if (flags & MEMORY_PERM_RO)
-		{
-			*desc |= VM_DESC_AP_RO;
-
-			if (flags & MEMORY_TYPE_KERNEL)
-				*desc |= VM_DESC_PXN;
-			if (flags & MEMORY_TYPE_USER)
-				*desc |= VM_DESC_UXN;
-		}
+		// if (flags & MEMORY_PERM_RO)
+		// 	*desc |= VM_DESC_AP_RO;
 
 		if (flags & MEMORY_TYPE_DEVICE)
 			*desc |= (1 << VM_DESC_ATTR) | VM_ENTRY_OSH;
@@ -494,33 +486,31 @@ int vm_map_region(vm_table *table, uintptr_t pstart, uintptr_t vstart, size_t si
 			return -2;
 		}
 
-		*vpage = 0;
+		*vpage = addr | VM_ENTRY_VALID | VM_ENTRY_MAPPED | VM_ENTRY_NONSECURE | VM_ENTRY_AF | VM_ENTRY_ISH;
+		// TODO(tcfw) check if contiguous - see armv8-a ref RCBXXM
 
-		*vpage = (VM_ENTRY_VALID | VM_ENTRY_MAPPED | VM_ENTRY_NONSECURE | VM_ENTRY_AF | VM_ENTRY_ISH);
-
-		if (flags & MEMORY_TYPE_DEVICE)
+		if ((flags & MEMORY_TYPE_DEVICE) != 0)
 			*vpage |= (1 << VM_ENTRY_ATTR) | VM_ENTRY_OSH;
 		else
 			*vpage |= (0 << VM_ENTRY_ATTR);
 
-		*vpage |= addr;
-
 		if (level == 3)
 			*vpage |= VM_ENTRY_ISTABLE;
 
-		// TODO(tcfw) check if contiguous - see armv8-a ref RCBXXM
+		if ((flags & MEMORY_TYPE_USER) != 0)
+			*vpage |= VM_ENTRY_USER;
 
-		if (flags & MEMORY_TYPE_USER)
-			*vpage |= VM_ENTRY_USER | VM_ENTRY_PXN;
-
-		if (flags & MEMORY_PERM_RO)
-			*vpage |= VM_ENTRY_PERM_RO;
-
-		if (flags & MEMORY_NON_EXEC)
+		if ((flags & MEMORY_NON_EXEC) != 0)
 			*vpage |= VM_ENTRY_PXN | VM_ENTRY_UXN;
 
-		if (flags & MEMORY_USER_NON_EXEC)
+		if ((flags & MEMORY_USER_NON_EXEC) != 0)
 			*vpage |= VM_ENTRY_UXN;
+
+		if ((flags & MEMORY_PERM_RO) != 0)
+			*vpage |= VM_ENTRY_PERM_RO | VM_ENTRY_PERM_W;
+
+		if ((flags & MEMORY_PERM_W) != 0)
+			*vpage |= VM_ENTRY_PERM_W;
 
 		// terminal_logf("mapped memory v:0x%x to p:0x%x at level %x in pte %x (%x %x %x %x): %x", vstart, pstart, level, vpage, l0, l1, l2, l3, *vpage);
 
@@ -628,8 +618,6 @@ void vm_enable()
 
 	__asm__ volatile("MSR sctlr_el1, %0" ::"r"(sctlr));
 	__asm__ volatile("ISB");
-
-
 }
 
 static vm_table_block *vm_copy_link_table_block(uint64_t *parent, vm_table_block *tocopy)
@@ -671,7 +659,7 @@ int vm_link_tables(vm_table *table1, vm_table *table2)
 int access_ok(enum AccessType type, void *addr, size_t n)
 {
 	vm_table *cpt = vm_get_current_table();
-	cls_t *cls=get_cls();
+	cls_t *cls = get_cls();
 
 	uint64_t *vpage;
 
@@ -714,7 +702,7 @@ void vm_init()
 		terminal_log("failed to map device region");
 
 	// map kernel code & remaining physical memory regions
-	if (vm_map_region(kernel_vm_map, (uintptr_t)ram_start(), (uintptr_t)ram_start()+VIRT_OFFSET, (size_t)ram_size()-1, MEMORY_TYPE_KERNEL) < 0)
+	if (vm_map_region(kernel_vm_map, (uintptr_t)ram_start(), (uintptr_t)ram_start() + VIRT_OFFSET, (size_t)ram_size() - 1, MEMORY_TYPE_KERNEL) < 0)
 		terminal_log("failed to map kernel code region");
 
 	// move DBT to above RAM
@@ -730,18 +718,19 @@ void vm_init_post_enable()
 {
 }
 
-void populate_kernel_vm_maps(vm_t *kernel_vm) {
-	vm_mapping *dev_region = (vm_mapping*)kmalloc(sizeof(vm_mapping));
-	vm_mapping *mem_region = (vm_mapping*)kmalloc(sizeof(vm_mapping));
-	vm_mapping *desc_region = (vm_mapping*)kmalloc(sizeof(vm_mapping));
+void populate_kernel_vm_maps(vm_t *kernel_vm)
+{
+	vm_mapping *dev_region = kmalloc(sizeof(vm_mapping));
+	vm_mapping *mem_region = kmalloc(sizeof(vm_mapping));
+	vm_mapping *desc_region = kmalloc(sizeof(vm_mapping));
 
 	dev_region->phy_addr = PHY_DEVICE_REGION;
 	dev_region->vm_addr = DEVICE_REGION;
 	dev_region->length = 4096;
 
 	mem_region->phy_addr = (uintptr_t)ram_start();
-	mem_region->vm_addr = (uintptr_t)ram_start()+VIRT_OFFSET;
-	mem_region->length = (size_t)ram_size()-1;
+	mem_region->vm_addr = (uintptr_t)ram_start() + VIRT_OFFSET;
+	mem_region->length = (size_t)ram_size() - 1;
 	mem_region->flags = VM_MAP_FLAG_SHARED;
 
 	desc_region->phy_addr = PHY_DEVICE_DESCRIPTOR_REGION;
@@ -753,15 +742,18 @@ void populate_kernel_vm_maps(vm_t *kernel_vm) {
 	list_add(desc_region, &kernel_vm->vm_maps);
 }
 
-int current_vm_region_shared(uintptr_t uaddr, size_t len) {
+int current_vm_region_shared(uintptr_t uaddr, size_t len)
+{
 	vm_mapping *this;
 	struct list_head *vm_maps = (struct list_head *)&current->process->vm.vm_maps;
-	
-	list_head_for_each(this, vm_maps) {
-		if (!(this->vm_addr <= uaddr && this->vm_addr+this->length >= uaddr+len))
+
+	list_head_for_each(this, vm_maps)
+	{
+		if (!(this->vm_addr <= uaddr && this->vm_addr + this->length >= uaddr + len))
 			continue;
 
-		if(this->flags & VM_MAP_FLAG_SHARED) {
+		if (this->flags & VM_MAP_FLAG_SHARED)
+		{
 			return 1;
 		}
 	}

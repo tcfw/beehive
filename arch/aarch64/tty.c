@@ -43,13 +43,13 @@ static spinlock_t log_lock = 0;
 // Write to a specific register given the offset
 static void pl011_regwrite(const struct pl011 *dev, uint32_t offset, uint32_t data)
 {
-    put_unaligned_le32(data, (void*)dev->base_address+offset);
+    put_unaligned_le32(data, (void *)dev->base_address + offset);
 }
 
 // Read from a specific register given the offset
 static uint32_t pl011_regread(const struct pl011 *dev, uint32_t offset)
 {
-    return get_unaligned_le32((void*)dev->base_address+offset);
+    return get_unaligned_le32((void *)dev->base_address + offset);
 }
 
 // Wait for the busy state to clear
@@ -183,20 +183,30 @@ void terminal_set_bar(uint64_t addr)
     serial.base_address = addr;
 }
 
-// Write a null-terminated string to the terminal
-void terminal_writestring(char *str)
+// caller must hold log_lock
+static void _terminal_writestring(char *str)
 {
     while (*str)
         terminal_putchar(*str++);
 }
 
-void terminal_log(char *str)
+// Write a null-terminated string to the terminal
+void terminal_writestring(char *str)
 {
-    const char *eol="\r\n";
-
     spinlock_acquire(&log_lock);
 
+    _terminal_writestring(str);
+
+    spinlock_release(&log_lock);
+}
+
+void terminal_log(char *str)
+{
+    const char *eol = "\r\n";
+
     static char buf[24];
+
+    spinlock_acquire(&log_lock);
 
     struct clocksource_t *cs = clock_first(CS_GLOBAL);
 
@@ -205,9 +215,9 @@ void terminal_log(char *str)
     double val = cval / freq;
 
     ksprintf(&buf[0], "[%.4f] ", val);
-    terminal_writestring(buf);
-    terminal_writestring(str);
-    terminal_writestring(eol);
+    _terminal_writestring(buf);
+    _terminal_writestring(str);
+    _terminal_writestring(eol);
 
     spinlock_release(&log_lock);
 }
@@ -215,7 +225,9 @@ void terminal_log(char *str)
 // Write a string given the specific length
 void terminal_write(const char *data, size_t size)
 {
+    spinlock_acquire(&log_lock);
     pl011_send(&serial, data, size);
+    spinlock_release(&log_lock);
 }
 
 void terminal_logf(char *fmt, ...)
@@ -232,6 +244,24 @@ void terminal_logf(char *fmt, ...)
     __builtin_va_end(argp);
 
     terminal_log(buf);
+
+    spinlock_release_irq(state, &buflock);
+}
+
+void terminal_printf(char *fmt, ...)
+{
+    static spinlock_t buflock = 0;
+    static char buf[2048];
+    int state = spinlock_acquire_irq(&buflock);
+
+    __builtin_va_list argp;
+    __builtin_va_start(argp, fmt);
+
+    ksprintfz(&buf[0], fmt, argp);
+
+    __builtin_va_end(argp);
+
+    terminal_writestring(buf);
 
     spinlock_release_irq(state, &buflock);
 }

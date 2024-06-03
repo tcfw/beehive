@@ -9,8 +9,8 @@ static const char *itoh_map = "0123456789ABCDEF";
 char *itoh(unsigned long i, char *buf)
 {
 
-	int n=8;
-	int b=0;
+	int n = 8;
+	int b = 0;
 
 	for (n = 8; n > -1; --n)
 	{
@@ -19,14 +19,14 @@ char *itoh(unsigned long i, char *buf)
 	}
 
 	*buf = 0;
-	return buf-8;
+	return buf - 8;
 }
 
 // long int to Hex
 char *litoh(unsigned long long i, char *buf)
 {
-	int n=16;
-	int b=0;
+	int n = 16;
+	int b = 0;
 
 	for (n = 16; n > -1; --n)
 	{
@@ -35,7 +35,7 @@ char *litoh(unsigned long long i, char *buf)
 	}
 
 	*buf = 0;
-	return buf-16;
+	return buf - 16;
 }
 
 char *itoa(long i, char *buf, int base)
@@ -185,25 +185,19 @@ int ksprintfz(char *buf, const char *fmt, __builtin_va_list argp)
 		case 's':
 			s = __builtin_va_arg(argp, char *);
 			for (y = 0; s[y]; ++y)
-			{
 				buf[x++] = s[y];
-			}
 			break;
 		case 'x':
 			i = __builtin_va_arg(argp, int);
 			s = itoh(i, fmtbuf);
 			for (y = 0; s[y]; ++y)
-			{
 				buf[x++] = s[y];
-			}
 			break;
 		case 'X':
 			li = __builtin_va_arg(argp, uint64_t);
 			s = litoh(li, fmtbuf);
 			for (y = 0; s[y]; ++y)
-			{
 				buf[x++] = s[y];
-			}
 			break;
 		case '.':
 			numPrec = *++p - '0';
@@ -213,25 +207,19 @@ int ksprintfz(char *buf, const char *fmt, __builtin_va_list argp)
 			f = __builtin_va_arg(argp, double);
 			s = ftoc(f, numPrec, fmtbuf);
 			while (*s)
-			{
 				buf[x++] = *s++;
-			}
 			break;
 		case 'd':
 			i = __builtin_va_arg(argp, int);
 			s = itoa(i, fmtbuf, 10);
 			while (*s)
-			{
 				buf[x++] = *s++;
-			}
 			break;
 		case 'u':
 			ui = __builtin_va_arg(argp, unsigned int);
 			s = uitoa(ui, fmtbuf, 10);
 			while (*s)
-			{
 				buf[x++] = *s++;
-			}
 			break;
 		case '%':
 			buf[x++] = '%';
@@ -288,13 +276,25 @@ char *strcpy(char *dest, const char *src)
 	return memcpy(dest, src, strlen(src) + 1);
 }
 
+char *strncpy(char *dest, const char *src, size_t max)
+{
+	size_t sl = strlen(src) + 1;
+	if (sl > max)
+		sl = max;
+
+	return memcpy(dest, src, sl);
+}
+
 void *memcpy(void *dest, const void *src, size_t len)
 {
 	char *d = dest;
 	const char *s = src;
+
 	while (len--)
 		*d++ = *s++;
-	return dest;
+
+	return d;
+	// return __builtin_memcpy(dest, src, len);
 }
 
 void *memset(void *dest, int val, size_t len)
@@ -302,7 +302,9 @@ void *memset(void *dest, int val, size_t len)
 	unsigned char *ptr = dest;
 	while (len-- > 0)
 		*ptr++ = val;
-	return dest;
+
+	return ptr;
+	// return __builtin_memset(dest, val, len);
 }
 
 int memcmp(const void *str1, const void *str2, size_t count)

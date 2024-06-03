@@ -1,10 +1,12 @@
-#include <kernel/devicetree.h>
 #include <kernel/arch.h>
+#include <kernel/devicetree.h>
 #include <kernel/list.h>
 #include <kernel/mm.h>
 #include <kernel/paging.h>
+#include <kernel/panic.h>
 #include <kernel/slub.h>
 #include <kernel/strings.h>
+#include <kernel/tty.h>
 
 void slub_init(slub_t *slub)
 {
@@ -114,6 +116,11 @@ void *slub_alloc(slub_t *slub)
 		addr = slub_alloc_from_cache_entry(slub, cpu_cache);
 	}
 
+	// check if posioned
+	if (slub->object_size >= sizeof(slub_entry_t))
+		if (((slub_entry_t *)addr)->poison != POISON_VALUE)
+			panicf("Object allocated that did not have a correct poison value!\r\nAddr alloc'd: 0x%X\r\nObject Size: 0x%X\r\n", addr, slub->object_size);
+
 	memset(addr, 0, slub->object_size);
 
 	int state = spinlock_acquire_irq(&slub->lock);
@@ -126,6 +133,8 @@ void *slub_alloc(slub_t *slub)
 
 	if (slub->ctor != 0)
 		slub->ctor(addr);
+
+	// terminal_logf("alloc'd 0x%X (size 0x%X, slub_cache 0x%X)", addr, slub->object_size, cpu_cache);
 
 	return addr;
 }
@@ -158,7 +167,7 @@ void slub_free(void *obj)
 		// cache was full
 		// so shouldn't be a per-cpu cache anymore
 		lstate_n = spinlock_acquire_irq(&slub->lock);
-		list_add(cache, &slub->partial);
+		list_add(&cache->list, &slub->partial);
 		spinlock_release_irq(lstate_n, &slub->lock);
 	}
 
@@ -181,6 +190,8 @@ void slub_free(void *obj)
 	}
 
 	slub->object_count--;
+
+	// terminal_logf("free'd 0x%X (size 0x%X)", obj, slub->object_size);
 
 	spinlock_release_irq(lstate_n, &slub->lock);
 }

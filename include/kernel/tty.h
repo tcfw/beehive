@@ -25,4 +25,7 @@ void terminal_log(char *);
 // Log a formatted entry to the terminal
 void terminal_logf(char *, ...);
 
+// Raw printf to the terminal
+void terminal_printf(char *fmt, ...);
+
 #endif

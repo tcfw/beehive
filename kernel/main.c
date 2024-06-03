@@ -19,34 +19,11 @@
 #include <kernel/vm.h>
 #include <tests/tests.h>
 
+#include <kernel/initproc.h>
+#include <kernel/elf.h>
+
 void kernel_main2(void);
 extern void user_init(void);
-static void thread_test(void *data);
-
-static void setup_init_threads(void)
-{
-    // thread_t *init = (thread_t *)page_alloc_s(sizeof(thread_t));
-    // init_thread(init);
-    // strcpy(init->cmd, "init");
-    // init->pid = 1;
-    // init->uid = 0;
-    // init->euid = 0;
-    // init->gid = 0;
-    // init->egid = 0;
-    // init->ctx.pc = 0x1000ULL;
-
-    // void *prog = page_alloc_s(0x1c);
-    // memcpy(prog, &user_init, 0x1c);
-
-    // int r = vm_map_region(init->vm.vm_table, (uintptr_t)prog, 0x1000ULL, 4095, MEMORY_TYPE_USER);
-    // if (r < 0)
-    //     terminal_logf("failed to map user region: 0x%x", r);
-
-    // sched_append_pending(init);
-
-    thread_t *kthread1 = create_kthread(&thread_test, "[hello world]", (void *)"test");
-    sched_append_pending(kthread1);
-}
 
 static void thread_test(void *data)
 {
@@ -60,10 +37,90 @@ static void thread_test(void *data)
         timespec_from_cs(cs, &now);
         terminal_logf("kthread ellapsed: 0x%X 0x%X", now.seconds, now.nanoseconds);
 
-        timespec_t ss = {.seconds = 10};
-        timespec_t rem;
-        sleep_kthread(&ss, &rem);
+        timespec_t ss = {.seconds = 60};
+        sleep_kthread(&ss, NULL);
     }
+}
+
+static void init_mon(void *data)
+{
+    while (1)
+    {
+        terminal_printf("\r\n\033c\033[2J");
+        terminal_logf("\r\nProc\tCore\tPC\t\tTime\t\tState\r\n");
+
+        thread_list_entry_t *this;
+
+        list_head_for_each(this, get_threads())
+        {
+
+            if (this->thread->process->pid == 0)
+                terminal_writestring(this->thread->name);
+            else
+                terminal_printf("[%d:%d]", this->thread->process->pid, this->thread->tid);
+
+            if (this->thread == current)
+                terminal_writestring("*");
+            else
+                terminal_writestring(" ");
+
+            terminal_printf("\t%d\t0x%x\t%X\t%d", this->thread->running_core, this->thread->ctx.pc, this->thread->timing.total_execution, this->thread->state);
+
+            switch (this->thread->state)
+            {
+            case THREAD_RUNNING:
+                terminal_writestring("\tRunning");
+                break;
+            case THREAD_SLEEPING:
+                terminal_writestring("\tSleeping");
+                if (this->thread->wc != NULL)
+                {
+                    if (this->thread->wc->type == WAIT)
+                    {
+                        struct thread_wait_cond_futex *wc = (struct thread_wait_cond_futex *)this->thread->wc;
+                        if (wc->timeout != NULL)
+                            terminal_writestring(" with timeout");
+                    }
+                    if (this->thread->wc->type == SLEEP)
+                    {
+                        struct thread_wait_cond_sleep *wc = (struct thread_wait_cond_sleep *)this->thread->wc;
+                        terminal_printf(" until %d.%d", wc->timer.seconds, wc->timer.nanoseconds);
+                    }
+                }
+                break;
+            case THREAD_UNINT_SLEEPING:
+                terminal_writestring("\tUint sleeping");
+                break;
+            case THREAD_STOPPED:
+                terminal_writestring("\tStopped");
+                break;
+            case THREAD_DEAD:
+                terminal_printf("\tDead(%d)", this->thread->process->exitCode);
+                break;
+            }
+
+            terminal_writestring("\r\n");
+        }
+
+        timespec_t ss = {.seconds = 0, .nanoseconds = 250000000};
+        sleep_kthread(&ss, NULL);
+    }
+}
+
+static void setup_init_threads(void)
+{
+    // thread_t *kthread1 = create_kthread(&thread_test, "[hello world]", (void *)"test");
+    // sched_append_pending(kthread1);
+
+    thread_t *kthread2 = create_kthread(&init_mon, "[mon]", NULL);
+    sched_append_pending(kthread2);
+
+    terminal_log("Loading init proc...");
+    int ret = load_initproc();
+    if (ret < 0)
+        terminal_logf("Failed to load init proc %d", ret);
+    else
+        terminal_log("Loaded init proc");
 }
 
 void kernel_main(void)
@@ -83,15 +140,17 @@ void kernel_main(void)
     page_alloc_init();
     slub_alloc_init();
     vm_init();
-
     init_cls();
     sched_init();
     syscall_init();
     queues_init();
     futex_init();
     mod_init();
+
     discover_devices();
+
     init_kthread_proc();
+    setup_init_threads();
 
     if (RUN_SELF_TESTS == 1)
     {
@@ -99,8 +158,6 @@ void kernel_main(void)
         run_self_tests();
         return;
     }
-
-    setup_init_threads();
 
     wake_cores();
     kernel_main2();
@@ -120,11 +177,11 @@ void kernel_main2(void) __attribute__((kernel))
     vm_set_kernel();
     vm_enable();
     remaped_devicetreeoffset(DEVICE_DESCRIPTOR_REGION);
+    terminal_set_bar(DEVICE_REGION);
     sched_local_init();
 
     enable_xrq();
     disable_irq();
-    terminal_set_bar(DEVICE_REGION);
 
     __atomic_add_fetch(&booted, 1, __ATOMIC_ACQ_REL);
     terminal_logf("Booted core 0x%x", get_cls()->id);
@@ -142,7 +199,10 @@ void kernel_main2(void) __attribute__((kernel))
 
         __atomic_store_n(&vm_ready, 1, __ATOMIC_RELAXED);
     }
-    else while (__atomic_load_n(&vm_ready, __ATOMIC_RELAXED) == 0) {}
+    else
+        while (__atomic_load_n(&vm_ready, __ATOMIC_RELAXED) == 0)
+        {
+        }
 
     enable_irq();
     schedule_start();

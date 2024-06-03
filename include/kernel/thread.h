@@ -7,6 +7,7 @@
 #include <kernel/limits.h>
 #include <kernel/list.h>
 #include <kernel/paging.h>
+#include <kernel/regions.h>
 #include <kernel/sched.h>
 #include <kernel/signal.h>
 #include <kernel/stdint.h>
@@ -14,6 +15,11 @@
 #include <kernel/vm.h>
 
 #define THREAD_KTHREAD (1)
+
+#define KTHREAD_STACK_SIZE (1024 * 1024)
+
+#define USER_STACK_SIZE (1024 * 1024)
+#define USER_STACK_BASE (VIRT_OFFSET - 2 * PAGE_SIZE)
 
 #define THREAD_QUEUE_IO_WRITE (1)
 #define THREAD_QUEUE_IO_READ (2)
@@ -25,7 +31,8 @@ enum Process_State
 	ZOMBIE,
 };
 
-typedef struct vm_t {
+typedef struct vm_t
+{
 	vm_table *vm_table;
 
 	struct list_head vm_maps;
@@ -42,6 +49,9 @@ typedef struct process_t
 	process_t *parent;
 
 	pid_t pid;
+	tid_t nexttid;
+
+	spinlock_t lock;
 
 	char cmd[CMD_MAX];
 	char argv[ARG_MAX];
@@ -55,10 +65,11 @@ typedef struct process_t
 
 	vm_t vm;
 
-	struct list_head shm;
+	struct list_head children;
 	struct list_head queues;
-
 	struct list_head threads;
+
+	int exitCode;
 } process_t;
 
 typedef struct process_list_entry_t
@@ -73,6 +84,7 @@ enum Thread_State
 	THREAD_SLEEPING,
 	THREAD_UNINT_SLEEPING,
 	THREAD_STOPPED,
+	THREAD_DEAD,
 };
 
 enum Wait_Cond_Type
@@ -103,10 +115,12 @@ struct thread_wait_cond_queue_io
 };
 
 typedef struct futex_queue_t futex_queue_t;
-struct thread_wait_cond_futex {
+struct thread_wait_cond_futex
+{
 	thread_wait_cond cond;
 
 	futex_queue_t *queue;
+	timespec_t *timeout;
 	int ret;
 };
 
@@ -123,7 +137,13 @@ typedef struct thread_timing_t
 } thread_timing_t;
 
 typedef struct sched_class_t sched_class_t;
-typedef struct sched_entity_t sched_entity_t;
+
+typedef struct sched_entity_t
+{
+	int64_t deadline;
+	uint64_t last_deadline;
+	uint64_t prio;
+} sched_entity_t;
 
 typedef struct thread_t
 {
@@ -135,12 +155,13 @@ typedef struct thread_t
 	uint64_t flags;
 	enum Thread_State state;
 	uint64_t affinity;
+	uint64_t running_core;
 
 	thread_timing_t timing;
 	sched_class_t *sched_class;
 	sched_entity_t sched_entity;
 
-	thread_sigactions_t *sigactions;
+	thread_sigactions_t sigactions;
 
 	thread_wait_cond *wc;
 } thread_t;
@@ -179,7 +200,7 @@ void wake_thread(thread_t *thread);
 void sleep_kthread(const timespec_t *ts, timespec_t *rem);
 
 // Put thread to sleep for ts time
-void sleep_thread(thread_t *thread, const timespec_t *ts, timespec_t *user_rem);
+int sleep_thread(thread_t *thread, const timespec_t *ts, timespec_t *user_rem);
 
 // Put a thread to sleep to wait for cond
 void thread_wait_for_cond(thread_t *thread, const thread_wait_cond *cond);
@@ -192,5 +213,15 @@ int can_wake_thread(thread_t *thread);
 thread_t *get_thread_by_pid(pid_t pid);
 
 void mark_zombie_thread(thread_t *thread);
+
+void init_proc(process_t *proc, char *cmd);
+
+void free_process(process_t *proc);
+
+void free_thread(thread_t *thread);
+
+enum Thread_State set_thread_state(thread_t *thread, enum Thread_State state);
+
+struct list_head *get_threads();
 
 #endif

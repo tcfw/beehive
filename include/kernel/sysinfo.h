@@ -9,11 +9,17 @@
 #ifndef _KERNEL_SYSINFO_H
 #define _KERNEL_SYSINFO_H
 
-struct sysinfo
+struct kname
 {
 	char name[64];
 	char version[64];
 	char arch[64];
+};
+
+struct sysinfo
+{
+	uint64_t ncpu;
+	uint32_t page_size;
 };
 
 #endif

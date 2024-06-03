@@ -12,7 +12,7 @@
 struct syscall_handler_t syscall_handlers[SYSCALL_MAX];
 
 // syscall entry router
-int ksyscall_entry(uint64_t type, uint64_t arg0, uint64_t arg1, uint64_t arg2, uint64_t arg3)
+uint64_t ksyscall_entry(uint64_t type, uint64_t arg0, uint64_t arg1, uint64_t arg2, uint64_t arg3, uint64_t arg4)
 {
 	struct clocksource_t *clk = clock_first(CS_GLOBAL);
 	thread_t *cthread = current;
@@ -22,11 +22,12 @@ int ksyscall_entry(uint64_t type, uint64_t arg0, uint64_t arg1, uint64_t arg2, u
 		cthread->timing.total_user += clkval - cthread->timing.last_user;
 	cthread->timing.last_system = clkval;
 
-	int ret = -ERRNOSYS;
+	uint64_t ret = -ERRNOSYS;
 	struct syscall_handler_t *handler = &syscall_handlers[(int)type];
 
+	// terminal_logf("SYSCALL: S=%d TID=0x%X:0x%X\r\na0=0x%X a1=0x%X\r\na2=0x%X a3=0x%X a4=0x%X", type, cthread->process->pid, cthread->tid, arg0, arg1, arg2, arg3, arg4);
+
 	if (handler->handler)
-	{
 		switch (handler->argc)
 		{
 		case 1:
@@ -41,18 +42,20 @@ int ksyscall_entry(uint64_t type, uint64_t arg0, uint64_t arg1, uint64_t arg2, u
 		case 4:
 			ret = handler->handler(cthread, arg0, arg1, arg2, arg3);
 			break;
+		case 5:
+			ret = handler->handler(cthread, arg0, arg1, arg2, arg3, arg4);
+			break;
 		default:
 			ret = handler->handler(cthread);
 			break;
 		}
-	}
 
 	clkval = clk->val(clk);
 	cthread->timing.total_system += clkval - cthread->timing.last_system;
 	if ((cthread->flags & THREAD_KTHREAD) == 0)
 		cthread->timing.last_user = clkval;
 
-	if (cthread->state==THREAD_SLEEPING)
+	if (cthread->state != THREAD_RUNNING)
 		schedule();
 
 	return ret;

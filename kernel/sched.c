@@ -1,4 +1,5 @@
 #include <kernel/arch.h>
+#include <kernel/devicetree.h>
 #include <kernel/clock.h>
 #include <kernel/cls.h>
 #include <kernel/context.h>
@@ -61,6 +62,11 @@ void schedule_start(void)
 
 	spinlock_acquire(&cls->rq.lock);
 
+	// check for any pending threads and claim it
+	thread_t *t = sched_get_pending(sched_affinity(cls->id));
+	if (t)
+		t->sched_class->enqueue_thread(&cls->rq, t);
+
 	sched_class_t *sc = sched_class_head;
 	thread_t *next;
 	while (sc)
@@ -89,11 +95,11 @@ void schedule_start(void)
 
 thread_t *sched_get_pending(uint64_t affinity)
 {
-	spinlock_acquire(&pending_lock);
+	int state = spinlock_acquire_irq(&pending_lock);
 
 	if (list_empty(pending))
 	{
-		spinlock_release(&pending_lock);
+		spinlock_release_irq(state, &pending_lock);
 		return 0;
 	}
 
@@ -105,26 +111,26 @@ thread_t *sched_get_pending(uint64_t affinity)
 		{
 			thread_t *thread = this->thread;
 			list_del((struct list_head *)this);
-			page_free(this);
-			spinlock_release(&pending_lock);
+			kfree(this);
+			spinlock_release_irq(state, &pending_lock);
 			return thread;
 		}
 	}
 
-	spinlock_release(&pending_lock);
+	spinlock_release_irq(state, &pending_lock);
 	return 0;
 }
 
 void sched_append_pending(thread_t *thread)
 {
-	spinlock_acquire(&pending_lock);
+	int state = spinlock_acquire_irq(&pending_lock);
 
-	struct thread_list_entry_t *entry = (struct thread_list_entry_t *)kmalloc(sizeof(struct thread_list_entry_t));
+	struct thread_list_entry_t *entry = kmalloc(sizeof(struct thread_list_entry_t));
 	entry->thread = thread;
 
-	list_add_tail((struct list_head *)entry, &pending);
+	list_add_tail(&entry->list, &pending);
 
-	spinlock_release(&pending_lock);
+	spinlock_release_irq(state, &pending_lock);
 }
 
 uint64_t sched_affinity(uint64_t cpu_id)
@@ -152,25 +158,50 @@ sched_class_t *sched_get_class(enum Sched_Classes class)
 	return NULL;
 }
 
+int thread_is_running(thread_t *thread)
+{
+	cls_t *cur;
+	int cc = devicetree_count_dev_type("cpu");
+	for (int c = 0; c < cc; c++)
+	{
+		cur = get_core_cls(c);
+
+		spinlock_acquire(&cur->rq.lock);
+
+		if (cur->rq.current_thread == thread)
+		{
+			spinlock_release(&cur->rq.lock);
+			return c;
+		}
+
+		spinlock_release(&cur->rq.lock);
+	}
+
+	return -1;
+}
+
+void thread_stop_core(unsigned int code)
+{
+	schedule();
+}
+
 void schedule(void)
 {
 	cls_t *cls = get_cls();
 
+	int state = spinlock_acquire_irq(&cls->rq.lock);
+
 	try_wake_waitqueue(&cls->sleepq);
 
 	struct clocksource_t *clk = clock_first(CS_GLOBAL);
-
 	uint64_t clkval = clk->val(clk);
-
-	spinlock_acquire(&cls->rq.lock);
 
 	// check for any pending threads and claim it
 	thread_t *p = sched_get_pending(sched_affinity(cls->id));
 	if (p)
 		p->sched_class->enqueue_thread(&cls->rq, p);
 
-	thread_t *prev;
-	prev = cls->rq.current_thread;
+	thread_t *prev = cls->rq.current_thread;
 
 	prev->timing.total_user += clkval - prev->timing.last_user;
 	prev->timing.total_execution = prev->timing.total_system + prev->timing.total_user;
@@ -178,6 +209,8 @@ void schedule(void)
 
 	if (prev->state == THREAD_RUNNING)
 		prev->sched_class->requeue_thread(&cls->rq, prev);
+	else
+		prev->sched_class->dequeue_thread(&cls->rq, prev);
 
 	sched_class_t *sc = sched_class_head;
 	if (sched_should_tick(&cls->rq))
@@ -199,8 +232,8 @@ void schedule(void)
 		sc = sc->next;
 		if (next)
 		{
-			spinlock_release(&cls->rq.lock);
-			if (next == prev) 
+			spinlock_release_irq(state, &cls->rq.lock);
+			if (next == prev)
 				return;
 
 			prev->timing.last_wait = clkval;
@@ -209,12 +242,13 @@ void schedule(void)
 			next->sched_entity.last_deadline = clkval;
 
 			cls->rq.current_thread = next;
+			next->running_core = cls->id;
 			arch_thread_prep_switch(next);
 			return;
 		}
 	}
 
-	spinlock_release(&cls->rq.lock);
+	spinlock_release_irq(state, &cls->rq.lock);
 	panic("schedule had nothing to do");
 }
 
@@ -267,11 +301,13 @@ static thread_t *idle_next_task(sched_rq_t *rq)
 	thread_t *idle_thread = rq->idle;
 	if (!idle_thread)
 	{
-		char *buf = kmalloc(32);
-		ksprintf(buf, "[idle 0x%x]", get_cls()->id);
+		char *buf = kmalloc(64);
+		// ksprintf(buf, "[idle 0x%x]", get_cls()->id);
+		ksprintf(buf, "[idle]");
 		idle_thread = create_kthread(&wait_kthread, buf, 0);
 		kfree(buf);
 
+		idle_thread->running_core = get_cls()->id;
 		idle_thread->sched_class = &idle;
 		rq->idle = idle_thread;
 	}

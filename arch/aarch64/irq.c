@@ -1,17 +1,17 @@
+#include "errno.h"
 #include "gic.h"
 #include "regs.h"
-#include "errno.h"
+#include "regs.h"
 #include <kernel/arch.h>
 #include <kernel/cls.h>
 #include <kernel/irq.h>
 #include <kernel/panic.h>
-#include <kernel/syscall.h>
-#include <kernel/tty.h>
-#include <kernel/vm.h>
-#include <kernel/thread.h>
-#include <kernel/cls.h>
 #include <kernel/stdint.h>
-#include "regs.h"
+#include <kernel/syscall.h>
+#include <kernel/thread.h>
+#include <kernel/tty.h>
+#include <kernel/umm.h>
+#include <kernel/vm.h>
 
 extern unsigned long stack;
 
@@ -30,6 +30,8 @@ extern unsigned long stack;
 #define PIC_INT_SOFTSET 0x4
 #define PIC_INT_SOFTCLR 0x5
 
+#define SOFT_IRQ_MAX 10
+
 #define KEXP_TOP3                                             \
 	uint64_t spsr = 0;                                        \
 	__asm__ volatile("mrs %0, SPSR_EL1"                       \
@@ -45,14 +47,14 @@ extern unsigned long stack;
 		save_to_context(&thread->ctx, trapFrame);             \
 	}
 
-#define KEXP_BOT3                                    \
-	thread_t *next = current;                        \
-	if (next != thread && didsave)                   \
-	{                                                \
-		thread = next;                               \
+#define KEXP_BOT3                                                         \
+	thread_t *next = current;                                             \
+	if (next != thread && didsave)                                        \
+	{                                                                     \
+		thread = next;                                                    \
 		vm_set_table(thread->process->vm.vm_table, thread->process->pid); \
-		set_to_context(&thread->ctx, trapFrame);     \
-	}
+	}                                                                     \
+	set_to_context(&thread->ctx, trapFrame);
 
 // handle syscall inner
 void k_exphandler_swi_entry(uintptr_t trapFrame)
@@ -75,14 +77,15 @@ void k_exphandler_swi_entry(uintptr_t trapFrame)
 
 	set_cls_irq_cause(INTERRUPT_CAUSE_SWI);
 
-	uint64_t x0, x1, x2, x3, x4;
+	uint64_t x0, x1, x2, x3, x4, x5;
 	x0 = thread->ctx.regs[0];
 	x1 = thread->ctx.regs[1];
 	x2 = thread->ctx.regs[2];
 	x3 = thread->ctx.regs[3];
 	x4 = thread->ctx.regs[4];
+	x5 = thread->ctx.regs[5];
 
-	volatile int ret = ksyscall_entry(x0, x1, x2, x3, x4);
+	uint64_t ret = ksyscall_entry(x0, x1, x2, x3, x4, x5);
 	if (current == thread)
 		thread->ctx.regs[0] = ret;
 
@@ -109,7 +112,6 @@ void k_exphandler_swi_entry(uintptr_t trapFrame)
 void k_exphandler_sync(uintptr_t trapFrame)
 {
 	KEXP_TOP3;
-	disable_irq();
 
 	uint64_t esr = 0;
 	__asm__ volatile("mrs %0, ESR_EL1"
@@ -125,8 +127,6 @@ void k_exphandler_irq(uintptr_t trapFrame)
 {
 	KEXP_TOP3;
 
-	disable_irq();
-
 	volatile uint64_t xrq;
 	__asm__ volatile("MRS %0, S3_0_c12_c12_0" // ICC_IAR1_EL1
 					 : "=r"(xrq));
@@ -135,10 +135,19 @@ void k_exphandler_irq(uintptr_t trapFrame)
 	__asm__ volatile("MRS %0, ESR_EL1"
 					 : "=r"(esr));
 
-	if (get_cls_irq_cause() == INTERRUPT_CAUSE_SWI) {
+	if (xrq < SOFT_IRQ_MAX)
+	{
+		// Handle IPI immediately
+		k_exphandler(ARM4_XRQ_IRQ, xrq, 0);
+	}
+
+	if (get_cls_irq_cause() == INTERRUPT_CAUSE_SWI)
+	{
 		// defer IRQ until syscall is complete
 		get_cls()->pending_irq |= (1 << xrq);
-	} else {
+	}
+	else
+	{
 		set_cls_irq_cause(INTERRUPT_CAUSE_IRQ);
 
 		k_exphandler(ARM4_XRQ_IRQ, xrq, 0);
@@ -146,20 +155,30 @@ void k_exphandler_irq(uintptr_t trapFrame)
 		clear_cls_irq_cause();
 	}
 
+	enable_xrq();
+
 	KEXP_BOT3;
 }
 
 // Handle FIQ
-void k_exphandler_fiq()
+void k_exphandler_fiq(uintptr_t trapFrame)
 {
+	KEXP_TOP3;
+
 	k_exphandler(ARM4_XRQ_FIQ, 0, 0);
+
+	enable_xrq();
+
+	KEXP_BOT3;
 }
 
 // Handle serrors
 void k_exphandler_serror_entry(uintptr_t trapFrame)
 {
 	KEXP_TOP3;
+
 	k_exphandler(ARM4_XRQ_SERROR, 0, 0);
+
 	KEXP_BOT3;
 }
 
@@ -236,6 +255,12 @@ void send_soft_irq(uint64_t target, uint8_t sgi)
 // Handle FIQ exceptions
 void k_fiq_exphandler(unsigned int xrq)
 {
+	panicf("unhandled FIQ xrq=0x%x", xrq);
+}
+
+// Handle SYNC exceptions
+void k_sync_exphandler(unsigned int xrq)
+{
 	uint64_t far = 0, par = 0, pa = 0, elr = 0;
 	__asm__ volatile("MRS %0, S3_0_c6_c0_0"
 					 : "=r"(far)); // FAR_EL1
@@ -249,10 +274,13 @@ void k_fiq_exphandler(unsigned int xrq)
 	switch (ESR_EXCEPTION_CLASS(xrq))
 	{
 	case ESR_EXCEPTION_INSTRUCTION_ABORT_LOWER_EL:
-		terminal_logf("instruction abort from EL0 addr 0x%X", far);
+		terminal_logf("instruction abort from EL0 addr 0x%X (reason: 0x%X)", far, xrq);
 		if (cls->rq.current_thread != 0)
+		{
 			terminal_logf("on PID 0x%x", cls->rq.current_thread->process->pid);
-		// send SIGILL
+			// send SIGILL
+			current->state = THREAD_DEAD;
+		}
 		break;
 	case ESR_EXCEPTION_INSTRUCTION_ABORT_SAME_EL:
 		if (cls->cfe != EXCEPTION_UNKNOWN)
@@ -262,14 +290,26 @@ void k_fiq_exphandler(unsigned int xrq)
 			// send SIGSYS?
 		}
 		else
-			panicf("Instruction abort at 0x%x", far);
+			panicf("Unhandled instruction abort from kernel: at 0x%X", far);
 	case ESR_EXCEPTION_DATA_ABORT_LOWER_EL:
-		terminal_logf("data abort from EL0 addr 0x%x", far);
-		if (cls->rq.current_thread != 0)
-			terminal_logf("on PID 0x%x", cls->rq.current_thread->process->pid);
-		// send SIGSEGV
+		int wnr = USER_DATA_ABORT_READ;
+		if (ESR_WNR(xrq) == 1)
+			wnr = USER_DATA_ABORT_WRITE;
 
-		break;
+		user_data_abort(far, wnr, elr);
+
+		return;
+
+		// uint64_t *pte = vm_va_to_pte(current->process->vm.vm_table, (uintptr_t)far);
+		// terminal_logf("data abort from EL0 addr accessing 0x%X\r\nPC:0x%X\r\nESR:0x%X\r\nPage: *0x%X", far, elr, xrq, pte);
+		// if (cls->rq.current_thread != 0)
+		// {
+		// 	terminal_logf("on PID 0x%x", cls->rq.current_thread->process->pid);
+		// 	// send SIGSEGV
+		// 	current->state = THREAD_DEAD;
+		// }
+
+		// break;
 	case ESR_EXCEPTION_DATA_ABORT_SAME_EL:
 		if (cls->cfe != EXCEPTION_UNKNOWN)
 		{
@@ -281,11 +321,12 @@ void k_fiq_exphandler(unsigned int xrq)
 		else
 		{
 			pa = vm_va_to_pa(vm_get_current_table(), far);
-			panicf("Unhandlable Data Abort: \n\tELR: 0x%X \n\tESR: 0x%x \n\tVirtual Address: 0x%X\n\tPhysical Address: 0x%X\n\tPAR: 0x%X", elr, xrq, far, pa, par);
+			panicf("Unhandlable data abort from kernel: \r\n\tELR: 0x%X \r\n\tESR: 0x%x \r\n\tVirtual Address: 0x%X\r\n\tPhysical Address: 0x%X\r\n\tPAR: 0x%X", elr, xrq, far, pa, par);
 		}
 		break;
 	default:
-		panicf("unhandled FIQ(0x%x) FAR: 0x%X", xrq, far);
+		current->state = THREAD_DEAD;
+		panicf("unhandled SYNC TID=%d:%d xrq=0x%x FAR=0x%X PAR=0x%X ELR=0x%X", current->process->pid, current->tid, xrq, far, par, elr);
 	}
 }
 

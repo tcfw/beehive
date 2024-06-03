@@ -19,7 +19,6 @@ enum Sched_Classes
 };
 
 typedef struct thread_t thread_t;
-typedef struct sched_class_t sched_class_t;
 
 typedef struct sched_rq_t
 {
@@ -32,6 +31,8 @@ typedef struct sched_rq_t
 
 	uint64_t last_tick;
 } sched_rq_t;
+
+typedef struct sched_class_t sched_class_t;
 
 typedef struct sched_class_t
 {
@@ -56,13 +57,6 @@ typedef struct sched_class_t
 
 } sched_class_t;
 
-typedef struct sched_entity_t
-{
-	int64_t deadline;
-	uint64_t last_deadline;
-	uint64_t prio;
-} sched_entity_t;
-
 void sched_init(void);
 
 void sched_local_init(void);
@@ -74,6 +68,10 @@ void sched_append_pending(thread_t *thread);
 uint64_t sched_affinity(uint64_t cpu_id);
 
 sched_class_t *sched_get_class(enum Sched_Classes class);
+
+int thread_is_running(thread_t *thread);
+
+void thread_stop_core(unsigned int code);
 
 void schedule(void);
 

@@ -2,6 +2,7 @@
 #define _ARCH_REGS_H
 
 #define ESR_EXCEPTION_CLASS(xrq) ((xrq & 0xFC000000) >> 26)
+#define ESR_WNR(xrq) ((xrq & 0x40) >> 6)
 
 #define ESR_EXCEPTION_SVC (0b010101)
 #define ESR_EXCEPTION_INSTRUCTION_ABORT_LOWER_EL (0b100000)

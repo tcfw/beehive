@@ -1,12 +1,12 @@
+#include <kernel/cls.h>
 #include <kernel/arch.h>
 #include <kernel/clock.h>
 #include <kernel/irq.h>
-#include <kernel/irq.h>
 #include <kernel/sched.h>
+#include <kernel/stdint.h>
 #include <kernel/strings.h>
 #include <kernel/tty.h>
 #include <kernel/wait.h>
-#include <kernel/stdint.h>
 
 extern void halt_loop();
 static void halt_core(__attribute__((unused)) unsigned int _);
@@ -19,17 +19,23 @@ struct irq_handler_t irq_handlers[IRQ_HANDLER_MAX];
 // FIQ & IRQ handler
 void k_exphandler(unsigned int type, unsigned int xrq, int deferred)
 {
-	if (type != 0x2)
+	switch (type)
 	{
+	case 0x1: // software
+		k_sync_exphandler(xrq);
+		goto ack_sched;
+	case 0x3: // FIQ
 		k_fiq_exphandler(xrq);
+		return;
+	case 0x4: // System Error
+		break;
 	}
-	else if (xrq < IRQ_HANDLER_MAX)
+
+	if (xrq < IRQ_HANDLER_MAX)
 	{
 		struct irq_handler_t *handler = &irq_handlers[xrq];
 		if (handler->khandler)
-		{
 			handler->khandler(xrq);
-		}
 		else if (handler->pid)
 		{
 			// enqueue signal to proc
@@ -37,6 +43,10 @@ void k_exphandler(unsigned int type, unsigned int xrq, int deferred)
 	}
 
 	ack_xrq(xrq);
+
+ack_sched:
+	if (current->state != THREAD_RUNNING)
+		schedule();
 
 	return;
 }
@@ -69,8 +79,10 @@ void assign_irq_hook(unsigned int xrq, irq_handler_cb cb)
 // setup built in software IRQs
 void k_setup_soft_irq()
 {
-	assign_irq_hook(0, halt_core);
+	assign_irq_hook(SOFT_IRQ_HALT_CORE, halt_core);
+	assign_irq_hook(SOFT_IRQ_THREAD_STOP, thread_stop_core);
 	enable_xrq_n(0);
+	enable_xrq_n(1);
 }
 
 void k_setup_clock_irq()

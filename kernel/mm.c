@@ -2,6 +2,7 @@
 #include <kernel/buddy.h>
 #include <kernel/devicetree.h>
 #include <kernel/mm.h>
+#include <kernel/panic.h>
 #include <kernel/regions.h>
 #include <kernel/slub.h>
 #include <kernel/stdint.h>
@@ -149,7 +150,12 @@ void page_reloc(uintptr_t offset)
 
 void page_free(void *ptr)
 {
+	if (((uintptr_t)ptr & (PAGE_SIZE - 1)) != 0)
+		panicf("unaligned page_free 0x%X", ptr);
+
 	int state = spinlock_acquire_irq(&page_lock);
+
+	// terminal_logf("page_free 0x%X", ptr);
 
 	buddy_free(pages, ptr);
 

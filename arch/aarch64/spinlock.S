@@ -9,6 +9,9 @@
 spinlock_acquire:
 	.globl	spinlock_acquire
 
+	ISB
+	DSB ISH
+
 	/*
 	mov	w2, #1
 1:	mov	w1, wzr
@@ -42,5 +45,6 @@ l2:	ldaxr	w1, [x0]
  */
 spinlock_release:
 	.globl	spinlock_release
+	ISB
 	stlr	wzr, [x0]
 	ret

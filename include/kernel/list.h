@@ -62,6 +62,16 @@ static inline void list_add_tail(struct list_head *new, struct list_head *head)
 	__list_add(new, head->prev, head);
 }
 
+static inline void list_add_after(struct list_head *new, struct list_head *existing)
+{
+	__list_add(new, existing, existing->next);
+}
+
+static inline void list_add_before(struct list_head *new, struct list_head *existing)
+{
+	__list_add(new, existing->prev, existing);
+}
+
 #define list_head_for_each(pos, head) \
 	for (pos = (head)->next; !list_is_head((struct list_head *)pos, (struct list_head *)head); pos = pos->list.next)
 

@@ -88,16 +88,9 @@
 #define VM_ENTRY_VALID (1ULL << 0)
 #define VM_ENTRY_ISTABLE (1ULL << 1)
 #define VM_ENTRY_NONSECURE (1ULL << 5)
-#define VM_ENTRY_USER (1ULL << 6)
 #define VM_ENTRY_OA_MASK (0xFFFFFFFFF000ULL)
 #define VM_ENTRY_UXN (1ULL << 54)
 #define VM_ENTRY_PXN (1ULL << 53)
-
-// OS params (55-58)
-#define VM_ENTRY_LINKED (1ULL << 55)	 // symbolic link
-#define VM_ENTRY_SWAPPEDOUT (1ULL << 56) // not in memory
-#define VM_ENTRY_MAPPED (1ULL << 57)	 // mapped to device or similar region
-
 #define VM_ENTRY_ATTR (2ULL)
 #define VM_ENTRY_NG (1ULL << 11)
 #define VM_ENTRY_AF (1ULL << 10)
@@ -106,6 +99,13 @@
 #define VM_ENTRY_CONTIGUOUS (1ULL << 52)
 #define VM_ENTRY_AP_SHIFT (6)
 #define VM_ENTRY_PERM_RO (2ULL << VM_ENTRY_AP_SHIFT)
+#define VM_ENTRY_PERM_W (1ULL << VM_ENTRY_AP_SHIFT)
+
+// OS params
+#define VM_ENTRY_LINKED (1ULL << 55)	 // symbolic link
+#define VM_ENTRY_SWAPPEDOUT (1ULL << 56) // not in memory
+#define VM_ENTRY_MAPPED (1ULL << 57)	 // mapped to device or shared region
+#define VM_ENTRY_USER (1ULL << 58)		 // user space memory
 
 #define VM_DESC_VALID (1ULL << 0)
 #define VM_DESC_IS_DESC (1ULL << 1)
