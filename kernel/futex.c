@@ -220,6 +220,6 @@ DEFINE_SYSCALL5(syscall_futex, SYSCALL_FUTEX, void *, addr, int, op, uint32_t, v
 	case FUTEX_OP_SLEEP:
 		return futex_do_sleep(addr, val, timeout);
 	default:
-		return -ERRINVALID;
+		return -ERRINVAL;
 	}
 }

@@ -265,7 +265,7 @@ int sleep_thread(thread_t *thread, const timespec_t *ts, timespec_t *user_rem)
 		return -ERRNOMEM;
 
 	if (set_thread_state(thread, THREAD_SLEEPING) != THREAD_SLEEPING)
-		return -ERRINVALID;
+		return -ERRINVAL;
 
 	sleep_cond->cond.type = SLEEP;
 	sleep_cond->timer.seconds = sts.seconds + ts->seconds;

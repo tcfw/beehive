@@ -132,6 +132,7 @@ DEFINE_SYSCALL2(syscall_mem_unmap, SYSCALL_MEM_UMAP, uintptr_t, addr, size_t, le
 		if (this->page != 0 && this->phy_addr == 0 && (this->flags & VM_MAP_FLAG_SHARED) == 0)
 		{
 			// terminal_log("and freed pages");
+			vm_unmap_region(thread->process->vm.vm_table, this->vm_addr, this->length - 1);
 			page_free(this->page);
 		}
 
@@ -160,7 +161,7 @@ DEFINE_SYSCALL3(syscall_mem_map, SYSCALL_MEM_MAP, uintptr_t, addr, size_t, lengt
 	{
 		// TODO(tcfw) check reservation -> actual allocation
 		if (mapaddr % PAGE_SIZE != 0)
-			return -ERRINVALID;
+			return -ERRINVAL;
 
 		existingMap = has_mapping(thread, mapaddr, maplength);
 		if (existingMap != 0)
@@ -169,7 +170,7 @@ DEFINE_SYSCALL3(syscall_mem_map, SYSCALL_MEM_MAP, uintptr_t, addr, size_t, lengt
 				return -ERREXISTS;
 		}
 		else if (mapaddr < thread->process->vm.brk)
-			return -ERRINVALID;
+			return -ERRINVAL;
 	}
 	else
 		mapaddr = thread->process->vm.brk;
@@ -178,7 +179,7 @@ DEFINE_SYSCALL3(syscall_mem_map, SYSCALL_MEM_MAP, uintptr_t, addr, size_t, lengt
 		mapaddr += PAGE_SIZE - (mapaddr % PAGE_SIZE);
 
 	if ((mapaddr + maplength) > VIRT_OFFSET)
-		return -ERRINVALID;
+		return -ERRINVAL;
 
 	int mapflags = MEMORY_TYPE_USER;
 
@@ -200,7 +201,7 @@ DEFINE_SYSCALL3(syscall_mem_map, SYSCALL_MEM_MAP, uintptr_t, addr, size_t, lengt
 		if (existingMap->page == 0 && (existingMap->flags & VM_MAP_FLAG_LAZY) != 0)
 			return actualise_reservation(thread, existingMap, mapflags);
 
-		return -ERRINVALID;
+		return -ERRINVAL;
 	}
 
 	if (maplength > VM_MAX_IMMD_ALLOC || flags == 0)

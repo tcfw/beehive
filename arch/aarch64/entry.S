@@ -280,6 +280,8 @@ k_exphandler_fiq_entry:
 
     ERET
 
+syscall0:
+    .globl syscall0
 syscall1:
     .globl syscall1
 syscall2:

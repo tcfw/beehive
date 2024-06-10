@@ -14,7 +14,7 @@ int load_initproc()
 	struct elf_hdr_64_t *initproc = initproc_elf_hdr();
 
 	if (!validate_elf(initproc))
-		return -ERRINVALID;
+		return -ERRINVAL;
 
 	process_t *proc = (process_t *)page_alloc_s(sizeof(process_t));
 	if (!proc)

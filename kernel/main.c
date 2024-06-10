@@ -44,15 +44,30 @@ static void thread_test(void *data)
 
 static void init_mon(void *data)
 {
+    int i = 0;
+    timespec_t ss = {.seconds = 2, .nanoseconds = 250000000};
+    sleep_kthread(&ss, NULL);
+    ss.seconds = 0;
+    terminal_printf("\r\n\033c");
+
     while (1)
     {
-        terminal_printf("\r\n\033c\033[2J");
+        i++;
+        if (i % 20 == 0)
+            terminal_printf("\r\n\033c");
+
+        terminal_printf("\r\n\033[;H");
         terminal_logf("\r\nProc\tCore\tPC\t\tTime\t\tState\r\n");
 
         thread_list_entry_t *this;
 
         list_head_for_each(this, get_threads())
         {
+            if (this->thread->process->pid == 1 && this->thread->process->state == ZOMBIE)
+            {
+                terminal_writestring("init pid a zombie");
+                goto fin;
+            }
 
             if (this->thread->process->pid == 0)
                 terminal_writestring(this->thread->name);
@@ -102,9 +117,12 @@ static void init_mon(void *data)
             terminal_writestring("\r\n");
         }
 
-        timespec_t ss = {.seconds = 0, .nanoseconds = 250000000};
         sleep_kthread(&ss, NULL);
     }
+fin:
+    terminal_writestring("stopped [mon]");
+    mark_zombie_thread(current);
+    syscall0(SYSCALL_SCHED_YIELD);
 }
 
 static void setup_init_threads(void)

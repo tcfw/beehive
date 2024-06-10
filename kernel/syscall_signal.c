@@ -29,7 +29,7 @@ DEFINE_SYSCALL2(syscall_sig_tstack, SYSCALL_SIG_TSTACK, stack_t *, new, stack_t 
 			return ret;
 
 		if (newss.sp == 0)
-			return -ERRINVALID;
+			return -ERRINVAL;
 
 		if (newss.size == 0)
 			newss.size = MINSIGSTKSIZ;

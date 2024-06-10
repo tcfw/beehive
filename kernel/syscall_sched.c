@@ -10,6 +10,11 @@
 #include <kernel/tty.h>
 #include <kernel/uaccess.h>
 
+DEFINE_SYSCALL0(syscall_sched_yield, SYSCALL_SCHED_YIELD)
+{
+	schedule();
+}
+
 DEFINE_SYSCALL2(syscall_sched_getaffinity, SYSCALL_SCHED_GETAFFINITY, pid_t, pid, uint64_t *, affinity)
 {
 	int access = access_ok(ACCESS_TYPE_WRITE, affinity, sizeof(uint64_t));
