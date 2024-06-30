@@ -87,7 +87,15 @@ void k_exphandler_swi_entry(uintptr_t trapFrame)
 
 	uint64_t ret = ksyscall_entry(x0, x1, x2, x3, x4, x5);
 	if (current == thread)
+	{
 		thread->ctx.regs[0] = ret;
+
+		// set carry flag to denote an error
+		if ((int64_t)ret < 0)
+			thread->ctx.spsr |= 1 << 29;
+		else
+			thread->ctx.spsr &= ~(1 << 29);
+	}
 
 	clear_cls_irq_cause();
 

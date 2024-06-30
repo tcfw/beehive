@@ -371,11 +371,18 @@ DEFINE_SYSCALL3(syscall_mq_send, SYSCALL_MQ_SEND, const struct mq_send_params *,
 	return 0;
 }
 
-DEFINE_SYSCALL3(syscall_mq_recv, SYSCALL_MQ_RECV, const uint32_t, id, void *, data, const size_t, dlen)
+DEFINE_SYSCALL4(syscall_mq_recv, SYSCALL_MQ_RECV, const uint32_t, id, void *, data, const size_t, dlen, queue_recv_info_t *, md)
 {
 	int ok = access_ok(ACCESS_TYPE_WRITE, data, dlen);
 	if (ok < 0)
 		return ok;
+
+	if (md != 0)
+	{
+		ok = access_ok(ACCESS_TYPE_WRITE, md, sizeof(*md));
+		if (ok < 0)
+			return ok;
+	}
 
 	// TODO(tcfw) permissions
 
@@ -428,6 +435,12 @@ DEFINE_SYSCALL3(syscall_mq_recv, SYSCALL_MQ_RECV, const uint32_t, id, void *, da
 	spinlock_release(&queue->lock);
 
 	copy_to_user((void *)&buf->buffer->buf, data, len);
+
+	if (md != 0)
+	{
+		queue_recv_info_t info = {.sender = buf->buffer->sender, .recv = buf->buffer->recv};
+		copy_to_user(&info, md, sizeof(*md));
+	}
 
 	spinlock_acquire(&buf->buffer->lock);
 	buf->buffer->refs--;

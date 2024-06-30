@@ -71,5 +71,6 @@
 #define SYSCALL_DEV_INFO (151)		   // int dev_info();
 #define SYSCALL_DEV_CLAIM (152)		   // int dev_claim();
 #define SYSCALL_DEV_RELEASE (153)	   // int dev_release();
+#define SYSCALL_DEV_PROP (154)		   // int dev_prop();
 
 #endif _BEEHIVE_SYSCALL_NUM_H

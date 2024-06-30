@@ -254,7 +254,7 @@ int vm_unmap_region(vm_table *table, uintptr_t vstart, size_t size)
 	// check vstart and vend is page aligned
 	if ((vstart & 0xFFF) != 0 || (vend & 0xFFF) != 0xFFF)
 	{
-		terminal_log("WARN: vm region map was not page aligned");
+		terminal_logf("WARN: vm region map was not page aligned 0x%X:0x%X", vstart, vend);
 		return -1;
 	}
 
@@ -367,7 +367,7 @@ int vm_unmap_region(vm_table *table, uintptr_t vstart, size_t size)
 			cur_table->entries[li] = 0;
 		}
 
-		terminal_logf("unmapping L: 0x%x i: 0x%x sub-level: 0x%x", level, li, (cur_table->entries[li] & VM_ENTRY_ISTABLE) != 0);
+		// terminal_logf("unmapping L: 0x%x i: 0x%x sub-level: 0x%x", level, li, (cur_table->entries[li] & VM_ENTRY_ISTABLE) != 0);
 	}
 
 	int found_pte = 0;
@@ -383,7 +383,7 @@ int vm_unmap_region(vm_table *table, uintptr_t vstart, size_t size)
 	if (found_pte == 0)
 	{
 		// table is empty
-		terminal_logf("table is empty, freeing");
+		// terminal_logf("table is empty, freeing");
 		vm_free_table_block(cur_table, level);
 	}
 

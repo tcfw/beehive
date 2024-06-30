@@ -84,8 +84,8 @@ static uint64_t psci_cpu_on(uint64_t affinity, uintptr_t entrypoint)
 	uint64_t ret = 0;
 
 	__asm__ volatile("mov x3, xzr");
-	__asm__ volatile("mov x2, %0" :: "r"(entrypoint));
-	__asm__ volatile("mov x1, %0" :: "r"(affinity));
+	__asm__ volatile("mov x2, %0" ::"r"(entrypoint));
+	__asm__ volatile("mov x1, %0" ::"r"(affinity));
 	__asm__ volatile("ldr x0, =0xc4000003");
 	__asm__ volatile("hvc 0");
 	__asm__ volatile("mov %0, x0"
@@ -136,31 +136,20 @@ uintptr_t ram_max(void)
 	return ram_start() + ram_size();
 }
 
-uintptr_t ram_start(void) {
+uintptr_t ram_start(void)
+{
 	void *mem_map = devicetree_find_node("/memory");
 	if (mem_map == 0)
 		panic("could not find memory node in device tree");
 
 	if (strcmp(devicetree_get_property(mem_map, "device_type"), "memory") != 0)
-		panic("memory node has unexpected device_type propert");
+		panicf("memory node has unexpected device_type property, got '%s'", devicetree_get_property(mem_map, "device_type"));
 
-	uint32_t *regs = (uint32_t *)devicetree_get_property(mem_map, "reg");
-	uint32_t *addrCells = (uint32_t *)devicetree_get_root_property("#address-cells");
+	uintptr_t offset = devicetree_get_bar(mem_map);
+	if (offset == 0)
+		panic("memory offset address was 0");
 
-	uint64_t start = 0;
-
-	if (BIG_ENDIAN_UINT32(*addrCells) == 2)
-	{
-		start = BIG_ENDIAN_UINT64(*(uint64_t *)regs);
-	}
-	else if (BIG_ENDIAN_UINT32(*addrCells) == 1)
-	{
-		start = (uint32_t)BIG_ENDIAN_UINT32(*(uint32_t *)regs);
-	}
-	else
-		panic("unsupported #address-cells");
-
-	return start;
+	return offset;
 }
 
 uintptr_t ram_size(void)
@@ -172,25 +161,9 @@ uintptr_t ram_size(void)
 	if (strcmp(devicetree_get_property(mem_map, "device_type"), "memory") != 0)
 		panic("memory node has unexpected device_type propert");
 
-	uint32_t *regs = (uint32_t *)devicetree_get_property(mem_map, "reg");
-	uint32_t *addrCells = (uint32_t *)devicetree_get_root_property("#address-cells");
-	uint32_t *sizeCells = (uint32_t *)devicetree_get_root_property("#size-cells");
-
-	uint64_t size = 0;
-
-	if (BIG_ENDIAN_UINT32(*addrCells) == 2)
-		regs += 2;
-	else if (BIG_ENDIAN_UINT32(*addrCells) == 1)
-		regs++;
-	else
-		panic("unsupported #address-cells");
-
-	if (BIG_ENDIAN_UINT32(*sizeCells) == 2)
-		size = BIG_ENDIAN_UINT64(*(uint64_t *)regs);
-	else if (BIG_ENDIAN_UINT32(*sizeCells) == 1)
-		size = BIG_ENDIAN_UINT32(*regs);
-	else
-		panic("unsupported #size-cells");
+	uintptr_t size = (uintptr_t)devicetree_get_bar_size(mem_map);
+	if (size == 0)
+		panic("memory size was 0");
 
 	return size;
 }

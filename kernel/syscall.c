@@ -7,7 +7,7 @@
 #include <kernel/clock.h>
 #include <kernel/cls.h>
 
-#define SYSCALL_MAX 140
+#define SYSCALL_MAX 155
 
 struct syscall_handler_t syscall_handlers[SYSCALL_MAX];
 

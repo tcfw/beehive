@@ -102,6 +102,12 @@ typedef struct queue_buffer_list_entry_t
 	queue_buffer_t *buffer;
 } queue_buffer_list_entry_t;
 
+typedef struct queue_recv_info_t
+{
+	timespec_t recv;
+	pid_t sender;
+} queue_recv_info_t;
+
 void queues_init();
 
 skiplist_t *queues_get_skl();

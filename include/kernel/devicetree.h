@@ -60,6 +60,14 @@ void *devicetree_get_root_node();
 
 char *devicetree_get_property(void *node, char *propkey);
 
+uint32_t devicetree_get_property_len(void *node, char *propkey);
+
+char *devicetree_get_node_name(void *node);
+
+uintptr_t devicetree_get_bar(void *node);
+
+uint64_t devicetree_get_bar_size(void *node);
+
 char *devicetree_get_root_property(char *propkey);
 
 #endif

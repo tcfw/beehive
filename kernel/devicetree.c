@@ -1,5 +1,6 @@
 #include <kernel/devicetree.h>
 #include <kernel/endian.h>
+#include <kernel/panic.h>
 #include <kernel/strings.h>
 #include <kernel/tty.h>
 #include <kernel/unistd.h>
@@ -125,7 +126,7 @@ void *devicetree_find_node(char *path)
 			{
 				path = nextnp;
 				if (*path == 0)
-					return data;
+					return data - 1;
 
 				while (*data)
 					data++;
@@ -169,11 +170,11 @@ char *devicetree_get_property(void *node, char *propkey)
 {
 	volatile struct fdt_header_t *dtb_header = (struct fdt_header_t *)dbt_offset;
 	uintptr_t off_dt_strings = dbt_offset + BIG_ENDIAN_UINT32(dtb_header->off_dt_strings);
-	char *data = (char *)node;
+	char *data = (char *)(node + 4);
 
 	// read past unit name
 	if (*data == 0)
-		data += 4;
+		data += sizeof(uint32_t);
 	else
 		while (*data)
 			data++;
@@ -199,12 +200,46 @@ char *devicetree_get_property(void *node, char *propkey)
 	return 0;
 }
 
+uint32_t devicetree_get_property_len(void *node, char *propkey)
+{
+	volatile struct fdt_header_t *dtb_header = (struct fdt_header_t *)dbt_offset;
+	uintptr_t off_dt_strings = dbt_offset + BIG_ENDIAN_UINT32(dtb_header->off_dt_strings);
+	char *data = (char *)(node + 4);
+
+	// read past unit name
+	if (*data == 0)
+		data += sizeof(uint32_t);
+	else
+		while (*data)
+			data++;
+
+	// read past padding, if any
+	if ((uint32_t)data % 4 != 0)
+		data += 4 - ((uint32_t)data % 4); // ensure aligned back to uint32
+
+	while (*((uint32_t *)data) == FDT_PROP)
+	{
+		data += sizeof(uint32_t);
+		struct fdt_prop_t *prop = (struct fdt_prop_t *)data;
+		data += sizeof(struct fdt_prop_t);
+		char *name = (char *)(off_dt_strings + (uintptr_t)BIG_ENDIAN_UINT32(prop->nameoff));
+		if (strcmp(name, propkey) == 0)
+			return BIG_ENDIAN_UINT32(prop->len);
+
+		data += BIG_ENDIAN_UINT32(prop->len);
+		if ((uint32_t)data % 4 != 0)
+			data += 4 - ((uint32_t)data % 4); // ensure aligned back to uint32
+	}
+
+	return 0;
+}
+
 char *devicetree_get_root_property(char *propkey)
 {
 	volatile struct fdt_header_t *dtb_header = (struct fdt_header_t *)dbt_offset;
 	uint32_t *root = (uint32_t *)(dbt_offset + BIG_ENDIAN_UINT32(dtb_header->off_dt_struct));
 
-	return devicetree_get_property(root + 1, propkey);
+	return devicetree_get_property(root, propkey);
 }
 
 uint32_t devicetree_count_nodes_with_prop(char *propkey, char *cmpdata, size_t size)
@@ -283,8 +318,144 @@ uint32_t devicetree_count_dev_type(char *type)
 
 void *devicetree_first_with_device_type(char *type)
 {
+	void *node = devicetree_get_next_node(devicetree_find_node("/"));
+	char *devType;
+
+	while (node != 0)
+	{
+		devType = devicetree_get_property(node, "device_type");
+		if (strcmp(devType, type) == 0)
+			break;
+	}
+
+	return node;
 }
 
-void *devicetree_get_root_node() {
+void *devicetree_get_next_node(void *current)
+{
+	uint32_t *data = (uint32_t *)current;
+	char *keyn;
+
+	if (*data != FDT_BEGIN_NODE)
+		return 0;
+
+	volatile struct fdt_header_t *dtb_header = (struct fdt_header_t *)dbt_offset;
+	uintptr_t off_dt_strings = dbt_offset + BIG_ENDIAN_UINT32(dtb_header->off_dt_strings);
+	int depth = -1;
+	// int wasRoot = 0;
+	// if (current == devicetree_get_root_node())
+	// {
+	// 	wasRoot = 1;
+	// 	depth = -1;
+	// }
+
+	while (data < off_dt_strings + BIG_ENDIAN_UINT32(dtb_header->size_dt_struct))
+	{
+		switch (*data++)
+		{
+		case FDT_BEGIN_NODE:;
+			if ((void *)(data - sizeof(FDT_BEGIN_NODE)) != current)
+				depth++;
+
+			// if (wasRoot != 0 && depth == 1)
+			if (depth >= 1)
+				return data - 1;
+
+			keyn = data;
+			while (*keyn)
+				keyn++;
+
+			if ((uint32_t)keyn % 4 != 0)
+				keyn += 4 - ((uint32_t)keyn % 4); // ensure aligned back to uint32
+
+			data = (uint32_t *)keyn;
+			break;
+		case FDT_PROP:;
+			struct fdt_prop_t *prop = data; // data already moved halfway through sizeof(prop)
+			data += 2;
+
+			keyn = data;
+			keyn += BIG_ENDIAN_UINT32(prop->len);
+
+			if ((uint32_t)keyn % 4 != 0)
+				keyn += 4 - ((uint32_t)keyn % 4); // ensure aligned back to uint32
+
+			data = (uint32_t *)keyn;
+			break;
+		case FDT_END_NODE:
+			// if (depth == 1)
+			// return data++;
+			// depth--;
+			break;
+		case FDT_END:
+			return 0;
+		case FDT_NOP:
+		default:
+			break;
+		}
+	}
+
+	return 0;
+}
+
+char *devicetree_get_node_name(void *node)
+{
+	return (char *)(((uint32_t *)node) + 1);
+}
+
+void *devicetree_get_root_node()
+{
 	return devicetree_find_node("/");
+}
+
+uintptr_t devicetree_get_bar(void *node)
+{
+	uint32_t *regs = (uint32_t *)devicetree_get_property(node, "reg");
+	if (regs == 0)
+		return 0;
+
+	uint32_t *addrCells = (uint32_t *)devicetree_get_root_property("#address-cells");
+
+	uint64_t start = 0;
+
+	if (BIG_ENDIAN_UINT32(*addrCells) == 2)
+	{
+		start = BIG_ENDIAN_UINT64(*(uint64_t *)regs);
+	}
+	else if (BIG_ENDIAN_UINT32(*addrCells) == 1)
+	{
+		start = (uint32_t)BIG_ENDIAN_UINT32(*(uint32_t *)regs);
+	}
+	else
+		panic("unsupported #address-cells");
+
+	return start;
+}
+
+uint64_t devicetree_get_bar_size(void *node)
+{
+	uint32_t *regs = (uint32_t *)devicetree_get_property(node, "reg");
+	if (regs == 0)
+		return 0;
+
+	uint32_t *addrCells = (uint32_t *)devicetree_get_root_property("#address-cells");
+	uint32_t *sizeCells = (uint32_t *)devicetree_get_root_property("#size-cells");
+
+	uint64_t size = 0;
+
+	if (BIG_ENDIAN_UINT32(*addrCells) == 2)
+		regs += 2;
+	else if (BIG_ENDIAN_UINT32(*addrCells) == 1)
+		regs++;
+	else
+		panic("unsupported #address-cells");
+
+	if (BIG_ENDIAN_UINT32(*sizeCells) == 2)
+		size = BIG_ENDIAN_UINT64(*(uint64_t *)regs);
+	else if (BIG_ENDIAN_UINT32(*sizeCells) == 1)
+		size = BIG_ENDIAN_UINT32(*regs);
+	else
+		panic("unsupported #size-cells");
+
+	return size;
 }

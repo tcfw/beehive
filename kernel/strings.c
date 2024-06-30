@@ -319,3 +319,14 @@ int memcmp(const void *str1, const void *str2, size_t count)
 	}
 	return 0;
 }
+
+char *strchr(const char *str, int character)
+{
+
+	char *p = str;
+	while (*p++)
+		if (*p == character)
+			return p;
+
+	return 0;
+}

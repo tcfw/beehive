@@ -35,4 +35,6 @@ void *memset(void *dest, int val, size_t len);
 
 int memcmp(const void *, const void *, size_t);
 
+char *strchr(const char *, int);
+
 #endif

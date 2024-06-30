@@ -130,8 +130,8 @@ static void setup_init_threads(void)
     // thread_t *kthread1 = create_kthread(&thread_test, "[hello world]", (void *)"test");
     // sched_append_pending(kthread1);
 
-    thread_t *kthread2 = create_kthread(&init_mon, "[mon]", NULL);
-    sched_append_pending(kthread2);
+    // thread_t *kthread2 = create_kthread(&init_mon, "[mon]", NULL);
+    // sched_append_pending(kthread2);
 
     terminal_log("Loading init proc...");
     int ret = load_initproc();
@@ -164,8 +164,6 @@ void kernel_main(void)
     queues_init();
     futex_init();
     mod_init();
-
-    discover_devices();
 
     init_kthread_proc();
     setup_init_threads();
@@ -206,6 +204,8 @@ void kernel_main2(void) __attribute__((kernel))
 
     if (cpu_id() == 0)
     {
+        discover_devices();
+
         terminal_logf("Waiting for other cores to boot...");
 
         unsigned int cpuN = devicetree_count_dev_type("cpu");

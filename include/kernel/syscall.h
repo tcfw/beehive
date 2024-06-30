@@ -32,10 +32,10 @@ void syscall_init();
 	MOD_INIT(syscall_reg_##handler);
 #endif
 
-#define DEFINE_SYSCALL0(name, n)          \
-	uint64_t name(thread_t *thread, ...); \
-	SYSCALL(n, name, 0);                  \
-	uint64_t name(thread_t *thread, ...)
+#define DEFINE_SYSCALL0(name, n)                \
+	uint64_t _do_##name(thread_t *thread, ...); \
+	SYSCALL(n, _do_##name, 0);                  \
+	uint64_t _do_##name(thread_t *thread, ...)
 
 #define DEFINE_SYSCALL1(name, n, arg1_type, arg1_name)          \
 	uint64_t _do_##name(thread_t *thread, arg1_type arg1_name); \
@@ -117,3 +117,4 @@ uint64_t syscall1(uint64_t syscall_no, uint64_t arg0);
 uint64_t syscall2(uint64_t syscall_no, uint64_t arg0, uint64_t arg1);
 uint64_t syscall3(uint64_t syscall_no, uint64_t arg0, uint64_t arg1, uint64_t arg2);
 uint64_t syscall4(uint64_t syscall_no, uint64_t arg0, uint64_t arg1, uint64_t arg2, uint64_t arg3);
+uint64_t syscall5(uint64_t syscall_no, uint64_t arg0, uint64_t arg1, uint64_t arg2, uint64_t arg3, uint64_t arg4);
