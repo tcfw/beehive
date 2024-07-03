@@ -4,6 +4,7 @@
 #include "regs.h"
 #include <kernel/arch.h>
 #include <kernel/cls.h>
+#include <kernel/debug.h>
 #include <kernel/irq.h>
 #include <kernel/panic.h>
 #include <kernel/stdint.h>
@@ -332,6 +333,12 @@ void k_sync_exphandler(unsigned int xrq)
 			panicf("Unhandlable data abort from kernel: \r\n\tELR: 0x%X \r\n\tESR: 0x%x \r\n\tVirtual Address: 0x%X\r\n\tPhysical Address: 0x%X\r\n\tPAR: 0x%X", elr, xrq, far, pa, par);
 		}
 		break;
+	case ESR_EXCEPTION_SOFTWARE_STEP_LOWER_EL:
+		user_debug_software_step_handler(cls->rq.current_thread);
+		break;
+	case ESR_EXCEPTION_SOFTWARE_STEP_SAME_EL:
+	case ESR_EXCEPTION_WATCHPOINT_LOWER_EL:
+	case ESR_EXCEPTION_WATCHPOINT_SAME_EL:
 	default:
 		current->state = THREAD_DEAD;
 		panicf("unhandled SYNC TID=%d:%d xrq=0x%x FAR=0x%X PAR=0x%X ELR=0x%X", current->process->pid, current->tid, xrq, far, par, elr);

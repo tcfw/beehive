@@ -50,5 +50,15 @@ SECTIONS
         . = ALIGN(8);
     }
 
+    .vdso.text ALIGN(4k): AT( ADDR (.vdso.text) - kernelvoffset )
+    {
+        vdsostart = .;
+        KEEP(*(.vdso.text*))
+        vdsoend = .;
+
+        . = ALIGN(4k);
+    }
+
     kernelend = .;
+
 }

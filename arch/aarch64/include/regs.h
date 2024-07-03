@@ -32,4 +32,6 @@
 #define SPSR_M_EL1_SP (0b0101) // EL1 using SP_EL1
 #define SPSR_M_SP (0b0001)
 
+#define MDSCR_SOFTWARE_STEP (1ULL << 0)
+
 #endif

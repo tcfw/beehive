@@ -327,3 +327,9 @@ syscall4:
     LDP x0, x1, [x0]
 
     eret
+
+.section .vdso.text, "a"
+sigreturn:
+    .globl sigreturn
+    MOV x0, #108 //sig_return
+    SVC #0

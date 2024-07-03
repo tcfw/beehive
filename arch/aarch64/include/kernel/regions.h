@@ -29,4 +29,8 @@
 #define DEVICE_REGION (0x7D000000000ULL)
 #endif
 
+#ifndef VDSO_REGION
+#define VDSO_REGION (0x73000000000ULL)
+#endif
+
 #endif

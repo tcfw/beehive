@@ -18,7 +18,7 @@
 #include <kernel/tty.h>
 #include <kernel/vm.h>
 #include <tests/tests.h>
-
+#include <kernel/debug.h>
 #include <kernel/initproc.h>
 #include <kernel/elf.h>
 
@@ -139,6 +139,7 @@ static void setup_init_threads(void)
         terminal_logf("Failed to load init proc %d", ret);
     else
         terminal_log("Loaded init proc");
+    enable_hw_debugger();
 }
 
 void kernel_main(void)

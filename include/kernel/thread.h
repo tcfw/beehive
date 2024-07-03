@@ -19,7 +19,7 @@
 #define KTHREAD_STACK_SIZE (1024 * 1024)
 
 #define USER_STACK_SIZE (1024 * 1024)
-#define USER_STACK_BASE (VIRT_OFFSET - 2 * PAGE_SIZE)
+#define USER_STACK_BASE (VIRT_OFFSET - 16 * PAGE_SIZE)
 
 #define THREAD_QUEUE_IO_WRITE (1)
 #define THREAD_QUEUE_IO_READ (2)
@@ -188,6 +188,10 @@ void init_context(context_t *ctx);
 
 // Update the thread context to be runnable in a kernel exception level
 void kthread_context(context_t *ctx, void *data);
+
+void thread_enable_single_step(context_t *ctx);
+
+void thread_disable_single_step(context_t *ctx);
 
 void arch_thread_prep_switch(thread_t *thread);
 

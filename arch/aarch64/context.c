@@ -22,6 +22,16 @@ void kthread_context(context_t *ctx, void *data)
 		ctx->regs[0] = (uint64_t)data;
 }
 
+void thread_enable_single_step(context_t *ctx)
+{
+	ctx->spsr |= SPSR_SS;
+}
+
+void thread_disable_single_step(context_t *ctx)
+{
+	ctx->spsr &= ~SPSR_SS;
+}
+
 void save_to_context(context_t *ctx, uintptr_t trapFrame)
 {
 	uint64_t *reg = (uint64_t *)trapFrame;

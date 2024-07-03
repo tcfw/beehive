@@ -62,6 +62,8 @@ int load_initproc()
 	map->page = (struct page *)stack;
 	list_add(&map->list, &proc->vm.vm_maps);
 
+	// TODO(tcfw) load VDSO
+
 	proc->vm.start_stack = stack_vaddr_top;
 
 	thread_t *thread = (thread_t *)page_alloc_s(sizeof(thread_t));
@@ -75,6 +77,7 @@ int load_initproc()
 	init_thread(thread);
 	thread->ctx.pc = initproc->e_entry;
 	thread->ctx.sp = stack_vaddr_top - 0xA0;
+	thread_enable_single_step(&thread->ctx);
 
 	thread_list_entry_t *tle = kmalloc(sizeof(thread_list_entry_t));
 	if (!tle)
