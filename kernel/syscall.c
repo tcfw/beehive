@@ -6,8 +6,7 @@
 #include <kernel/uaccess.h>
 #include <kernel/clock.h>
 #include <kernel/cls.h>
-
-#define SYSCALL_MAX 155
+#include <syscall_num.h>
 
 struct syscall_handler_t syscall_handlers[SYSCALL_MAX];
 

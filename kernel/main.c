@@ -2,9 +2,12 @@
 #include <kernel/buddy.h>
 #include <kernel/clock.h>
 #include <kernel/cls.h>
+#include <kernel/debug.h>
 #include <kernel/devices.h>
 #include <kernel/devicetree.h>
+#include <kernel/elf.h>
 #include <kernel/futex.h>
+#include <kernel/initproc.h>
 #include <kernel/irq.h>
 #include <kernel/mm.h>
 #include <kernel/modules.h>
@@ -18,9 +21,6 @@
 #include <kernel/tty.h>
 #include <kernel/vm.h>
 #include <tests/tests.h>
-#include <kernel/debug.h>
-#include <kernel/initproc.h>
-#include <kernel/elf.h>
 
 void kernel_main2(void);
 extern void user_init(void);
@@ -139,7 +139,6 @@ static void setup_init_threads(void)
         terminal_logf("Failed to load init proc %d", ret);
     else
         terminal_log("Loaded init proc");
-    enable_hw_debugger();
 }
 
 void kernel_main(void)
@@ -205,8 +204,6 @@ void kernel_main2(void) __attribute__((kernel))
 
     if (cpu_id() == 0)
     {
-        discover_devices();
-
         terminal_logf("Waiting for other cores to boot...");
 
         unsigned int cpuN = devicetree_count_dev_type("cpu");
@@ -215,6 +212,7 @@ void kernel_main2(void) __attribute__((kernel))
         }
 
         vm_init_post_enable();
+        discover_devices();
 
         __atomic_store_n(&vm_ready, 1, __ATOMIC_RELAXED);
     }

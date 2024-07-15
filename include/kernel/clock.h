@@ -38,6 +38,8 @@ struct clocksource_t
 	void (*disableIRQ)(struct clocksource_t *);
 
 	uint64_t initValue;
+
+	void *data;
 };
 
 struct clocksource_t *clock_first(enum ClockSourceType type);

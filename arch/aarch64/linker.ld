@@ -35,6 +35,11 @@ SECTIONS
 
     .data ALIGN(4k) : AT( ADDR (.data) - kernelvoffset )
     { 
+        *(EXCLUDE_FILE(*init.o) .data*)
+    }
+
+    .initdata ALIGN(4k) : AT( ADDR (.initdata) - kernelvoffset )
+    { 
         *(.data*)
     }
 

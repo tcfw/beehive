@@ -55,7 +55,7 @@ int load_initproc()
 		ret = -ERRNOMEM;
 		goto free_proc_ret;
 	}
-	map->flags = VM_MAP_FLAG_PHY_KERNEL;
+	map->flags = VM_MAP_FLAG_PHY_KERNEL | stack_flags;
 	map->phy_addr = stack_paddr;
 	map->vm_addr = stack_vaddr_top;
 	map->length = USER_STACK_SIZE;
@@ -77,7 +77,6 @@ int load_initproc()
 	init_thread(thread);
 	thread->ctx.pc = initproc->e_entry;
 	thread->ctx.sp = stack_vaddr_top - 0xA0;
-	thread_enable_single_step(&thread->ctx);
 
 	thread_list_entry_t *tle = kmalloc(sizeof(thread_list_entry_t));
 	if (!tle)

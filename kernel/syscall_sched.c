@@ -25,7 +25,9 @@ DEFINE_SYSCALL2(syscall_sched_getaffinity, SYSCALL_SCHED_GETAFFINITY, pid_t, pid
 	if (curthread == 0)
 		return -ERRNOPROC;
 
-	copy_to_user(&curthread->affinity, affinity, sizeof(uint64_t));
+	int ret = copy_to_user(&curthread->affinity, affinity, sizeof(uint64_t));
+	if (ret < 0)
+		return ret;
 
 	return 0;
 }
@@ -121,7 +123,7 @@ DEFINE_SYSCALL3(syscall_thread_start, SYSCALL_THREAD_START, void *, func, void *
 	set_thread_state(thread, THREAD_RUNNING);
 	sched_append_pending(newthread);
 
-	terminal_logf("added new thread TID=0x%x:0x%x", newthread->process->pid, newthread->tid);
+	// terminal_logf("added new thread TID=0x%x:0x%x", newthread->process->pid, newthread->tid);
 
 	return newthread->tid;
 }

@@ -52,6 +52,8 @@ uint32_t devicetree_count_dev_type(char *);
 // Get the first node of a device with a matching type
 void *devicetree_first_with_device_type(char *type);
 
+void *devicetree_first_with_property(char *prop);
+
 void *devicetree_find_node(char *path);
 
 void *devicetree_get_next_node(void *current);

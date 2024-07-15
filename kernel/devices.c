@@ -1,7 +1,9 @@
 #include <kernel/devices.h>
 #include <kernel/devicetree.h>
+#include <kernel/irq.h>
 #include <kernel/list.h>
 #include <kernel/mm.h>
+#include <kernel/panic.h>
 #include <kernel/regions.h>
 #include <kernel/strings.h>
 #include <kernel/sync.h>
@@ -36,7 +38,7 @@ static char *virtio_subsystem_compatibility(void *dev_bar, size_t bar_size, char
 	devpgsize--;
 
 	if (vm_map_region(vm_get_kernel(), barppg, barpg, devpgsize, MEMORY_TYPE_KERNEL | MEMORY_TYPE_DEVICE) < 0)
-		terminal_log("failed to map device region");
+		panic("failed to map device region");
 
 	if (*bar == 0x74726976)
 	{
@@ -164,15 +166,26 @@ void discover_devices()
 		device->node = node;
 		device->bar = (void *)devicetree_get_bar(node);
 		device->bar_size = devicetree_get_bar_size(node);
-		// TODO(tcfw) interrupt mapping
+		arch_get_device_interrupts(device, node);
 
 		if (device->compatibility != 0)
 			if (strcmp("virtio,mmio", device->compatibility) == 0)
+			{
 				// Add virtio helpers to compatibility
 				device->compatibility = virtio_subsystem_compatibility(device->bar, device->bar_size, device->compatibility);
+				uint64_t xrq = device->interrupt_set.interrupts[0].xrq;
+				if (xrq != 0)
+					enable_xrq_n(xrq);
+			}
 
 		if (devicetree_get_property(node, "dma-coherent") != 0)
 			device->is_dma_coherent = 1;
+
+		if (arch_should_handle_device(device))
+		{
+			arch_setup_device(device);
+			goto next;
+		}
 
 		list_add_tail(&device->list, &devices);
 		discovered++;

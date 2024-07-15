@@ -12,6 +12,7 @@
 #define SYSCALL_GET_CPU (9)			   // int get_cpu();
 #define SYSCALL_RUNNING_TIME (10)	   // int running_time();
 #define SYSCALL_PROC_INFO (11)		   // int proc_info();
+#define SYSCALL_GET_TIME (15)		   // int get_time();
 #define SYSCALL_SCHED_GETAFFINITY (20) // int sched_getaffinity();
 #define SYSCALL_SCHED_SETAFFINITY (21) // int sched_setaffinity();
 #define SYSCALL_SCHED_GETPRIORITY (22) // int sched_getpriority();
@@ -72,5 +73,8 @@
 #define SYSCALL_DEV_CLAIM (152)		   // int dev_claim();
 #define SYSCALL_DEV_RELEASE (153)	   // int dev_release();
 #define SYSCALL_DEV_PROP (154)		   // int dev_prop();
+#define SYSCALL_DEV_PHY_ADDR (155)	   // int dev_phy_addr();
+
+#define SYSCALL_MAX (156)
 
 #endif _BEEHIVE_SYSCALL_NUM_H

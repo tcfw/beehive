@@ -179,7 +179,7 @@ void wake_thread(thread_t *thread)
 			break;
 		case WAIT:
 			thread_wake_from_wait(thread);
-			terminal_logf("TID 0x%X:0x%X woke up from WAIT", thread->process->pid, thread->tid);
+			// terminal_logf("TID 0x%X:0x%X woke up from WAIT", thread->process->pid, thread->tid);
 			break;
 		}
 

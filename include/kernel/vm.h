@@ -7,15 +7,15 @@
 #include <kernel/unistd.h>
 #include <kernel/buddy.h>
 
-#define MEMORY_TYPE_DEVICE (1 << 0)
-#define MEMORY_TYPE_KERNEL (1 << 1)
-#define MEMORY_TYPE_USER (1 << 2)
-#define MEMORY_PERM_RO (1 << 3)
-#define MEMORY_PERM_W (1 << 4)
-#define MEMORY_NON_EXEC (1 << 5)
-#define MEMORY_USER_NON_EXEC (1 << 6)
+#define MEMORY_TYPE_DEVICE (1ULL << 0)
+#define MEMORY_TYPE_KERNEL (1ULL << 1)
+#define MEMORY_TYPE_USER (1ULL << 2)
+#define MEMORY_PERM_RO (1ULL << 3)
+#define MEMORY_PERM_W (1ULL << 4)
+#define MEMORY_NON_EXEC (1ULL << 5)
+#define MEMORY_USER_NON_EXEC (1ULL << 6)
 
-#define MEMORY_VM_FLAG_MAX (7)
+#define MEMORY_VM_FLAG_MAX (7ULL)
 
 // Init virtual memory
 void vm_init();
@@ -83,10 +83,10 @@ int access_ok(enum AccessType type, void *addr, size_t n);
 
 #define VM_MAX_IMMD_ALLOC ((PAGE_SIZE << BUDDY_MAX_ORDER) * 3)
 
-#define VM_MAP_FLAG_SHARED ((1 << (MEMORY_VM_FLAG_MAX + 0)))
-#define VM_MAP_FLAG_PHY_KERNEL (1 << (MEMORY_VM_FLAG_MAX + 1))
-#define VM_MAP_FLAG_DEVICE (1 << (MEMORY_VM_FLAG_MAX + 2))
-#define VM_MAP_FLAG_LAZY (1 << (MEMORY_VM_FLAG_MAX + 3))
+#define VM_MAP_FLAG_SHARED ((1ULL << (MEMORY_VM_FLAG_MAX + 0)))
+#define VM_MAP_FLAG_PHY_KERNEL (1ULL << (MEMORY_VM_FLAG_MAX + 1))
+#define VM_MAP_FLAG_DEVICE (1ULL << (MEMORY_VM_FLAG_MAX + 2))
+#define VM_MAP_FLAG_LAZY (1ULL << (MEMORY_VM_FLAG_MAX + 3))
 
 typedef struct vm_mapping
 {

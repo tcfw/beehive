@@ -35,14 +35,19 @@ void k_exphandler(unsigned int type, unsigned int xrq, int deferred)
 	{
 		struct irq_handler_t *handler = &irq_handlers[xrq];
 		if (handler->khandler)
+		{
 			handler->khandler(xrq);
+			ack_xrq(xrq);
+		}
 		else if (handler->pid)
 		{
 			// enqueue signal to proc
 		}
+		else
+		{
+			terminal_logf("unhandled IRQ 0x%X", xrq);
+		}
 	}
-
-	ack_xrq(xrq);
 
 ack_sched:
 	if (current->state != THREAD_RUNNING)

@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"bytes"
 	"syscall"
 	"unsafe"
 )
@@ -15,11 +16,13 @@ type DevInfo struct {
 }
 
 func (d *DevInfo) Name() string {
-	return string(d.name[:])
+	strs := bytes.SplitN(d.name[:], []byte{0}, 2)
+	return string(strs[0])
 }
 
 func (d *DevInfo) Type() string {
-	return string(d.dtype[:])
+	strs := bytes.SplitN(d.dtype[:], []byte{0}, 2)
+	return string(strs[0])
 }
 
 func DeviceCount() (uint32, error) {

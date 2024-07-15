@@ -8,6 +8,7 @@
 #include <kernel/tty.h>
 #include <kernel/vm.h>
 #include <kernel/thread.h>
+#include <gic.h>
 #include "errno.h"
 
 extern uintptr_t kernelstart;
@@ -701,6 +702,17 @@ void vm_init()
 	if (vm_map_region(kernel_vm_map, PHY_DEVICE_REGION, DEVICE_REGION, 4095, MEMORY_TYPE_KERNEL | MEMORY_TYPE_DEVICE) < 0)
 		terminal_log("failed to map device region");
 
+	// map GIC, GIC_CPU, GIC_REDIST regions
+	// TODO(tcfw) get these regions from DBT
+	if (vm_map_region(kernel_vm_map, GIC_DIST_BASE, DEVICE_REGION + GIC_DIST_BASE, 0x10000 - 1, MEMORY_TYPE_KERNEL | MEMORY_TYPE_DEVICE) < 0)
+		terminal_log("failed to map GIV dist region");
+
+	if (vm_map_region(kernel_vm_map, GIC_CPU_BASE, DEVICE_REGION + GIC_CPU_BASE, 0x10000 - 1, MEMORY_TYPE_KERNEL | MEMORY_TYPE_DEVICE) < 0)
+		terminal_log("failed to map GIC cpu region");
+
+	if (vm_map_region(kernel_vm_map, GIC_REDIST_BASE, DEVICE_REGION + GIC_REDIST_BASE, 0xf60000 - 1, MEMORY_TYPE_KERNEL | MEMORY_TYPE_DEVICE) < 0)
+		terminal_log("failed to map GIC cpu region");
+
 	// map kernel code & remaining physical memory regions
 	if (vm_map_region(kernel_vm_map, (uintptr_t)ram_start(), (uintptr_t)ram_start() + VIRT_OFFSET, (size_t)ram_size() - 1, MEMORY_TYPE_KERNEL) < 0)
 		terminal_log("failed to map kernel code region");
@@ -716,17 +728,34 @@ void vm_init()
 
 void vm_init_post_enable()
 {
+	setGICAddr((void *)DEVICE_REGION + GIC_DIST_BASE, (void *)DEVICE_REGION + GIC_REDIST_BASE, (void *)DEVICE_REGION + GIC_CPU_BASE);
 }
 
 void populate_kernel_vm_maps(vm_t *kernel_vm)
 {
 	vm_mapping *dev_region = kmalloc(sizeof(vm_mapping));
+	vm_mapping *gic_region = kmalloc(sizeof(vm_mapping));
+	vm_mapping *gic_cpu_region = kmalloc(sizeof(vm_mapping));
+	vm_mapping *gic_redist_region = kmalloc(sizeof(vm_mapping));
 	vm_mapping *mem_region = kmalloc(sizeof(vm_mapping));
 	vm_mapping *desc_region = kmalloc(sizeof(vm_mapping));
 
 	dev_region->phy_addr = PHY_DEVICE_REGION;
 	dev_region->vm_addr = DEVICE_REGION;
 	dev_region->length = 4096;
+
+	// TODO(tcfw): get these regions from DBT
+	gic_region->phy_addr = GIC_DIST_BASE;
+	gic_region->vm_addr = DEVICE_REGION + GIC_DIST_BASE;
+	gic_region->length = 0x10000;
+
+	gic_cpu_region->phy_addr = GIC_CPU_BASE;
+	gic_cpu_region->vm_addr = DEVICE_REGION + GIC_CPU_BASE;
+	gic_cpu_region->length = 0x10000;
+
+	gic_redist_region->phy_addr = GIC_REDIST_BASE;
+	gic_redist_region->vm_addr = DEVICE_REGION + GIC_REDIST_BASE;
+	gic_redist_region->length = 0xf60000;
 
 	mem_region->phy_addr = (uintptr_t)ram_start();
 	mem_region->vm_addr = (uintptr_t)ram_start() + VIRT_OFFSET;
@@ -738,6 +767,9 @@ void populate_kernel_vm_maps(vm_t *kernel_vm)
 	desc_region->length = 0x100000 - 1;
 
 	list_add(dev_region, &kernel_vm->vm_maps);
+	list_add(gic_region, &kernel_vm->vm_maps);
+	list_add(gic_cpu_region, &kernel_vm->vm_maps);
+	list_add(gic_redist_region, &kernel_vm->vm_maps);
 	list_add(mem_region, &kernel_vm->vm_maps);
 	list_add(desc_region, &kernel_vm->vm_maps);
 }

@@ -176,8 +176,11 @@ char *devicetree_get_property(void *node, char *propkey)
 	if (*data == 0)
 		data += sizeof(uint32_t);
 	else
+	{
 		while (*data)
 			data++;
+		data++;
+	}
 
 	// read past padding, if any
 	if ((uint32_t)data % 4 != 0)
@@ -190,7 +193,10 @@ char *devicetree_get_property(void *node, char *propkey)
 		data += sizeof(struct fdt_prop_t);
 		char *name = (char *)(off_dt_strings + (uintptr_t)BIG_ENDIAN_UINT32(prop->nameoff));
 		if (strcmp(name, propkey) == 0)
-			return (char *)data;
+			if (data == 0)
+				return (char *)1;
+			else
+				return (char *)data;
 
 		data += BIG_ENDIAN_UINT32(prop->len);
 		if ((uint32_t)data % 4 != 0)
@@ -316,6 +322,21 @@ uint32_t devicetree_count_dev_type(char *type)
 	return devicetree_count_nodes_with_prop(FDT_DEVICE_TYPE_PROP, type, strlen(type) + 1);
 }
 
+void *devicetree_first_with_property(char *prop)
+{
+	void *node = devicetree_find_node("/");
+	while (node != 0)
+	{
+		char *node_prop = devicetree_get_property(node, prop);
+		if (node_prop != 0)
+			break;
+
+		node = devicetree_get_next_node(node);
+	}
+
+	return node;
+}
+
 void *devicetree_first_with_device_type(char *type)
 {
 	void *node = devicetree_get_next_node(devicetree_find_node("/"));
@@ -326,6 +347,8 @@ void *devicetree_first_with_device_type(char *type)
 		devType = devicetree_get_property(node, "device_type");
 		if (strcmp(devType, type) == 0)
 			break;
+
+		node = devicetree_get_next_node(node);
 	}
 
 	return node;

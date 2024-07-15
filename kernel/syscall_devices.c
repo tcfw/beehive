@@ -6,6 +6,7 @@
 #include <kernel/syscall.h>
 #include <kernel/thread.h>
 #include <kernel/uaccess.h>
+#include <kernel/umm.h>
 
 DEFINE_SYSCALL0(syscall_dev_count, SYSCALL_DEV_COUNT)
 {
@@ -91,4 +92,16 @@ DEFINE_SYSCALL5(syscall_dev_prop, SYSCALL_DEV_PROP, const uint32_t, id, const ch
 	}
 
 	return -ERRNOENT;
+}
+
+DEFINE_SYSCALL1(syscall_dev_phy_addr, SYSCALL_DEV_PHY_ADDR, uintptr_t, vaddr)
+{
+	vm_mapping *map = has_mapping(thread, vaddr, 1);
+	if (map == 0)
+		return -ERRINVAL;
+
+	if ((map->flags & VM_MAP_FLAG_DEVICE) == 0 || map->page == 0)
+		return -ERRACCESS;
+
+	return map->phy_addr;
 }

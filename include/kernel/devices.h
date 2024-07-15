@@ -52,8 +52,20 @@ struct dev_info
 	uint64_t interrupts[5];
 };
 
+struct arch_device_handler
+{
+	char *compat;
+	void (*init)(device_node_t *);
+};
+
 void discover_devices();
 
 struct list_head *get_devices_head();
+
+void arch_get_device_interrupts(device_node_t *info, void *node);
+
+int arch_should_handle_device(device_node_t *info);
+
+void arch_setup_device(device_node_t *info);
 
 #endif

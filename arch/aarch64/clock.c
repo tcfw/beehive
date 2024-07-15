@@ -1,5 +1,11 @@
+#include <devices/pl031.h>
 #include <kernel/clock.h>
+#include <kernel/devices.h>
+#include <kernel/mm.h>
+#include <kernel/panic.h>
+#include <kernel/regions.h>
 #include <kernel/tty.h>
+#include <kernel/vm.h>
 
 void enableSystemInterruptMask(struct clocksource_t *cs);
 void disableSystemInterruptMask(struct clocksource_t *cs);
@@ -24,12 +30,13 @@ uint64_t getSysCounterValue(struct clocksource_t *cs)
 	uint64_t value = 0;
 	__asm__ volatile("MRS %0, CNTPCT_EL0"
 					 : "=r"(value));
-	return value-cs->initValue;
+	return value - cs->initValue;
 }
 
 void enableSystemCounter(struct clocksource_t *cs)
 {
-	if (cs->initValue ==0) {
+	if (cs->initValue == 0)
+	{
 		cs->initValue = getSysCounterValue(cs);
 	}
 
@@ -176,13 +183,26 @@ static struct clocksource_t localClock = {
 	.countNTicks = setLocalCounterTValue,
 };
 
-struct clocksource_t rtClock = {
+static struct clocksource_t rtClock = {
 	.type = CS_RTC,
 };
+
+void arch_setup_pl031(device_node_t *info)
+{
+	struct pl031_data *pd = kmalloc(sizeof(*pd));
+	pd->bar = (uintptr_t)(DEVICE_REGION + info->bar);
+	int ok = vm_map_region(vm_get_current_table(), (uintptr_t)info->bar, (uintptr_t)pd->bar, info->bar_size - 1, MEMORY_TYPE_DEVICE | MEMORY_PERM_W);
+	if (ok < 0)
+		panicf("failed to map RTC: err=%d", ok);
+
+	rtClock.data = (void *)pd;
+	rtClock.val = pl031_read_value;
+
+	RegisterClockSource(&rtClock);
+}
 
 void registerClocks(void)
 {
 	RegisterClockSource(&systemClock);
 	RegisterClockSource(&localClock);
-	RegisterClockSource(&rtClock);
 }
