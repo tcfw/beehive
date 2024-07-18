@@ -74,7 +74,9 @@
 #define SYSCALL_DEV_RELEASE (153)	   // int dev_release();
 #define SYSCALL_DEV_PROP (154)		   // int dev_prop();
 #define SYSCALL_DEV_PHY_ADDR (155)	   // int dev_phy_addr();
+#define SYSCALL_DEV_IRQ_WAIT (156)	   // int dev_irq_wait();
+#define SYSCALL_DEV_IRQ_ACK (157)	   // int dev_irq_ack();
 
-#define SYSCALL_MAX (156)
+#define SYSCALL_MAX (158)
 
 #endif _BEEHIVE_SYSCALL_NUM_H

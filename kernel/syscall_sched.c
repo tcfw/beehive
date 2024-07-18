@@ -127,3 +127,8 @@ DEFINE_SYSCALL3(syscall_thread_start, SYSCALL_THREAD_START, void *, func, void *
 
 	return newthread->tid;
 }
+
+DEFINE_SYSCALL3(syscall_kill, SYSCALL_KILL, uint64_t, pid, uint64_t, tid, uint64_t, sig)
+{
+	terminal_logf("received kill call 0x%X:0x%x ~> 0x%X", pid, tid, sig);
+}

@@ -203,11 +203,11 @@ void disable_xrq()
 	gic_cpu_disable();
 }
 
-// enable IRQ & FIQ interrupts && reset priority mask
+// enable IRQ & FIQ interrupts & reset priority mask
 void enable_xrq()
 {
 	gic_cpu_enable();
-	gic_cpu_set_priority_mask(0xff);
+	gic_cpu_set_priority_mask(0xFF);
 }
 
 // Disable interrutps for the local core
@@ -231,15 +231,54 @@ void enable_irq(void)
 // all interrupts map to group 1 NS & level config
 void enable_xrq_n(unsigned int xrq)
 {
+	enable_xrq_n_prio(xrq, 0x10);
+}
+
+void enable_xrq_n_prio(unsigned int xrq, uint8_t prio)
+{
 	uint32_t affinity = cpu_id();
 	uint32_t rd = getRedistID(affinity);
 
-	gic_redist_set_int_priority(xrq, rd, 0);
+	gic_redist_set_int_priority(xrq, rd, prio);
 	gic_redist_set_int_group(xrq, rd, GICV3_GROUP1_NON_SECURE);
 	gic_redist_enable_int(xrq, rd);
 	gic_dist_enable_xrq_n(affinity, xrq);
 	gic_dist_xrq_config(xrq, GICV3_CONFIG_LEVEL);
 	gic_dist_target(xrq, GICV3_ROUTE_MODE_ANY, affinity);
+}
+
+void xrq_set_priority(unsigned int xrq, uint8_t prio)
+{
+	uint32_t affinity = cpu_id();
+	uint32_t rd = getRedistID(affinity);
+
+	gic_redist_set_int_priority(xrq, rd, prio);
+}
+
+uint8_t xrq_get_max_priority()
+{
+	uint32_t affinity = cpu_id();
+	uint32_t rd = getRedistID(affinity);
+
+	uint32_t xrq = 27;
+	uint8_t initxrqprio = gic_redist_get_int_priority(xrq, rd);
+	gic_redist_set_int_priority(xrq, rd, 0xFF);
+	arch_mb;
+	uint8_t max = gic_redist_get_int_priority(xrq, rd);
+	gic_redist_set_int_priority(xrq, rd, initxrqprio);
+
+	return max;
+}
+
+void xrq_set_trigger_type(unsigned int xrq, uint8_t type)
+{
+	if (type == 1)
+	{
+		gic_dist_xrq_config(xrq, GICV3_CONFIG_EDGE);
+		return;
+	}
+
+	gic_dist_xrq_config(xrq, GICV3_CONFIG_LEVEL);
 }
 
 // Send a software generated IRQ to all targets, except self

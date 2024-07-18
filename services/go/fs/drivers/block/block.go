@@ -1,5 +1,7 @@
 package block
 
+import "errors"
+
 type IORequestType uint
 
 const (
@@ -7,6 +9,12 @@ const (
 	IORequestTypeWrite
 	IORequestTypeFlush
 	IORequestTypeTrim
+)
+
+var (
+	ErrBlockOperationNotSupported = errors.New("operation not supported")
+	ErrBlockIOError               = errors.New("io error")
+	ErrBlockUnknownResponse       = errors.New("unknown device response")
 )
 
 type BlockDeviceIORequest struct {
@@ -19,5 +27,6 @@ type BlockDeviceIORequest struct {
 }
 
 type BlockRequestIOResponse struct {
+	Req *BlockDeviceIORequest
 	Err error
 }

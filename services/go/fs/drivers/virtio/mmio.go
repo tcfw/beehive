@@ -4,6 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"sync/atomic"
+	"syscall"
+	"time"
 	"unsafe"
 
 	"github.com/tcfw/kernel/services/go/fs"
@@ -37,8 +40,17 @@ type MMIODriver struct {
 	isLegacy     bool
 	legacyHeader VirtioLegacyHeader
 
-	queues       []*VirtioQueue128
-	legacyQueues []*VirtioLegacyQueue128
+	queues      []queue
+	nextQueueID uint32
+	stop        bool
+}
+
+type queue interface {
+	isFull() bool
+	size() uint32
+	id() uint32
+	enqueue(req *block.BlockDeviceIORequest, comp chan<- block.BlockRequestIOResponse, m *MMIODriver) error
+	pickup() error
 }
 
 func (m *MMIODriver) init() error {
@@ -92,51 +104,62 @@ func (m *MMIODriver) init() error {
 	m.header.SetStatus(m.header.Status() | VirtioDeviceStatusDriverOK) //ready for use
 	utils.MemoryBarrier()
 
-	arenaIdx := <-m.queues[0].ArenaIdxCh
-	descIdx1 := <-m.queues[0].DescIdxCh
-	descIdx2 := <-m.queues[0].DescIdxCh
-	descIdx3 := <-m.queues[0].DescIdxCh
-
-	m.queues[0].Arena[arenaIdx].Type = VirtioBlkReqTypeIn
-	m.queues[0].Arena[arenaIdx].Sector = 63
-
-	m.queues[0].Desc[descIdx1].Addr = uint64(m.queues[0].ArenaPhy + uintptr(arenaIdx*VirtioBlkReqSize))
-	m.queues[0].Desc[descIdx1].Len = uint32(VirtioBlkReqHeaderSize)
-	m.queues[0].Desc[descIdx1].Flags = VirtqDescFlagNext
-
-	m.queues[0].Desc[descIdx2].Addr = m.queues[0].Desc[descIdx1].Addr + VirtioBlkReqHeaderSize
-	m.queues[0].Desc[descIdx2].Len = 512
-	m.queues[0].Desc[descIdx2].Flags = VirtqDescFlagWrite | VirtqDescFlagNext
-
-	m.queues[0].Desc[descIdx3].Addr = m.queues[0].Desc[descIdx2].Addr + 512
-	m.queues[0].Desc[descIdx3].Len = uint32(VirtioBlkReqFooterSize)
-	m.queues[0].Desc[descIdx3].Flags = VirtqDescFlagWrite
-
-	m.queues[0].Desc[descIdx1].Next = uint16(descIdx2)
-	m.queues[0].Desc[descIdx2].Next = uint16(descIdx3)
-
-	m.queues[0].Avail.Ring[0] = uint16(descIdx1)
-	m.queues[0].Avail.Idx++
-
-	utils.MemoryBarrier()
-	m.header.QueueNotify(0)
-	utils.MemoryBarrier()
-
-	for {
-		//TODO(tcfw) this would usually be handled as a signal
-		status := m.header.InterruptStatus()
-		if status != 0 {
-			break
-		}
-		utils.MemoryBarrier()
-	}
-
-	m.header.InterruptACK(m.header.InterruptStatus())
-	utils.MemoryBarrier()
-
-	print(fmt.Sprintf("buf=%X status=0x%X config=%+v\n", m.queues[0].Arena[arenaIdx].Data, m.header.Status(), *m.getConfig()))
+	go m.Watch()
 
 	return nil
+}
+
+func (m *MMIODriver) StopWatch() {
+	m.stop = true
+}
+
+func (m *MMIODriver) Watch() error {
+	m.stop = false
+	var status uint32
+
+	for {
+		for {
+			if m.stop {
+				return nil
+			}
+
+			//TODO(tcfw) this would usually be handled as a signal
+			utils.MemoryBarrier()
+			status = m.header.InterruptStatus()
+			if status != 0 || m.queues[0].(*VirtioQueue128).Used.Idx != m.queues[0].(*VirtioQueue128).TailUsed {
+				break
+			}
+
+			time.Sleep(250 * time.Microsecond)
+		}
+
+		m.header.InterruptACK(status)
+		utils.MemoryBarrier()
+		syscall.Syscall(syscall.SYS_DEV_IRQ_ACK, 0x4F, 0, 0)
+
+		if status == 0x3 {
+			//status change
+			m.checkStatus()
+			continue
+		}
+
+		for _, q := range m.queues {
+			if err := q.pickup(); err != nil {
+				return fmt.Errorf("picking up responses from queue %d: %w", q.id(), err)
+			}
+		}
+	}
+
+	return nil
+}
+
+func (m *MMIODriver) checkStatus() {
+	status := m.header.Status()
+
+	if status|VirtioDeviceStatusDeviceNeedsReset != 0 {
+		print(fmt.Sprintf("device needs resetting!\n"))
+		m.stop = true
+	}
 }
 
 func (m *MMIODriver) legacyInit() error {
@@ -169,6 +192,18 @@ func (m *MMIODriver) legacyInit() error {
 const size = 128
 
 type VirtioQueue128 VirtioQueue[[]VirtioBlkReq, [size]uint16, [size]VirtqUsedElem]
+
+func (q *VirtioQueue128) isFull() bool {
+	return q.TailAvil-q.Used.Idx >= uint16(q.Num)
+}
+
+func (q *VirtioQueue128) size() uint32 {
+	return q.Num
+}
+
+func (q *VirtioQueue128) id() uint32 {
+	return q.ID
+}
 
 func (m *MMIODriver) addQueue() error {
 	if m.isLegacy {
@@ -231,6 +266,7 @@ func (m *MMIODriver) addQueue() error {
 		ArenaPhy:   reqBlockRawPhy,
 		ArenaIdxCh: make(chan int, size),
 		DescIdxCh:  make(chan int, size),
+		ID:         atomic.AddUint32(&m.nextQueueID, 1) - 1,
 	}
 
 	//fill idx chans
@@ -238,6 +274,8 @@ func (m *MMIODriver) addQueue() error {
 		queue.ArenaIdxCh <- i
 		queue.DescIdxCh <- i
 	}
+
+	// queue.Avail.Flags = VirtqAvailFlagNoInterrupt
 
 	m.queues = append(m.queues, queue)
 
@@ -282,7 +320,11 @@ func (m *MMIODriver) addLegacyQueue() error {
 	}
 
 	queue := (*VirtioLegacyQueue128)(unsafe.Pointer(unsafe.SliceData(arena)))
-	m.legacyQueues = append(m.legacyQueues, queue)
+	queue.ID = atomic.AddUint32(&m.nextQueueID, 1) - 1
+	queue.Aidx = 0
+	queue.Uidx = 0
+
+	m.queues = append(m.queues, queue)
 
 	if err := m.setupLegacyQueue(len(m.queues)-1, queue); err != nil {
 		return fmt.Errorf("failed to setup legacy queue: %w", err)
@@ -346,23 +388,181 @@ func (m *MMIODriver) BlockSize() uint64 {
 }
 
 func (m *MMIODriver) IsBusy() bool {
-	return true
+	utils.MemoryBarrier()
+
+	for _, q := range m.queues {
+		if q.isFull() {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (m *MMIODriver) QueueSize() uint64 {
 	maxSize := uint64(0)
 
 	for _, q := range m.queues {
-		maxSize += uint64(q.Num / 3)
-	}
-
-	for _, q := range m.legacyQueues {
-		maxSize += uint64(len(q.Desc) / 3)
+		maxSize += uint64(q.size() / 3)
 	}
 
 	return maxSize
 }
 
-func (m *MMIODriver) Enqueue(reqs []block.BlockDeviceIORequest, comp chan<- *block.BlockDeviceIORequest) error {
+func (m *MMIODriver) hasQueues() bool {
+	return len(m.queues) != 0
+}
+
+func (m *MMIODriver) Enqueue(reqs []block.BlockDeviceIORequest, comp chan<- block.BlockRequestIOResponse) (error, int) {
+	if !m.hasQueues() {
+		return errors.New("device not ready"), 0
+	}
+
+	processed := 0
+
+reqs:
+	for _, r := range reqs {
+		for _, q := range m.queues {
+			if !q.isFull() {
+				if err := q.enqueue(&r, comp, m); err != nil {
+					return err, processed
+				}
+
+				processed++
+				continue reqs
+			}
+		}
+	}
+
+	return nil, processed
+}
+
+func (q *VirtioQueue128) enqueue(req *block.BlockDeviceIORequest, comp chan<- block.BlockRequestIOResponse, m *MMIODriver) error {
+	if req.Offset%m.BlockSize() != 0 {
+		return errors.New("offset not aligned to block size")
+	}
+
+	if req.Offset+req.Length > m.getConfig().Capacity {
+		return errors.New("req overflows device capacity")
+	}
+
+	arenaIdx := <-q.ArenaIdxCh
+	arena := &q.Arena[arenaIdx]
+
+	switch req.RequestType {
+	case block.IORequestTypeRead:
+		arena.Type = VirtioBlkReqTypeIn
+		break
+	case block.IORequestTypeWrite:
+		arena.Type = VirtioBlkReqTypeOut
+		break
+	case block.IORequestTypeFlush:
+		arena.Type = VirtioBlkReqTypeFlush
+	case block.IORequestTypeTrim:
+		arena.Type = VirtioBlkReqTypeWrite_Zeroes
+	default:
+		return fmt.Errorf("unknown request type")
+	}
+
+	arena.Sector = req.Offset / m.BlockSize()
+	arena.waiter = comp
+	arena.req = req
+	arena.Status = 0
+
+	reqLen := req.Length
+	if reqLen == 0 {
+		reqLen = m.BlockSize()
+	}
+
+	descIdx1 := <-q.DescIdxCh
+	descIdx2 := <-q.DescIdxCh
+	descIdx3 := <-q.DescIdxCh
+
+	q.Desc[descIdx1].Addr = uint64(q.ArenaPhy + uintptr(arenaIdx*VirtioBlkReqSize))
+	q.Desc[descIdx1].Len = uint32(VirtioBlkReqHeaderSize)
+	q.Desc[descIdx1].Flags = VirtqDescFlagNext
+
+	q.Desc[descIdx2].Addr = q.Desc[descIdx1].Addr + VirtioBlkReqHeaderSize
+	q.Desc[descIdx2].Len = uint32(reqLen)
+	q.Desc[descIdx2].Flags = VirtqDescFlagNext
+
+	if arena.Type == VirtioBlkReqTypeIn {
+		q.Desc[descIdx2].Flags |= VirtqDescFlagWrite
+	}
+
+	q.Desc[descIdx3].Addr = q.Desc[descIdx2].Addr + 512
+	q.Desc[descIdx3].Len = uint32(VirtioBlkReqFooterSize)
+	q.Desc[descIdx3].Flags = VirtqDescFlagWrite
+
+	q.Desc[descIdx1].Next = uint16(descIdx2)
+	q.Desc[descIdx2].Next = uint16(descIdx3)
+
+	q.Avail.Ring[q.Avail.Idx%uint16(q.Num)] = uint16(descIdx1)
+	q.Avail.Idx++
+
+	utils.MemoryBarrier()
+	m.header.QueueNotify(q.id())
+	utils.MemoryBarrier()
+
 	return nil
+}
+
+func (q *VirtioQueue128) pickup() error {
+	if q.TailUsed == q.Used.Idx {
+		// print(fmt.Sprintf("nothing found in queue tail=0x%X head=0x%X\n", q.TailUsed, q.Used.Idx))
+		return nil
+	}
+
+	for q.TailUsed != q.Used.Idx {
+		descRef := q.Used.Ring[q.TailUsed%uint16(q.Num)]
+		desc := q.Desc[descRef.Id]
+
+		arenaOffset := int(desc.Addr-uint64(q.ArenaPhy)) / VirtioBlkReqSize
+		arena := q.Arena[arenaOffset]
+		resp := block.BlockRequestIOResponse{
+			Req: arena.req,
+		}
+
+		switch arena.Status {
+		case VirtioBlkStatusUnsupp:
+			resp.Err = block.ErrBlockOperationNotSupported
+			break
+		case VirtioBlkStatusIOErr:
+			resp.Err = block.ErrBlockIOError
+			break
+		case VirtioBlkStatusOk:
+			copy(resp.Req.Data, arena.Data[:])
+			resp.Err = nil
+		default:
+			resp.Err = block.ErrBlockUnknownResponse
+		}
+
+		if arena.waiter != nil {
+			arena.waiter <- resp
+		}
+
+		q.ArenaIdxCh <- arenaOffset
+
+		if desc.Next != 0 && desc.Flags|VirtqDescFlagNext != 0 {
+			desc1 := q.Desc[desc.Next]
+			if desc1.Flags|VirtqDescFlagNext != 0 && desc1.Next != 0 {
+				q.DescIdxCh <- int(desc1.Next)
+			}
+			q.DescIdxCh <- int(desc.Next)
+		}
+		q.DescIdxCh <- int(descRef.Id)
+
+		q.TailUsed++
+	}
+
+	return nil
+}
+
+func (queue *VirtioLegacyQueue128) enqueue(req *block.BlockDeviceIORequest, comp chan<- block.BlockRequestIOResponse, m *MMIODriver) error {
+	return errors.New("not implemented")
+}
+
+func (queue *VirtioLegacyQueue128) pickup() error {
+	return errors.New("not implemented")
+
 }

@@ -117,6 +117,7 @@ static void init_mon(void *data)
             terminal_writestring("\r\n");
         }
 
+        ss.seconds = 2;
         sleep_kthread(&ss, NULL);
     }
 fin:

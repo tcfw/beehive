@@ -87,6 +87,33 @@ void gic_redist_set_int_priority(uint32_t xrq, uint32_t rd, uint8_t priority)
 	}
 }
 
+uint8_t gic_redist_get_int_priority(uint32_t xrq, uint32_t rd)
+{
+	if (xrq < 31)
+	{
+		// SGI or PPI
+		return gic_rdist[rd].sgis.GICR_IPRIORITYR[xrq];
+	}
+	else if (xrq < 1020)
+	{
+		// SPI
+		return gic_dist->GICD_IPRIORITYR[xrq];
+	}
+	else if ((xrq > 1055) && (xrq < 1120))
+	{
+		// Extended PPI
+
+		xrq = xrq - 1024;
+		return gic_rdist[rd].sgis.GICR_IPRIORITYR[xrq];
+	}
+	else if ((xrq > 4095) && (xrq < 5120))
+	{
+		// Extended SPI
+
+		return gic_dist->GICD_IPRIORITYRE[(xrq - 4096)];
+	}
+}
+
 // Set the redistributor INTID group
 void gic_redist_set_int_group(uint32_t xrq, uint32_t rd, uint32_t security)
 {
@@ -217,7 +244,7 @@ void gic_dist_enable()
 	gic_dist->GICD_CTLR = (1 << 5) | (1 << 4);
 
 	// Enable Group 1 S+NS & Group 0
-	gic_dist->GICD_CTLR = 0b111 | (1 << 5) | (1 << 4);
+	gic_dist->GICD_CTLR = 0b111 | (1 << 5) | (1 << 4) | (1 << 7);
 }
 
 // Enable the INTID in the distributor
@@ -385,15 +412,15 @@ void gic_cpu_disable()
 // Update the CPU interface priority mask
 void gic_cpu_set_priority_mask(uint8_t mask)
 {
-	mask = mask & 0xf;
+	mask = mask & 0xff;
 	__asm__ volatile("MSR S3_0_C4_C6_0, %0" // ICC_PMR_EL1
-					 :: "r"(mask));
+					 ::"r"(mask));
 }
 
 // ACK INTID End of interrupt for group 1 interrupts
 void gic_cpu_eoi_gp1(uint32_t xpr)
 {
 	__asm__ volatile("MSR S3_0_C12_C12_1, %0" // ICC_EOIR1_EL1
-					 :: "r"(xpr));
+					 ::"r"(xpr));
 	__asm__ volatile("ISB");
 }

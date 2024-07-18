@@ -29,6 +29,17 @@ void enable_irq(void);
 // Enable the specific interrupt for the local core
 void enable_xrq_n(unsigned int);
 
+// Specify a priority for a specific xrq on the local core
+void xrq_set_priority(unsigned int xrq, uint8_t prio);
+
+uint8_t xrq_get_max_priority();
+
+void enable_xrq_n_prio(unsigned int xrq, uint8_t prio);
+
+// Specify a trigger type for the specific xrq on the local core
+//  1=EDGE, 0=LEVEL(default)
+void xrq_set_trigger_type(unsigned int xrq, uint8_t type);
+
 // Acknowledge the current interrupt
 void ack_xrq(int);
 

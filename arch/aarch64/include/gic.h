@@ -34,8 +34,13 @@ uint32_t getRedistID(uint32_t affinity);
 
 // Enable the redistributor
 void gic_redist_enable(uint32_t rd);
+
 // Set the interrupt priority on the redistributor
 void gic_redist_set_int_priority(uint32_t xrq, uint32_t rd, uint8_t priority);
+
+// Get the interrupt priority on the redistributor
+uint8_t gic_redist_get_int_priority(uint32_t xrq, uint32_t rd);
+
 // Set the interrupt group for the interrupt on the redistributor
 void gic_redist_set_int_group(uint32_t xrq, uint32_t rd, uint32_t security);
 

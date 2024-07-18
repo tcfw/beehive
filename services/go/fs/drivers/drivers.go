@@ -15,7 +15,9 @@ type BlockDriver interface {
 	BlockSize() uint64
 	IsBusy() bool
 	QueueSize() uint64
-	Enqueue(reqs []block.BlockDeviceIORequest, comp chan<- *block.BlockDeviceIORequest) error
+	Enqueue(reqs []block.BlockDeviceIORequest, comp chan<- block.BlockRequestIOResponse) (error, int)
+	Watch() error
+	StopWatch()
 }
 
 func RegisterDriver(compat string, driver BlockInitFn) {

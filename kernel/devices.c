@@ -175,7 +175,7 @@ void discover_devices()
 				device->compatibility = virtio_subsystem_compatibility(device->bar, device->bar_size, device->compatibility);
 				uint64_t xrq = device->interrupt_set.interrupts[0].xrq;
 				if (xrq != 0)
-					enable_xrq_n(xrq);
+					enable_xrq_n_prio(xrq, 0x60);
 			}
 
 		if (devicetree_get_property(node, "dma-coherent") != 0)

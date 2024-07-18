@@ -2,6 +2,7 @@ package virtio
 
 import (
 	"encoding/binary"
+	"math"
 	"sync"
 	"unsafe"
 
@@ -293,6 +294,7 @@ func (v VirtioLegacyHeader) SetStatus(d VirtioDeviceStatus) {
 
 type VirtioQueue[AA any, AT any, UT any] struct {
 	Num uint32
+	ID  uint32
 
 	Desc  []VirtqDesc
 	Avail *VirtqAvail[AT]
@@ -320,6 +322,19 @@ type VirtioLegacyQueue128 struct {
 
 	Aidx uint16
 	Uidx uint16
+	ID   uint32
+}
+
+func (q *VirtioLegacyQueue128) isFull() bool {
+	return q.Aidx-q.Avail.Idx >= uint16(len(q.Desc))
+}
+
+func (q *VirtioLegacyQueue128) size() uint32 {
+	return 128
+}
+
+func (q *VirtioLegacyQueue128) id() uint32 {
+	return q.ID
 }
 
 const (
@@ -403,9 +418,10 @@ const (
 type VirtioBlkReqStatus uint32
 
 const (
-	VirtioBlkStatusOk     VirtioBlkReqStatus = 0
-	VirtioBlkStatusIOErr  VirtioBlkReqStatus = 1
-	VirtioBlkStatusUnsupp VirtioBlkReqStatus = 2
+	VirtioBlkStatusOk      VirtioBlkReqStatus = 0
+	VirtioBlkStatusIOErr   VirtioBlkReqStatus = 1
+	VirtioBlkStatusUnsupp  VirtioBlkReqStatus = 2
+	VirtioBlkStatusUnknown VirtioBlkReqStatus = math.MaxUint32
 )
 
 type VirtioBlkReq struct {
@@ -416,7 +432,7 @@ type VirtioBlkReq struct {
 	Status   VirtioBlkReqStatus
 
 	req    *block.BlockDeviceIORequest
-	waiter chan<- *block.BlockDeviceIORequest
+	waiter chan<- block.BlockRequestIOResponse
 }
 
 type VirtioBlkDiscardWriteZeroesFlag uint32

@@ -1,10 +1,12 @@
 #include "errno.h"
 #include <kernel/devices.h>
 #include <kernel/devicetree.h>
+#include <kernel/irq.h>
 #include <kernel/mm.h>
 #include <kernel/strings.h>
 #include <kernel/syscall.h>
 #include <kernel/thread.h>
+#include <kernel/tty.h>
 #include <kernel/uaccess.h>
 #include <kernel/umm.h>
 
@@ -104,4 +106,13 @@ DEFINE_SYSCALL1(syscall_dev_phy_addr, SYSCALL_DEV_PHY_ADDR, uintptr_t, vaddr)
 		return -ERRACCESS;
 
 	return map->phy_addr;
+}
+
+DEFINE_SYSCALL1(syscall_dev_irq_ack, SYSCALL_DEV_IRQ_ACK, uint64_t, irq)
+{
+	// TODO(tcfw) allow acking only owned
+	ack_xrq(irq);
+	terminal_logf("acking 0x%X", irq);
+
+	return 0;
 }
