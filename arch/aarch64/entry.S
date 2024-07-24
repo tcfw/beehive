@@ -96,6 +96,11 @@ boot:
     ADD  x10, x10, #:lo12:stack
     MOV sp, x10
 
+    //Add null stack frame
+    SUB sp, sp, #16
+    MOV fp, xzr
+    MOV lr, xzr //no return
+
     .globl  kernel_main
     B       kernel_main          // Jump to the main function
 

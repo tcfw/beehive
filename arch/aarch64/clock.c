@@ -47,6 +47,10 @@ void enableSystemCounter(struct clocksource_t *cs)
 	cnt_ctl |= 1;
 
 	__asm__ volatile("MSR CNTP_CTL_EL0, %0" ::"r"(cnt_ctl));
+
+	// Allow EL0 access to physical counters
+	uint64_t cntkctl = (1 << 0); // Access to CNTPCT_EL0
+	__asm__ volatile("MSR CNTKCTL_EL1, %0" ::"r"(cntkctl));
 }
 
 uint64_t getSystemCounterFreq(struct clocksource_t *cs)

@@ -3,6 +3,8 @@ package virtio
 import (
 	"errors"
 	"fmt"
+	"math"
+	"runtime"
 	"strconv"
 	"sync/atomic"
 	"syscall"
@@ -87,7 +89,7 @@ func (m *MMIODriver) init() error {
 	utils.MemoryBarrier()
 
 	deviceFeatures := m.header.DeviceFeatures()
-	disableFeature(&deviceFeatures, VirtioDeviceFreatureRing_Indirect_Desc)
+	disableFeature(&deviceFeatures, VirtioDeviceFreatureRing_Indirect_Desc|VirtioDeviceFreatureNotification_Data)
 
 	m.header.DriverFeatures(deviceFeatures)
 	m.header.SetStatus(m.header.Status() | VirtioDeviceStatusFeaturesOK) //features supported
@@ -117,6 +119,27 @@ func (m *MMIODriver) Watch() error {
 	m.stop = false
 	var status uint32
 
+	go func() {
+		t := time.NewTicker(1 * time.Second)
+		for range t.C {
+			if m.stop {
+				continue
+			}
+
+			if (m.header.Status() & VirtioDeviceStatusDeviceNeedsReset) != 0 {
+				print("device is failing (needs reset)\n")
+			}
+
+			print("checking arb q\n")
+
+			for _, q := range m.queues {
+				if err := q.pickup(); err != nil {
+					print(fmt.Sprintf("picking up responses from queue %d: %w", q.id(), err))
+				}
+			}
+		}
+	}()
+
 	for {
 		for {
 			if m.stop {
@@ -130,10 +153,11 @@ func (m *MMIODriver) Watch() error {
 				break
 			}
 
-			time.Sleep(250 * time.Microsecond)
+			time.Sleep(1 * time.Millisecond)
+			runtime.Gosched()
 		}
 
-		m.header.InterruptACK(status)
+		m.header.InterruptACK(m.header.InterruptStatus())
 		utils.MemoryBarrier()
 		syscall.Syscall(syscall.SYS_DEV_IRQ_ACK, 0x4F, 0, 0)
 
@@ -194,7 +218,7 @@ const size = 128
 type VirtioQueue128 VirtioQueue[[]VirtioBlkReq, [size]uint16, [size]VirtqUsedElem]
 
 func (q *VirtioQueue128) isFull() bool {
-	return q.TailAvil-q.Used.Idx >= uint16(q.Num)
+	return uint16(atomic.LoadUint32(&q.TailAvil)%math.MaxUint16)-q.Used.Idx >= uint16(q.Num)
 }
 
 func (q *VirtioQueue128) size() uint32 {
@@ -274,8 +298,6 @@ func (m *MMIODriver) addQueue() error {
 		queue.ArenaIdxCh <- i
 		queue.DescIdxCh <- i
 	}
-
-	// queue.Avail.Flags = VirtqAvailFlagNoInterrupt
 
 	m.queues = append(m.queues, queue)
 
@@ -461,6 +483,7 @@ func (q *VirtioQueue128) enqueue(req *block.BlockDeviceIORequest, comp chan<- bl
 	case block.IORequestTypeTrim:
 		arena.Type = VirtioBlkReqTypeWrite_Zeroes
 	default:
+		q.ArenaIdxCh <- arenaIdx
 		return fmt.Errorf("unknown request type")
 	}
 
@@ -499,8 +522,8 @@ func (q *VirtioQueue128) enqueue(req *block.BlockDeviceIORequest, comp chan<- bl
 
 	q.Avail.Ring[q.Avail.Idx%uint16(q.Num)] = uint16(descIdx1)
 	q.Avail.Idx++
+	atomic.AddUint32(&q.TailAvil, 1)
 
-	utils.MemoryBarrier()
 	m.header.QueueNotify(q.id())
 	utils.MemoryBarrier()
 
@@ -508,8 +531,12 @@ func (q *VirtioQueue128) enqueue(req *block.BlockDeviceIORequest, comp chan<- bl
 }
 
 func (q *VirtioQueue128) pickup() error {
+	q.Mu.Lock()
+	defer q.Mu.Unlock()
+
+	utils.MemoryBarrier()
+
 	if q.TailUsed == q.Used.Idx {
-		// print(fmt.Sprintf("nothing found in queue tail=0x%X head=0x%X\n", q.TailUsed, q.Used.Idx))
 		return nil
 	}
 

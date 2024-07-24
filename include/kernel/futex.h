@@ -67,6 +67,6 @@ int futex_get_key(void *uaddr, union futex_key *key);
 
 int futex_do_wake(void *uaddr, uint32_t n_wake, uint32_t val);
 
-int futex_do_sleep(void *uaddr, uint32_t val, timespec_t *timeout);
+int futex_do_sleep(void *uaddr, uint32_t val, int64_t timeout_ns);
 
 #endif

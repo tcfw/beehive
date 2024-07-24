@@ -38,5 +38,7 @@ cls_t *get_core_cls(uint8_t n)
 
 void set_current_thread(thread_t *thread)
 {
-	get_cls()->rq.current_thread = thread;
+	cls_t *cls = get_cls();
+	cls->rq.current_thread = thread;
+	thread->running_core = cls->id;
 }

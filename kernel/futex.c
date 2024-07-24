@@ -7,6 +7,7 @@
 #include <kernel/mm.h>
 #include <kernel/sync.h>
 #include <kernel/syscall.h>
+#include <kernel/tty.h>
 #include <kernel/uaccess.h>
 #include <kernel/vm.h>
 #include <kernel/wait.h>
@@ -67,6 +68,8 @@ int futex_do_wake(void *uaddr, uint32_t n_wake, uint32_t val)
 	if (ret != 0)
 		return ret;
 
+	// terminal_logf("futex(wake): 0x%X n=0x%X val=0x%X", key.both, n_wake, val);
+
 	hb = futex_hb(&key);
 
 	memory_barrier;
@@ -91,17 +94,12 @@ int futex_do_wake(void *uaddr, uint32_t n_wake, uint32_t val)
 	spinlock_release(&hb->lock);
 
 	list_head_for_each_safe(queued_task, next, &to_wake)
-	{
 		wake_thread(queued_task->thread);
-
-		list_del(queued_task);
-		kfree(queued_task);
-	}
 
 	return ret;
 }
 
-int futex_do_sleep(void *uaddr, uint32_t val, timespec_t *timeout)
+int futex_do_sleep(void *uaddr, uint32_t val, int64_t timeout_ns)
 {
 	futex_hb_t *hb;
 	union futex_key key = {.both = {.ptr = 0ULL}};
@@ -113,6 +111,8 @@ int futex_do_sleep(void *uaddr, uint32_t val, timespec_t *timeout)
 		return ret;
 
 	hb = futex_hb(&key);
+
+	// terminal_logf("futex(sleep): 0x%X n=0x%X to=%d", key.both, val, timeout_ns);
 
 	spinlock_acquire(&hb->lock);
 
@@ -157,18 +157,15 @@ int futex_do_sleep(void *uaddr, uint32_t val, timespec_t *timeout)
 
 	spinlock_release(&hb->lock);
 
-	if (timeout == NULL)
+	if (timeout_ns <= 0)
 		return ret;
 
 	timespec_t *t = kmalloc(sizeof(*t));
 	if (t == NULL)
 		goto freeWC;
 
-	wc->timeout = t;
-
-	ret = copy_from_user(timeout, t, sizeof(*t));
-	if (ret < 0)
-		goto freeToT;
+	t->nanoseconds = timeout_ns & ((1 << 30) - 1);
+	t->seconds = timeout_ns >> 30;
 
 	waitqueue_entry_t *wqe = kmalloc(sizeof(waitqueue_entry_t));
 	if (wqe == NULL)
@@ -177,6 +174,7 @@ int futex_do_sleep(void *uaddr, uint32_t val, timespec_t *timeout)
 	wqe->thread = thread;
 	wqe->func = wq_can_wake_thread;
 	wqe->timeout = t;
+	wc->timeout = wqe;
 
 	cls_t *cls = get_cls();
 	spinlock_acquire(&cls->sleepq.lock);
@@ -200,25 +198,18 @@ freeQueue:
 	return -ERRNOMEM;
 }
 
-DEFINE_SYSCALL5(syscall_futex, SYSCALL_FUTEX, void *, addr, int, op, uint32_t, val, uint32_t, val2, timespec_t *, timeout)
+DEFINE_SYSCALL5(syscall_futex, SYSCALL_FUTEX, void *, addr, int, op, uint32_t, val, uint32_t, val2, int64_t, timeout_ns)
 {
 	int ret = access_ok(ACCESS_TYPE_READ, addr, sizeof(val));
 	if (ret < 0)
 		return ret;
-
-	if (timeout != NULL)
-	{
-		ret = access_ok(ACCESS_TYPE_READ, timeout, sizeof(*timeout));
-		if (ret < 0)
-			return ret;
-	}
 
 	switch (op)
 	{
 	case FUTEX_OP_WAKE:
 		return futex_do_wake(addr, val, val2);
 	case FUTEX_OP_SLEEP:
-		return futex_do_sleep(addr, val, timeout);
+		return futex_do_sleep(addr, val, timeout_ns);
 	default:
 		return -ERRINVAL;
 	}

@@ -48,6 +48,8 @@ uint64_t ksyscall_entry(uint64_t type, uint64_t arg0, uint64_t arg1, uint64_t ar
 			ret = handler->handler(cthread);
 			break;
 		}
+	else
+		terminal_logf("unhandled SYSCALL 0x%X TID=0x%X:0x%X", type, cthread->process->pid, cthread->tid);
 
 	clkval = clk->val(clk);
 	cthread->timing.total_system += clkval - cthread->timing.last_system;

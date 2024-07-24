@@ -13,6 +13,7 @@
 #include <kernel/stdint.h>
 #include <kernel/sync.h>
 #include <kernel/vm.h>
+#include <kernel/wait.h>
 
 #define THREAD_KTHREAD (1)
 
@@ -120,7 +121,7 @@ struct thread_wait_cond_futex
 	thread_wait_cond cond;
 
 	futex_queue_t *queue;
-	timespec_t *timeout;
+	waitqueue_entry_t *timeout;
 	int ret;
 };
 
@@ -163,6 +164,7 @@ typedef struct thread_t
 
 	thread_sigactions_t sigactions;
 
+	spinlock_t wc_lock;
 	thread_wait_cond *wc;
 } thread_t;
 
@@ -214,7 +216,9 @@ void thread_return_wc(thread_t *thread, void *data1);
 
 int can_wake_thread(thread_t *thread);
 
-thread_t *get_thread_by_pid(pid_t pid);
+thread_t *get_first_thread_by_pid(pid_t pid);
+
+thread_t *get_current_sibling_thread_by_tid(tid_t tid);
 
 void mark_zombie_thread(thread_t *thread);
 

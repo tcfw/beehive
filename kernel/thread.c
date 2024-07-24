@@ -135,8 +135,7 @@ struct list_head *get_threads()
 	return &threads;
 }
 
-static void
-thread_wake_from_sleep(thread_t *thread)
+static void thread_wake_from_sleep(thread_t *thread)
 {
 	struct thread_wait_cond_sleep *sleep_cond = (struct thread_wait_cond_sleep *)thread->wc;
 	struct clocksource_t *cs = clock_first(CS_GLOBAL);
@@ -162,10 +161,31 @@ static void thread_wake_from_queue_io(thread_t *thread)
 
 static void thread_wake_from_wait(thread_t *thread)
 {
+	struct thread_wait_cond_futex *futex_cond = (struct thread_wait_cond_futex *)thread->wc;
+
+	if (futex_cond->timeout)
+	{
+		// terminal_logf("waking thread from futex timeout");
+		if (futex_cond->timeout->timeout != 0)
+		{
+			// terminal_logf("after ts=0x%Xs 0x%Xns", futex_cond->timeout->timeout->seconds, futex_cond->timeout->timeout->nanoseconds);
+
+			kfree(futex_cond->timeout->timeout);
+			futex_cond->timeout->timeout = NULL;
+		}
+	}
+
+	futex_hb_t *hb = futex_hb(&futex_cond->queue->key);
+	spinlock_acquire(&hb->lock);
+	list_del(&futex_cond->queue->list);
+	kfree(futex_cond->queue);
+	spinlock_release(&hb->lock);
 }
 
 void wake_thread(thread_t *thread)
 {
+	spinlock_acquire(&thread->wc_lock);
+
 	if (thread->wc)
 	{
 		switch (thread->wc->type)
@@ -182,14 +202,15 @@ void wake_thread(thread_t *thread)
 			// terminal_logf("TID 0x%X:0x%X woke up from WAIT", thread->process->pid, thread->tid);
 			break;
 		}
-
 		kfree(thread->wc);
 		thread->wc = NULL;
 	}
 
 	set_thread_state(thread, THREAD_RUNNING);
 
-	cls_t *cls = get_cls();
+	spinlock_release(&thread->wc_lock);
+
+	cls_t *cls = get_core_cls(thread->running_core);
 	thread->sched_class->enqueue_thread(&cls->rq, thread);
 }
 
@@ -234,6 +255,7 @@ static int can_wake_thread_from_queue_io(thread_t *thread)
 
 static int can_wake_thread_from_wait(thread_t *thread)
 {
+	return 0; // only timeouts or futex_wake can wake
 }
 
 int can_wake_thread(thread_t *thread)
@@ -288,16 +310,37 @@ void thread_wait_for_cond(thread_t *thread, const thread_wait_cond *cond)
 	set_thread_state(thread, THREAD_SLEEPING);
 }
 
-thread_t *get_thread_by_pid(pid_t pid)
+thread_t *get_first_thread_by_pid(pid_t pid)
 {
 	thread_list_entry_t *this;
 	list_head_for_each(this, &threads)
 	{
-		if (this->thread->process->pid == pid && this->thread->tid == (tid_t)pid)
+		if (this->thread->process->pid == pid)
 			return this->thread;
 	}
 
 	return 0;
+}
+
+thread_t *get_current_sibling_thread_by_tid(tid_t tid)
+{
+	process_t *proc = current->process;
+	spinlock_acquire(&proc->lock);
+	thread_t *thread = 0;
+
+	thread_list_entry_t *this;
+	list_head_for_each(this, &proc->threads)
+	{
+		if (this->thread->tid == tid)
+		{
+			thread = this->thread;
+			goto ret;
+		}
+	}
+
+ret:
+	spinlock_release(&proc->lock);
+	return thread;
 }
 
 enum Thread_State set_thread_state(thread_t *thread, enum Thread_State state)

@@ -41,7 +41,7 @@ NAMED_TEST("futex_sleep", test_futex_sleep)
 	if (futex_get_key(&val, &k) != 0)
 		TEST_FAIL_MSG("futex_get_key unexpected result")
 
-	int ret = futex_do_sleep(&val, 1, NULL);
+	int ret = futex_do_sleep(&val, 1, 0);
 	if (ret != 0)
 		TEST_FAIL_MSG("futex_do_sleep unexpected return result");
 
@@ -70,7 +70,7 @@ NAMED_TEST("futex_wake", test_futex_wake)
 	thread_t *t2 = create_kthread(NULL, "test2", NULL);
 	set_current_thread(t1);
 
-	int ret = futex_do_sleep(&val, 5, NULL);
+	int ret = futex_do_sleep(&val, 5, 0);
 	if (ret != 0)
 		TEST_FAIL_MSG("futex_do_sleep unexpected return result");
 

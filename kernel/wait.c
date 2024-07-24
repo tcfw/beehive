@@ -19,7 +19,7 @@ void try_wake_waitqueue(waitqueue_head_t *wq)
 			if (this->func(this) > 0)
 			{
 				wake_thread(this->thread);
-				list_del(this);
+				list_del(&this->list);
 				kfree(this);
 			}
 		}
@@ -32,7 +32,7 @@ int wq_can_wake_thread(waitqueue_entry_t *wq_entry)
 	timespec_t d;
 	struct clocksource_t *cs;
 
-	if (wq_entry->timeout)
+	if (wq_entry->timeout != 0)
 	{
 		cs = clock_first(CS_GLOBAL);
 		timespec_from_cs(cs, &ts);

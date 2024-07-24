@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"math"
 	"sync"
+	"sync/atomic"
 	"unsafe"
 
 	"github.com/tcfw/kernel/services/go/fs/drivers"
@@ -149,7 +150,8 @@ func (v VirtioHeader) SetQueueReady(d uint32) {
 }
 
 func (v VirtioHeader) QueueNotify(d uint32) {
-	binary.LittleEndian.PutUint32(v[0x50:], d) //Offset=0x50
+	atomic.StoreUint32((*uint32)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(v)), 0x50)), d)
+	// binary.LittleEndian.PutUint32(v[0x50:], d) //Offset=0x50
 }
 
 func (v VirtioHeader) InterruptStatus() uint32 {
@@ -300,7 +302,7 @@ type VirtioQueue[AA any, AT any, UT any] struct {
 	Avail *VirtqAvail[AT]
 	Used  *VirtqUsed[UT]
 
-	TailAvil uint16
+	TailAvil uint32
 	TailUsed uint16
 
 	Arena      AA

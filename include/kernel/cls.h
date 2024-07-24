@@ -6,6 +6,8 @@
 #include <kernel/thread.h>
 #include <kernel/wait.h>
 
+#define is_current_cls(cls) cls == get_cls()
+
 enum exception_operation
 {
 	EXCEPTION_UNKNOWN = 0,

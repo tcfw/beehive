@@ -14,6 +14,7 @@
 #include <kernel/sync.h>
 #include <kernel/thread.h>
 #include <kernel/wait.h>
+#include <kernel/tty.h>
 
 static LIST_HEAD(pending);
 
@@ -32,7 +33,7 @@ static int thread_deadline_comparator(void *n1, void *n2)
 	thread_t *tn1 = (thread_t *)n1;
 	thread_t *tn2 = (thread_t *)n2;
 
-	if (tn1->process->pid == tn2->process->pid)
+	if (tn1->tid == tn2->tid)
 		return 0;
 
 	uint64_t tn1e = tn1->sched_entity.deadline;
@@ -40,7 +41,7 @@ static int thread_deadline_comparator(void *n1, void *n2)
 
 	if (tn1e == tn2e)
 		return 0;
-	else if (tn1e > tn2e)
+	else if (tn1e < tn2e)
 		return 1;
 	else
 		return -1;
@@ -191,7 +192,9 @@ void schedule(void)
 
 	int state = spinlock_acquire_irq(&cls->rq.lock);
 
+	spinlock_acquire(&cls->sleepq.lock);
 	try_wake_waitqueue(&cls->sleepq);
+	spinlock_release(&cls->sleepq.lock);
 
 	struct clocksource_t *clk = clock_first(CS_GLOBAL);
 	uint64_t clkval = clk->val(clk);
@@ -205,7 +208,9 @@ void schedule(void)
 
 	prev->timing.total_user += clkval - prev->timing.last_user;
 	prev->timing.total_execution = prev->timing.total_system + prev->timing.total_user;
-	prev->sched_entity.deadline -= clkval - prev->sched_entity.last_deadline;
+	prev->sched_entity.deadline -= (int64_t)(clkval - prev->sched_entity.last_deadline);
+	if (prev->sched_entity.deadline < 0)
+		prev->sched_entity.deadline = -1;
 
 	if (prev->state == THREAD_RUNNING)
 		prev->sched_class->requeue_thread(&cls->rq, prev);
@@ -241,8 +246,7 @@ void schedule(void)
 			next->timing.total_wait += clkval - next->timing.last_wait;
 			next->sched_entity.last_deadline = clkval;
 
-			cls->rq.current_thread = next;
-			next->running_core = cls->id;
+			set_current_thread(next);
 			arch_thread_prep_switch(next);
 			return;
 		}

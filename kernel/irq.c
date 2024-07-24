@@ -92,12 +92,12 @@ void k_setup_clock_irq()
 {
 	// EL1 physical timer
 	assign_irq_hook(30, clock_tick);
-	enable_xrq_n_prio(30, 1);
+	enable_xrq_n_prio(30, 0);
 	xrq_set_trigger_type(30, 1);
 
 	// EL1 virtual timer
 	assign_irq_hook(27, clock_tick);
-	enable_xrq_n_prio(27, 1);
+	enable_xrq_n_prio(27, 0);
 	xrq_set_trigger_type(27, 1);
 }
 

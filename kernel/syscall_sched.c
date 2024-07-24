@@ -21,7 +21,7 @@ DEFINE_SYSCALL2(syscall_sched_getaffinity, SYSCALL_SCHED_GETAFFINITY, pid_t, pid
 	if (access < 0)
 		return access;
 
-	thread_t *curthread = get_thread_by_pid(pid);
+	thread_t *curthread = get_first_thread_by_pid(pid);
 	if (curthread == 0)
 		return -ERRNOPROC;
 
@@ -123,12 +123,41 @@ DEFINE_SYSCALL3(syscall_thread_start, SYSCALL_THREAD_START, void *, func, void *
 	set_thread_state(thread, THREAD_RUNNING);
 	sched_append_pending(newthread);
 
-	// terminal_logf("added new thread TID=0x%x:0x%x", newthread->process->pid, newthread->tid);
+	terminal_logf("added new thread TID=0x%x:0x%x", newthread->process->pid, newthread->tid);
 
 	return newthread->tid;
 }
 
-DEFINE_SYSCALL3(syscall_kill, SYSCALL_KILL, uint64_t, pid, uint64_t, tid, uint64_t, sig)
+DEFINE_SYSCALL3(syscall_kill, SYSCALL_KILL, pid_t, pid, tid_t, tid, uint64_t, sig)
 {
-	terminal_logf("received kill call 0x%X:0x%x ~> 0x%X", pid, tid, sig);
+	terminal_logf("received kill call 0x%X:0x%X ~> 0x%X", pid, tid, sig);
+}
+
+DEFINE_SYSCALL3(syscall_thread_preempt, SYSCALL_THREAD_PREEMPT, tid_t, tid, uintptr_t, pc, uintptr_t, sp)
+{
+	thread_t *target = get_current_sibling_thread_by_tid(tid);
+	if (target == 0)
+		return -ERRNOENT;
+
+	terminal_logf("attempting preempt tid=0x%X:0x%X", target->process->pid, target->tid);
+
+	memory_barrier;
+	if (target->state != SLEEP)
+		return -ERRINUSE;
+
+	uintptr_t oldPc = target->ctx.pc;
+	target->ctx.pc = pc;
+	if (sp != 0)
+		target->ctx.sp = sp;
+
+	target->ctx.sp += 16;
+	copy_to_user((void *)oldPc, (void *)(target->ctx.sp + 16), sizeof(uintptr_t));
+	copy_to_user(0, (void *)(target->ctx.sp + 8), sizeof(uintptr_t));
+
+	set_thread_state(thread, THREAD_RUNNING);
+
+	cls_t *cls = get_core_cls(target->running_core);
+	target->sched_class->enqueue_thread(&cls->rq, thread);
+
+	return 0;
 }

@@ -119,7 +119,7 @@ void *slub_alloc(slub_t *slub)
 	// check if posioned
 	if (slub->object_size >= sizeof(slub_entry_t))
 		if (((slub_entry_t *)addr)->poison != POISON_VALUE)
-			panicf("Object allocated that did not have a correct poison value!\r\nAddr alloc'd: 0x%X\r\nObject Size: 0x%X\r\n", addr, slub->object_size);
+			panicf("Object allocated that did not have a correct poison value!\r\nPossible use after free...\r\nAddr alloc'd: 0x%X\r\nObject Size: 0x%X\r\n", addr, slub->object_size);
 
 	memset(addr, 0, slub->object_size);
 

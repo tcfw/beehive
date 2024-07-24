@@ -21,6 +21,7 @@
 #define SYSCALL_EXEC (30)			   // int exec();
 #define SYSCALL_CLONE (31)			   // int clone();
 #define SYSCALL_THREAD_START (32)	   // int thread_start();
+#define SYSCALL_THREAD_PREEMPT (33)	   // int thread_preempt();
 #define SYSCALL_KNAME (40)			   // int kname();
 #define SYSCALL_SYSINFO (41)		   // int sysinfo();
 #define SYSCALL_SET_HOSTNAME (42)	   // int set_hostname();

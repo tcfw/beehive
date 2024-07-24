@@ -57,7 +57,7 @@ static void init_mon(void *data)
             terminal_printf("\r\n\033c");
 
         terminal_printf("\r\n\033[;H");
-        terminal_logf("\r\nProc\tCore\tPC\t\tTime\t\tState\r\n");
+        terminal_logf("\r\nProc\tCore\tPC\t\tTime\t\t\tDeadline\t\tState\r\n");
 
         thread_list_entry_t *this;
 
@@ -79,7 +79,7 @@ static void init_mon(void *data)
             else
                 terminal_writestring(" ");
 
-            terminal_printf("\t%d\t0x%x\t%X\t%d", this->thread->running_core, this->thread->ctx.pc, this->thread->timing.total_execution, this->thread->state);
+            terminal_printf("\t%d\t0x%x\t%X\t%X\t%d", this->thread->running_core, this->thread->ctx.pc, this->thread->timing.total_execution, this->thread->sched_entity.deadline, this->thread->state);
 
             switch (this->thread->state)
             {
@@ -95,13 +95,19 @@ static void init_mon(void *data)
                         struct thread_wait_cond_futex *wc = (struct thread_wait_cond_futex *)this->thread->wc;
                         if (wc->timeout != NULL)
                             terminal_writestring(" with timeout");
+                        terminal_printf(" for futex=0x%X", wc->queue->key.both);
                     }
-                    if (this->thread->wc->type == SLEEP)
+                    else if (this->thread->wc->type == SLEEP)
                     {
                         struct thread_wait_cond_sleep *wc = (struct thread_wait_cond_sleep *)this->thread->wc;
                         terminal_printf(" until %d.%d", wc->timer.seconds, wc->timer.nanoseconds);
                     }
+                    else
+                        terminal_printf(" WC=0x%x", this->thread->wc->type);
                 }
+                else
+                    terminal_writestring(" NWC!");
+
                 break;
             case THREAD_UNINT_SLEEPING:
                 terminal_writestring("\tUint sleeping");
