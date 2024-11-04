@@ -433,8 +433,8 @@ type VirtioBlkReq struct {
 	Data     [512]uint8
 	Status   VirtioBlkReqStatus
 
-	req    *block.BlockDeviceIORequest
-	waiter chan<- block.BlockRequestIOResponse
+	req    *block.IORequest
+	waiter chan<- block.IOResponse
 }
 
 type VirtioBlkDiscardWriteZeroesFlag uint32

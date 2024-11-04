@@ -2,11 +2,13 @@ package fs
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/pkg/errors"
+	"github.com/tcfw/kernel/services/go/fs/devices"
 	"github.com/tcfw/kernel/services/go/fs/drivers"
 	"github.com/tcfw/kernel/services/go/fs/drivers/block"
+	"github.com/tcfw/kernel/services/go/fs/filesystems"
+	"github.com/tcfw/kernel/services/go/fs/partition"
 	"github.com/tcfw/kernel/services/go/utils"
 )
 
@@ -44,70 +46,106 @@ func mmioDiscover() error {
 		}
 	}
 
-	print(fmt.Sprintf("success - mapped: %d\n", len(devices)))
+	print(fmt.Sprintf("success - mapped: %d\n", len(devices.GetDevices())))
 
 	return nil
 }
 
 func partitionDiscover() error {
-	waitCh := make(chan block.BlockRequestIOResponse, 2)
-
-	for _, d := range devices {
-		if d.DeviceType != DeviceTypeBlock {
+	for _, d := range devices.GetDevices() {
+		if d.DeviceType != devices.DeviceTypeBlock {
 			continue
 		}
 
-		req := block.BlockDeviceIORequest{
-			RequestType: block.IORequestTypeRead,
-			ID:          0,
-			Offset:      0,
-			Data:        make([]byte, d.BlockDriver.BlockSize()),
+		print("detecting partitions")
+
+		var tableType partition.PartitionTableType
+		for i := 0; i < 3; i++ {
+			tt, err := partition.IdentifyPartitionTable(d.BlockDevice)
+			if err != nil {
+				if err == partition.ErrorTimeout {
+					continue
+				}
+				return err
+			}
+			tableType = tt
+			break
 		}
-		req2 := block.BlockDeviceIORequest{
-			RequestType: block.IORequestTypeRead,
-			ID:          0,
-			Offset:      32256,
-			Data:        make([]byte, d.BlockDriver.BlockSize()),
+
+		switch tableType {
+		case partition.PartitionTableTypeUnknown:
+			print("unknown table type")
+		case partition.PartitionTableTypeMBR:
+			partition.DiscoverMBRParitions(d)
+		case partition.PartitionTableTypeGPT:
+			print("GPT table type")
+		default:
+			print(fmt.Sprintf("table type reference unknown %+v", tableType))
 		}
+	}
 
-		var resp block.BlockRequestIOResponse
+	p1 := devices.GetDevice("virtio0.0")
 
-	retry1:
-		for {
-			d.BlockDriver.Enqueue([]block.BlockDeviceIORequest{req}, waitCh)
+	respCh := make(chan block.IOResponse)
+	req := block.IORequest{
+		RequestType: block.IORequestTypeRead,
+		Data:        make([]byte, p1.BlockPartition.BlockSize()),
+		Offset:      0,
+	}
+	reqs := []block.IORequest{req}
 
-			select {
-			case resp = <-waitCh:
-				break retry1
-			case <-time.After(2 * time.Millisecond):
-				print("retrying")
+	err, _ := p1.BlockPartition.Enqueue(reqs, respCh)
+	if err != nil {
+		return err
+	}
+
+	resp := <-respCh
+	if err := resp.Err; err != nil {
+		print("failed to get part block")
+	} else {
+		f16sb := filesystems.FAT16SuperBlock(req.Data)
+		print(fmt.Sprintf(
+			"JumpCode=% x\r\nOEMName=%s\r\nBytesPerSector=%+v\r\nSectorsPerCluster=%+v\r\nReservedSectors=%+v\r\nFATCopies=%+v\r\nNumRootDirs=%+v\r\nTotalNumberOfSectors=%+v\r\nMediaType=%+v\r\nSectorsPerFAT=%+v\r\nSectorsPerTrack=%+v\r\nSectorsPerHeads=%+v\r\nNumberOfHiddenSectors=%+v\r\nNumberOfSectorsInFileSystem=%+v\r\nLogicalDriveNumber=%+v\r\nExtendedSignature=%+v\r\nSerialNumber=%+v\r\nVolumeLabel=%s\r\nFileSystemType=%s\r\nSignature=% x\r\n",
+			f16sb.JumpCode(),
+			f16sb.OEMName(),
+			f16sb.BytesPerSector(),
+			f16sb.SectorsPerCluster(),
+			f16sb.ReservedSectors(),
+			f16sb.FATCopies(),
+			f16sb.NumRootDirs(),
+			f16sb.TotalNumberOfSectors(),
+			f16sb.MediaType(),
+			f16sb.SectorsPerFAT(),
+			f16sb.SectorsPerTrack(),
+			f16sb.SectorsPerHeads(),
+			f16sb.NumberOfHiddenSectors(),
+			f16sb.NumberOfSectorsInFileSystem(),
+			f16sb.LogicalDriveNumber(),
+			f16sb.ExtendedSignature(),
+			f16sb.SerialNumber(),
+			f16sb.VolumeLabel(),
+			f16sb.FileSystemType(),
+			f16sb.Signature(),
+		))
+
+		s := uint64(uint16(f16sb.FATCopies())*f16sb.SectorsPerFAT() + f16sb.ReservedSectors())
+
+		for i := s; i <= s+16; i++ {
+			req.Offset = i * p1.BlockPartition.BlockSize()
+			reqs = []block.IORequest{req}
+
+			err, _ = p1.BlockPartition.Enqueue(reqs, respCh)
+			if err != nil {
+				return err
+			}
+
+			resp = <-respCh
+			if err := resp.Err; err != nil {
+				print("failed to get part block")
+			} else {
+				print(fmt.Sprintf("s%d=% x s=%s", i, req.Data, req.Data))
 			}
 		}
-		if resp.Err != nil {
-			print(fmt.Sprintf("got block data: %X", req.Data))
-			return resp.Err
-		}
-
-		print(fmt.Sprintf("got bytes: %X\n", resp.Req.Data))
-
-	retry2:
-		for {
-			d.BlockDriver.Enqueue([]block.BlockDeviceIORequest{req2}, waitCh)
-
-			select {
-			case resp = <-waitCh:
-				break retry2
-			case <-time.After(2 * time.Millisecond):
-				print("retrying")
-			}
-		}
-
-		if resp.Err != nil {
-			print(fmt.Sprintf("got block data: %X", req.Data))
-			return resp.Err
-		}
-
-		print(fmt.Sprintf("got bytes: %X\n", resp.Req.Data))
 	}
 
 	return nil

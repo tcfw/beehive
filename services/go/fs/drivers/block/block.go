@@ -15,9 +15,11 @@ var (
 	ErrBlockOperationNotSupported = errors.New("operation not supported")
 	ErrBlockIOError               = errors.New("io error")
 	ErrBlockUnknownResponse       = errors.New("unknown device response")
+	ErrBlockReqOutOfBounds        = errors.New("out of bounds")
+	ErrBlockReqMisaligned         = errors.New("request not aligned")
 )
 
-type BlockDeviceIORequest struct {
+type IORequest struct {
 	RequestType IORequestType
 	ID          uint64
 	Offset      uint64
@@ -26,7 +28,7 @@ type BlockDeviceIORequest struct {
 	Ctx         any
 }
 
-type BlockRequestIOResponse struct {
-	Req *BlockDeviceIORequest
+type IOResponse struct {
+	Req *IORequest
 	Err error
 }

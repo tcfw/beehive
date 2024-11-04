@@ -11,11 +11,15 @@ var (
 
 type BlockInitFn func(utils.DevInfo) error
 
-type BlockDriver interface {
+type BlockQueuer interface {
 	BlockSize() uint64
 	IsBusy() bool
 	QueueSize() uint64
-	Enqueue(reqs []block.BlockDeviceIORequest, comp chan<- block.BlockRequestIOResponse) (error, int)
+	Enqueue(reqs []block.IORequest, comp chan<- block.IOResponse) (error, int)
+}
+
+type BlockDriver interface {
+	BlockQueuer
 	Watch() error
 	StopWatch()
 }

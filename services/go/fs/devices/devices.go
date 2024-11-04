@@ -1,6 +1,7 @@
-package fs
+package devices
 
 import (
+	"fmt"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -13,10 +14,11 @@ type DeviceType uint
 const (
 	DeviceTypeUnknown DeviceType = iota
 	DeviceTypeBlock
+	DeviceTypeBlockPartition
 )
 
 var (
-	devices   = []*FSDevice{}
+	devices   = []*Device{}
 	devicesMu sync.Mutex
 
 	deviceNameCount = map[string]*atomic.Uint32{}
@@ -34,16 +36,34 @@ func ReservedName(devType string) string {
 	return devType + strconv.Itoa(int(n-1))
 }
 
-type FSDevice struct {
-	Name        string
-	DeviceType  DeviceType
-	BlockDriver drivers.BlockDriver
+type Device struct {
+	Name           string
+	DeviceType     DeviceType
+	BlockDevice    drivers.BlockDriver
+	BlockPartition drivers.BlockQueuer
 }
 
-func RegisterDevice(dev *FSDevice) {
+func GetDevices() []*Device {
+	return devices
+}
+
+func GetDevice(name string) *Device {
+	devicesMu.Lock()
+	defer devicesMu.Unlock()
+
+	for _, dev := range devices {
+		if dev.Name == name {
+			return dev
+		}
+	}
+
+	return nil
+}
+
+func RegisterDevice(dev *Device) {
 	devicesMu.Lock()
 	defer devicesMu.Unlock()
 
 	devices = append(devices, dev)
-	print("registered device: ", dev.Name, "\n")
+	print(fmt.Sprintf("registered device: %s", dev.Name))
 }

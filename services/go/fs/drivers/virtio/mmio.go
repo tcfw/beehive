@@ -11,22 +11,22 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/tcfw/kernel/services/go/fs"
+	"github.com/tcfw/kernel/services/go/fs/devices"
 	"github.com/tcfw/kernel/services/go/fs/drivers/block"
 	"github.com/tcfw/kernel/services/go/utils"
 )
 
 func InitVirtioMMIODevice(info utils.DevInfo) error {
-	name := fs.ReservedName("virtio")
+	name := devices.ReservedName("virtio")
 
 	dev := &MMIODriver{
 		devInfo: info,
 	}
 
-	fs.RegisterDevice(&fs.FSDevice{
+	devices.RegisterDevice(&devices.Device{
 		Name:        name,
-		DeviceType:  fs.DeviceTypeBlock,
-		BlockDriver: dev,
+		DeviceType:  devices.DeviceTypeBlock,
+		BlockDevice: dev,
 	})
 
 	if err := dev.init(); err != nil {
@@ -51,7 +51,7 @@ type queue interface {
 	isFull() bool
 	size() uint32
 	id() uint32
-	enqueue(req *block.BlockDeviceIORequest, comp chan<- block.BlockRequestIOResponse, m *MMIODriver) error
+	enqueue(req *block.IORequest, comp chan<- block.IOResponse, m *MMIODriver) error
 	pickup() error
 }
 
@@ -435,7 +435,7 @@ func (m *MMIODriver) hasQueues() bool {
 	return len(m.queues) != 0
 }
 
-func (m *MMIODriver) Enqueue(reqs []block.BlockDeviceIORequest, comp chan<- block.BlockRequestIOResponse) (error, int) {
+func (m *MMIODriver) Enqueue(reqs []block.IORequest, comp chan<- block.IOResponse) (error, int) {
 	if !m.hasQueues() {
 		return errors.New("device not ready"), 0
 	}
@@ -459,13 +459,13 @@ reqs:
 	return nil, processed
 }
 
-func (q *VirtioQueue128) enqueue(req *block.BlockDeviceIORequest, comp chan<- block.BlockRequestIOResponse, m *MMIODriver) error {
+func (q *VirtioQueue128) enqueue(req *block.IORequest, comp chan<- block.IOResponse, m *MMIODriver) error {
 	if req.Offset%m.BlockSize() != 0 {
-		return errors.New("offset not aligned to block size")
+		return block.ErrBlockReqMisaligned
 	}
 
 	if req.Offset+req.Length > m.getConfig().Capacity {
-		return errors.New("req overflows device capacity")
+		return block.ErrBlockReqOutOfBounds
 	}
 
 	arenaIdx := <-q.ArenaIdxCh
@@ -524,6 +524,7 @@ func (q *VirtioQueue128) enqueue(req *block.BlockDeviceIORequest, comp chan<- bl
 	q.Avail.Idx++
 	atomic.AddUint32(&q.TailAvil, 1)
 
+	utils.MemoryBarrier()
 	m.header.QueueNotify(q.id())
 	utils.MemoryBarrier()
 
@@ -546,7 +547,7 @@ func (q *VirtioQueue128) pickup() error {
 
 		arenaOffset := int(desc.Addr-uint64(q.ArenaPhy)) / VirtioBlkReqSize
 		arena := q.Arena[arenaOffset]
-		resp := block.BlockRequestIOResponse{
+		resp := block.IOResponse{
 			Req: arena.req,
 		}
 
@@ -564,20 +565,22 @@ func (q *VirtioQueue128) pickup() error {
 			resp.Err = block.ErrBlockUnknownResponse
 		}
 
-		if arena.waiter != nil {
-			arena.waiter <- resp
-		}
-
-		q.ArenaIdxCh <- arenaOffset
-
 		if desc.Next != 0 && desc.Flags|VirtqDescFlagNext != 0 {
 			desc1 := q.Desc[desc.Next]
 			if desc1.Flags|VirtqDescFlagNext != 0 && desc1.Next != 0 {
 				q.DescIdxCh <- int(desc1.Next)
 			}
+
 			q.DescIdxCh <- int(desc.Next)
 		}
+
 		q.DescIdxCh <- int(descRef.Id)
+
+		if arena.waiter != nil {
+			arena.waiter <- resp
+		}
+
+		q.ArenaIdxCh <- arenaOffset
 
 		q.TailUsed++
 	}
@@ -585,7 +588,7 @@ func (q *VirtioQueue128) pickup() error {
 	return nil
 }
 
-func (queue *VirtioLegacyQueue128) enqueue(req *block.BlockDeviceIORequest, comp chan<- block.BlockRequestIOResponse, m *MMIODriver) error {
+func (queue *VirtioLegacyQueue128) enqueue(req *block.IORequest, comp chan<- block.IOResponse, m *MMIODriver) error {
 	return errors.New("not implemented")
 }
 
